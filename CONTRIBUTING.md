@@ -22,7 +22,7 @@ Help on open source projects is always welcome and there is always something tha
 
 For any contributions that need design changes/API changes, reach out to maintainers to check if an Architectural Design Record would be beneficial. Reason for ADR: teams agree on the design, to avoid back and forth after writing code. An ADR gives context on the code being written. If requested for an ADR, make a contribution [using the template](./architecture_records/template.md).
 
-When contributing, it's useful to start by looking at [issues](https://github.com/foundation-model-stack/fms-model-optimization/issues). After picking up an issue, writing code, or updating a document, make a pull request and your work will be reviewed and merged. If you're adding a new feature or find a bug, it's best to [write an issue](https://github.com/foundation-model-stack/fms-model-optimization/issues/new) first to discuss it with maintainers. 
+When contributing, it's useful to start by looking at [issues](https://github.com/foundation-model-stack/fms-model-optimizer/issues). After picking up an issue, writing code, or updating a document, make a pull request and your work will be reviewed and merged. If you're adding a new feature or find a bug, it's best to [write an issue](https://github.com/foundation-model-stack/fms-model-optimizer/issues/new) first to discuss it with maintainers. 
 
 To contribute to this repo, you'll use the Fork and Pull model common in many open source repositories. For details on this process, check out [The GitHub Workflow
 Guide](https://github.com/kubernetes/community/blob/master/contributors/guide/github-workflow.md)
@@ -35,9 +35,9 @@ Before sending pull requests, make sure your changes pass formatting, linting an
 #### Dependencies
 If additional new Python module dependencies are required, think about where to put them:
 
-- If they're required for fms-model-optimization, then append them to the [dependencies](https://github.com/foundation-model-stack/fms-model-optimization/blob/main/pyproject.toml#L28) in the pyproject.toml.
-- If they're optional dependencies for additional functionality, then put them in the pyproject.toml file like were done for [flash-attn](https://github.com/foundation-model-stack/fms-model-optimization/blob/main/pyproject.toml#L44) or [aim](https://github.com/foundation-model-stack/fms-model-optimization/blob/main/pyproject.toml#L45).
-- If it's an additional dependency for development, then add it to the [dev](https://github.com/foundation-model-stack/fms-model-optimization/blob/main/pyproject.toml#L43) dependencies.
+- If they're required for fms-model-optimizer, then append them to the [dependencies](https://github.com/foundation-model-stack/fms-model-optimizer/blob/main/pyproject.toml#L28) in the pyproject.toml.
+- If they're optional dependencies for additional functionality, then put them in the pyproject.toml file like were done for [flash-attn](https://github.com/foundation-model-stack/fms-model-optimizer/blob/main/pyproject.toml#L44) or [aim](https://github.com/foundation-model-stack/fms-model-optimizer/blob/main/pyproject.toml#L45).
+- If it's an additional dependency for development, then add it to the [dev](https://github.com/foundation-model-stack/fms-model-optimizer/blob/main/pyproject.toml#L43) dependencies.
 
 #### Code Review
 
@@ -56,7 +56,7 @@ This section guides you through submitting a bug report. Following these guideli
 
 #### How Do I Submit A (Good) Bug Report?
 
-Bugs are tracked as [GitHub issues using the Bug Report template](https://github.com/foundation-model-stack/fms-model-optimization/issues/new?template=bug_report.md). Create an issue on that and provide the information suggested in the bug report issue template. 
+Bugs are tracked as [GitHub issues using the Bug Report template](https://github.com/foundation-model-stack/fms-model-optimizer/issues/new?template=bug_report.md). Create an issue on that and provide the information suggested in the bug report issue template. 
 
 ### Suggesting Enhancements
 
@@ -64,11 +64,11 @@ This section guides you through submitting an enhancement suggestion, including 
 
 #### How Do I Submit A (Good) Enhancement Suggestion?
 
-Enhancement suggestions are tracked as [GitHub issues using the Feature Request template](https://github.com/foundation-model-stack/fms-model-optimization/issues/new?template=feature_request.md). Create an issue and provide the information suggested in the feature requests or user story issue template.
+Enhancement suggestions are tracked as [GitHub issues using the Feature Request template](https://github.com/foundation-model-stack/fms-model-optimizer/issues/new?template=feature_request.md). Create an issue and provide the information suggested in the feature requests or user story issue template.
 
 #### How Do I Submit A (Good) Improvement Item?
 
-Improvements to existing functionality are tracked as [GitHub issues using the User Story template](https://github.com/foundation-model-stack/fms-model-optimization/issues/new?template=user_story.md). Create an issue and provide the information suggested in the feature requests or user story issue template.
+Improvements to existing functionality are tracked as [GitHub issues using the User Story template](https://github.com/foundation-model-stack/fms-model-optimizer/issues/new?template=user_story.md). Create an issue and provide the information suggested in the feature requests or user story issue template.
 
 ## Development
 
@@ -94,7 +94,7 @@ make test
 
 #### Formatting
 
-FMS Model Optimization follows the python [pep8](https://peps.python.org/pep-0008/) coding style. The coding style is enforced by the CI system, and your PR will fail until the style has been applied correctly.
+FMS Model Optimizer follows the python [pep8](https://peps.python.org/pep-0008/) coding style. The coding style is enforced by the CI system, and your PR will fail until the style has been applied correctly.
 
 We use [pre-commit](https://pre-commit.com/) to enforce coding style using [black](https://github.com/psf/black), [prettier](https://github.com/prettier/prettier) and [isort](https://pycqa.github.io/isort/).
 
@@ -145,8 +145,8 @@ Running the command will create a single ZIP-format archive containing the libra
 
 Unsure where to begin contributing? You can start by looking through these issues:
 
-- Issues with the [`good first issue` label](https://github.com/foundation-model-stack/fms-model-optimization/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) - these should only require a few lines of code and are good targets if you're just starting contributing.
-- Issues with the [`help wanted` label](https://github.com/foundation-model-stack/fms-model-optimization/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) - these range from simple to more complex, but are generally things we want but can't get to in a short time frame.
+- Issues with the [`good first issue` label](https://github.com/foundation-model-stack/fms-model-optimizer/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) - these should only require a few lines of code and are good targets if you're just starting contributing.
+- Issues with the [`help wanted` label](https://github.com/foundation-model-stack/fms-model-optimizer/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) - these range from simple to more complex, but are generally things we want but can't get to in a short time frame.
 
 <!-- ## Releasing (Maintainers only)
 

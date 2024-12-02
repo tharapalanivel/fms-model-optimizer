@@ -1,0 +1,25 @@
+{
+    "nbits_w": 8,
+    "nbits_a": 8,
+    "qa_qkv_mode": "pact",
+    "qw_qkv_mode": "sawb",
+    "qa_mode": "pact+",
+    "qw_mode": "sawb+",
+    "qa_mode_lstm": "pact+",
+    "qa_mode_calib": "percentile",
+    "qw_mode_calib": "percentile",
+    "extend_act_range": false,
+    "nbits_w_alt": null,
+    "nbits_a_alt": null,
+    "qmodel_calibration": 10,
+    "qlayer_name_pattern": [],
+    "qskip_layer_name": [],
+    "qspecial_layers": {},
+    "qsinglesided_name": [],
+    "clip_val_asst_percentile": [
+        0.1,
+        99.9
+    ],
+    "qkvsync": false,
+    "plotsvg": false
+}

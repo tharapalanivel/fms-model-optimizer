@@ -1,0 +1,14 @@
+{
+    "decoder_arch": true,
+    "align_zero": true,
+    "qgroup": null,
+    "act_scale_path": null,
+    "qmodel_calibration_new": 10,
+    "qskip_large_mag_layers": true,
+    "ptq_nbatch": 128,
+    "is_Transformers": true,
+    "eval_ckpt": true,
+    "nbits_bmm1" : 32,
+    "nbits_bmm2" : 32,
+    "nbits_kvcache" : 32
+}
