@@ -1,0 +1,74 @@
+name: Coverage
+
+on:
+  push:
+    branches:
+      - "main"
+      - "release-**"
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - 'tox.ini'
+      - '.github/workflows/coverage.yml' # This workflow
+  pull_request:
+    branches:
+      - "main"
+      - "release-**"
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - 'tox.ini'
+      - '.github/workflows/coverage.yml' # This workflow
+
+env:
+  LC_ALL: en_US.UTF-8
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    # Disable until runner with Nvidia GPU available
+    if: false
+    runs-on: ubuntu-latest
+    name: "coverage: ${{ matrix.coverage.name }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        coverage:
+          - name: "coverage"
+            commands: |
+              tox -e coverage
+
+    steps:
+      - name: "Harden Runner"
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7 # v2.10.1
+        with:
+          egress-policy: audit # TODO: change to 'egress-policy: block' after couple of runs
+
+      - name: "Checkout"
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # https://github.com/actions/checkout/issues/249
+          fetch-depth: 0
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: 3.11
+          cache: pip
+          cache-dependency-path: |
+            **/pyproject.toml
+
+      - name: "Install tox"
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install tox tox-gh
+
+      - name: "${{ matrix.coverage.name }}"
+        run: |
+          ${{ matrix.coverage.commands }}
