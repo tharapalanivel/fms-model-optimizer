@@ -1,33 +1,25 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = [
-    "setuptools>=60",
-    "setuptools-scm>=8.0"
-    ]
+requires = ["setuptools>=60", "setuptools-scm>=8.0"]
 
 [project]
 name = "fms_mo"
-version="0.1.0"
 description = "Quantization Techniques"
-authors = [
-  {name = "Andrea Fasoli"},
-  {name = "Brandon Groth"},
-  {name = "Charlie Liu"},
-  {name = "Derrick Liu"},
-  {name = "Naigang Wang"},
-  {name = "Thara Palanivel"},
-]
-license = {text = "Apache-2.0"}
 readme = "README.md"
-requires-python = "~=3.9"
-keywords = ['quantization', 'python', 'pytorch']
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9,<3.12"
 classifiers=[
+    "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
-    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: Implementation :: CPython",
 ]
+dynamic = ["version"]
 dependencies = [
 "torch >=2.1, <2.5",
 "numpy",
@@ -46,15 +38,21 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = ["pre-commit>=3.0.4,<4.0"]
 fp8 = ["llmcompressor"]
 gptq = ["auto_gptq"]
 visualize = ["matplotlib", "graphviz", "pygraphviz"]
 
+[tool.setuptools_scm]
+version_file = "fms_mo/_version.py"
+# do not include +gREV local version, required for Test PyPI upload
+local_scheme = "no-local-version"
+
 [tool.setuptools.packages.find]
-exclude = ["tests", "tests.*"]
-namespaces = false
+where = [""]
+include = ["fms_mo", "fms_mo*"]
 
 [project.urls]
-Homepage = "https://github.com/foundation-model-stack/fms-model-optimizer"
-Repository = "https://github.com/foundation-model-stack/fms-model-optimizer"
-Issues = "https://github.com/foundation-model-stack/fms-model-optimizer/issues"
+homepage = "https://github.com/foundation-model-stack/fms-model-optimizer"
+source = "https://github.com/foundation-model-stack/fms-model-optimizer"
+issues = "https://github.com/foundation-model-stack/fms-model-optimizer/issues"
