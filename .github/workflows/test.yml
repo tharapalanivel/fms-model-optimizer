@@ -35,7 +35,8 @@ permissions:
 
 jobs:
   test:
-    # Start name with 'test:' for test-workflow-complete job_ids
+    # Disable until runner with Nvidia GPU available
+    if: false
     name: "test: ${{ matrix.python }} on ${{ matrix.platform }}"
     runs-on: "${{ matrix.platform }}"
     strategy:

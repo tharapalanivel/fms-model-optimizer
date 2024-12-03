@@ -32,6 +32,8 @@ permissions:
 
 jobs:
   coverage:
+    # Disable until runner with Nvidia GPU available
+    if: false
     runs-on: ubuntu-latest
     name: "coverage: ${{ matrix.coverage.name }}"
     strategy:
