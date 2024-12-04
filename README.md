@@ -6,11 +6,11 @@ FMS Model Optimizer is a framework for developing reduced precision neural netwo
 
 ## Highlights
 
-- **Python API to enable model quantization:** With addition of a few lines of codes, module-level and/or function-level operations replacement will be performed.
-- **Robust:** Verified for INT 8/4/2-bit quantization on Vision/Speech/NLP/Object Detection/LLM
-- **Flexible:** This package can analyze the network using PyTorch Dynamo, apply best practices, such as clip_val initialization, layer-level precision setting, optimizer param group setting, etc. Users can also easily customize any of the settings through a JSON config file, and even bypass the Dynamo tracing if preferred.
-- **State-of-the-art INT and FP quantization techniques:** For weights and activations, such as SAWB+ and PACT+, comparable or better than other published works.
-- **Supports key compute-intensive operations:** Conv2d, Linear, LSTM, MM, BMM
+- **Python API to enable model quantization:** With the addition of a few lines of codes, module-level and/or function-level operations replacement will be performed.
+- **Robust:** Verified for INT 8/4-bit quantization on important vision/speech/NLP/object detection/LLMs.
+- **Flexible:** Options to analyze the network using PyTorch Dynamo, apply best practices, such as clip_val initialization, layer-level precision setting, optimizer param group setting, etc. during quantization.
+- **State-of-the-art INT and FP quantization techniques** for weights and activations, such as SmoothQuant, SAWB+ and PACT+.
+- **Supports key compute-intensive operations** like Conv2d, Linear, LSTM, MM and BMM
 
 ## Supported Models
 

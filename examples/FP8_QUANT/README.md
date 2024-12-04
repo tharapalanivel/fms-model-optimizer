@@ -7,25 +7,25 @@ There are two types of FP8 support in FMS Model Optimizer:
 
 This is an example of mature FP8, which under the hood leverages some functionalities in [llm-compressor](https://github.com/vllm-project/llm-compressor), a third-party library, to perform FP8 quantization. An example for the experimental FP8 can be found [here](../DQ_SQ/README.md)
 
-## Requirement
+## Requirements
 
-- FMS Model Optimizer requirements](../../README.md#requirements)
+- [FMS Model Optimizer requirements](../../README.md#requirements)
 - Nvidia A100 family or higher
 - The [llm-compressor](https://github.com/vllm-project/llm-compressor) library can be installed using pip:
 
     ```bash
     pip install llmcompressor
     ```
-- To evaluate the FP8 quantized model, [lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/main) and [vllm](https://github.com/vllm-project/vllm) libraries are also required.
+- To evaluate the FP8 quantized model, [lm-eval](https://github.com/EleutherAI/lm-evaluation-harness) and [vllm](https://github.com/vllm-project/vllm) libraries are also required.
     ```bash
-    pip install vllm lm_eval==0.4.3
+    pip install vllm lm_eval
     ```
 
 > [!CAUTION]
 > `vllm` may require a specific PyTorch version that is different from what is installed in your current environment and it may force install without asking. Make sure it's compatible with your settings or create a new environment if needed.
 
-## Steps
-Three simple steps to perform FP8 quantization using FMS Model Optimizer:
+## Quickstart
+This end-to-end example utilizes the common set of interfaces provided by `fms_mo` for easily applying multiple quantization algorithms with FP8 being the focus of this example. The steps involved are:
 
 1. **FP8 quantization through CLI**. Other arguments could be found here [FP8Args](../../fms_mo/training_args.py#L84).
 
@@ -38,7 +38,7 @@ Three simple steps to perform FP8 quantization using FMS Model Optimizer:
     ```
 
 > [!NOTE]
-> - The quantized model and tokenizer will be saved to `output_dir`, but some additional temperary storage space may be needed.
+> - The quantized model and tokenizer will be saved to `output_dir`, but some additional temporary storage space may be needed.
 > - Runtime ~ 1 min on A100. (model download time not included)
 > - If you have trouble downloading Llama family of models from Hugging Face ([LLama models require access](https://www.llama.com/docs/getting-the-models/hugging-face/)), you can use `ibm-granite/granite-3.0-8b-instruct` instead
 
@@ -60,7 +60,7 @@ Three simple steps to perform FP8 quantization using FMS Model Optimizer:
 > [!NOTE]
 > FP16 model file size on storage is ~16.07 GB while FP8 is ~8.6 GB.
 
-3. **Evaluate the quantized model** performance on a selected NLP task (lambada_openai) using [lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/main) library. The evaluation metrics on this task are perplexity and accuracy. The model will be run on GPU.
+3. **Evaluate the quantized model**'s performance on a selected task using `lm-eval` library, the command below will run evaluation on [`lambada_openai`](https://huggingface.co/datasets/EleutherAI/lambada_openai) task and show the perplexity/accuracy at the end.
 
     ```bash
     lm_eval --model vllm \
@@ -88,7 +88,7 @@ Three simple steps to perform FP8 quantization using FMS Model Optimizer:
         |              |       |none  |     5|perplexity|↓  |3.8915|±  |0.3727|
     ```
 
-## Example Explained
+## Code Walkthrough
 
 1. The non-quantized pre-trained model is loaded using model wrapper from `llm-compressor`. The corresponding tokenizer is constructed as well.
 
