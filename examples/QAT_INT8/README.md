@@ -96,12 +96,10 @@ Checkout [Example Test Results](#example-test-results) to compare against your r
 
 ## Example Test Results
 
-For comparison purposes, here are some of the results we found during testing when tested with PyTorch 2.3.1:
+For comparison purposes, here are some of the results we found during testing when tested with `PyTorch 2.3.1`:
 
-- Accuracy could vary ~ +-0.2 from run to run.
-- `INT8` matmuls are ~2x faster than `FP16` matmuls, However, `INT8` models will have additional overhead compared to `FP16` models. For example, converting FP tensors to INT before INT matmul.
-- Each of these additional quantization operations is relatively 'cheap', but the overhead of launching each job is not negligible. Using `torch.compile` can fuse the Ops and reduce the total number of jobs launching.
-- `CUDAGRAPH` is the most effective way to minimize job launching overheads and can achieve ~2X end-to-end speed-up in this case. However, there seems to be bugs associated with this option at the moment. Further investigation is still on-going.
+> [!NOTE]
+> Accuracy could vary ~ +-0.2 from run to run.
 
 |model|batchsize|torch.compile|accuracy(F1)|inference speed (msec)|
 |----|--:|---------:|----:|------------:|
@@ -110,7 +108,13 @@ For comparison purposes, here are some of the results we found during testing wh
 |    |128|CUDAGRAPH |     |71.13|
 |INT8|128|eager     |88.33|329.45 <sup>1</sup>|
 |    |128|Inductor  |88.42|67.87 <sup>2</sup>|
-|    |128|CUDAGRAPH |--   |*** <sup>3</sup>|
+|    |128|CUDAGRAPH |--   |-- <sup>3</sup>|
+
+<sup>1</sup> `INT8` matmuls are ~2x faster than `FP16` matmuls. However, `INT8` models will have additional overhead compared to `FP16` models. For example, converting FP tensors to INT before INT matmul.
+
+<sup>2</sup> Each of these additional quantization operations is relatively 'cheap', but the overhead of launching each job is not negligible. Using `torch.compile` can fuse the Ops and reduce the total number of jobs being launched.
+
+<sup>3</sup> `CUDAGRAPH` is the most effective way to minimize job launching overheads and can achieve ~2X end-to-end speed-up in this case. However, there seem to be bugs associated with this option at the moment. Further investigation is still on-going.
 
 ## Code Walkthrough
 
