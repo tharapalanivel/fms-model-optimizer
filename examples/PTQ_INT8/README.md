@@ -10,7 +10,7 @@ This is an example of [block sequential PTQ](https://arxiv.org/abs/2102.05426). 
 
 - [FMS Model Optimizer requirements](../../README.md#requirements)
 - The inferencing step requires Nvidia GPUs with compute capability > 8.0 (A100 family or higher)
-- NVIDIA cutlass package (Need to clone the source, not pip install). Preferrably place in user's home directory: `cd ~ && git clone https://github.com/NVIDIA/cutlass.git`
+- NVIDIA cutlass package (Need to clone the source, not pip install). Preferably place in user's home directory: `cd ~ && git clone https://github.com/NVIDIA/cutlass.git`
 - [Ninja](https://ninja-build.org/)
 - `PyTorch 2.3.1` (as newer version will cause issue for the custom CUDA kernel)
 
@@ -43,7 +43,7 @@ python run_qa_no_trainer_ptq.py \
 ```
 
 > [!TIP]
-> The script can take up to 20 mins to run (on a single A100). By default, it is configured for detailed logging.You can disable the logging by removing the `with_tracking` and `report_to` flags in the script.
+> The script can take up to 20 mins to run (on a single A100). By default, it is configured for detailed logging. You can disable the logging by removing the `with_tracking` and `report_to` flags in the script.
 
 #### **2.  Apply PTQ** on the fine-tuned model, which converts the precision data to 8-bit integer (INT8):
 

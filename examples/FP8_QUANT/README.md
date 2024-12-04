@@ -38,7 +38,7 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
     ```
 
 > [!NOTE]
-> - The quantized model and tokenizer will be saved to `output_dir`, but some additional temperary storage space may be needed.
+> - The quantized model and tokenizer will be saved to `output_dir`, but some additional temporary storage space may be needed.
 > - Runtime ~ 1 min on A100. (model download time not included)
 > - If you have trouble downloading Llama family of models from Hugging Face ([LLama models require access](https://www.llama.com/docs/getting-the-models/hugging-face/)), you can use `ibm-granite/granite-3.0-8b-instruct` instead
 

@@ -20,7 +20,7 @@ seq_len = 2048
 get_tokenized_data("wiki", num_samples, seq_len, tokenizer, path_to_save='data')
 ```
 > [!NOTE]
-> - Users should provide a tokentized data file based on their need. This is just one example to demonstrate what data format `fms_mo` is expecting.
+> - Users should provide a tokenized data file based on their need. This is just one example to demonstrate what data format `fms_mo` is expecting.
 > - Tokenized data will be saved in `<path_to_save>_train` and `<path_to_save>_test`
 > - If you have trouble downloading Llama family of models from Hugging Face ([LLama models require access](https://www.llama.com/docs/getting-the-models/hugging-face/)), you can use `ibm-granite/granite-8b-code` instead
 

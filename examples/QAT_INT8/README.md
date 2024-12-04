@@ -1,6 +1,6 @@
 # Model Optimization Using Quantization-Aware Training (QAT)
 
-FMS Model Optimizer supports [quantization](https://www.ibm.com/think/topics/quantization) of models which will enable the utilization of reduced-precision numerical format and specialiazed hardware to accelerate inference performance (i.e., make "calling a model" faster).
+FMS Model Optimizer supports [quantization](https://www.ibm.com/think/topics/quantization) of models which will enable the utilization of reduced-precision numerical format and specialized hardware to accelerate inference performance (i.e., make "calling a model" faster).
 
 Generally speaking, matrix multiplication (matmul) is the main operation in a neural network. The goal of quantization is to convert a floating-point (FP) matmul into an integer (INT) matmul, which runs much faster and requires lower energy consumption. A simplified example would be:
 
@@ -9,7 +9,7 @@ $$X@W \approx \lfloor \frac{X}{s_x} \rceil @ \lfloor \frac{W}{s_w} \rceil*s_xs_w
 - where $X$, $W$ are FP tensors whose elements are all within a certain range, e.g. $[-5.0, 5.0]$, $@$ is matmul operation, $\lfloor  \rceil$ is rounding operation, scaling factor $s_x, s_w$ in this case is simply $5/127$.
 - On the right hand side, after scaling and rounding the tensors will only contain integers in the range of $[-127, 127]$, which can be stored as a 8-bit integer.
 - We may now use an INT8 matmul instead of a FP32 matmul to perform the task then multiply the scaling factors afterward.
-- **Important** The benefit from INT matmul should outweight the overhead from scaling, rounding, and descaling. But rounding will inevitably introduce approximation errors. Luckily, we can mitigate the errors by taking these quantization related operations into account during the training process, hence the Quantization-aware training ([QAT](https://arxiv.org/pdf/1712.05877))!
+- **Important** The benefit from INT matmul should outweigh the overhead from scaling, rounding, and descaling. But rounding will inevitably introduce approximation errors. Luckily, we can mitigate the errors by taking these quantization related operations into account during the training process, hence the Quantization-aware training ([QAT](https://arxiv.org/pdf/1712.05877))!
 
 In the following example, we will first create a fine-tuned FP16 model, and then quantize this model from FP16 to INT8 using QAT. Once the model is tuned and QAT'ed, you can observe the accuracy and the acceleration at inference time of the model.
 
@@ -18,7 +18,7 @@ In the following example, we will first create a fine-tuned FP16 model, and then
 
 - [FMS Model Optimizer requirements](../../README.md#requirements)
 - The inferencing step requires Nvidia GPUs with compute capability > 8.0 (A100 family or higher)
-- NVIDIA cutlass package (Need to clone the source, not pip install). Preferrably place in user's home directory: `cd ~ && git clone https://github.com/NVIDIA/cutlass.git`
+- NVIDIA cutlass package (Need to clone the source, not pip install). Preferably place in user's home directory: `cd ~ && git clone https://github.com/NVIDIA/cutlass.git`
 - [Ninja](https://ninja-build.org/)
 - `PyTorch 2.3.1` (as newer version will cause issue for the custom CUDA kernel)
 
@@ -50,7 +50,7 @@ python run_qa_no_trainer_qat.py \
 ```
 
 > [!TIP]
-> The script can take up to 40 mins to run (on a single A100). By default, it is configured for detailed logging.You can disable the logging by removing the `with_tracking` and `report_to` flags in the script. This can reduce the runtime by around 20 mins.
+> The script can take up to 40 mins to run (on a single A100). By default, it is configured for detailed logging. You can disable the logging by removing the `with_tracking` and `report_to` flags in the script. This can reduce the runtime by around 20 mins.
 
 #### **2.  Apply QAT** on the fine-tuned model, which converts the precision data to 8-bit integer (INT8):
 
@@ -96,7 +96,7 @@ Checkout [Example Test Results](#example-test-results) to compare against your r
 
 ## Example Test Results
 
-For comparsion purposes, here are some of the results we found during testing when tested with PyTorch 2.3.1:
+For comparison purposes, here are some of the results we found during testing when tested with PyTorch 2.3.1:
 
 - Accuracy could vary ~ +-0.2 from run to run.
 - `INT8` matmuls are ~2x faster than `FP16` matmuls, However, `INT8` models will have additional overhead compared to `FP16` models. For example, converting FP tensors to INT before INT matmul.
@@ -190,7 +190,7 @@ return # Stop the run here, no further training loop
 
 In this example:
 
-- By default, QAT will run `calibration` to initialize the quantization related parameters (with a small number of training data). At the end of QAT, these paramaters are saved with the ckpt, as we DO NOT want to run calibration at deployment stage. Hence, `qcfg['qmodel_calibration'] = 0`.
-- Quantization related parameters will not be automatically loaded by the HiggingFace method, as those are not part of the original BERT model. Hence calling `qmodel_prep(..., ckpt_reload=[path to qat ckpt])`.
+- By default, QAT will run `calibration` to initialize the quantization related parameters (with a small number of training data). At the end of QAT, these parameters are saved with the checkpoint, as we DO NOT want to run calibration at deployment stage. Hence, `qcfg['qmodel_calibration'] = 0`.
+- Quantization related parameters will not be automatically loaded by the HuggingFace method, as those are not part of the original BERT model. Hence calling `qmodel_prep(..., ckpt_reload=[path to qat ckpt])`.
 - By replacing `QLinear` layers with `QLinearINT8Deploy`, it will call the external kernel instead of `torch.matmul`.
 - `torch.compile` with `reduce-overhead` option will use CUDAGRAPH and achieve the most ideal speed-up. However, some models may not be fully compatible with this option.
