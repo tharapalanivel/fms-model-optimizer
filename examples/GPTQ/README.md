@@ -5,7 +5,7 @@ For generative LLMs, very often the bottleneck of inference is no longer the com
 
 ## Requirements
 
-- FMS Model Optimizer requirements](../../README.md#requirements)
+- [FMS Model Optimizer requirements](../../README.md#requirements)
 - `auto-gptq` is needed for this example. Use `pip install auto-gptq` or [install from source](https://github.com/AutoGPTQ/AutoGPTQ?tab=readme-ov-file#install-from-source)
 - Optionally for the evaluation section below, install [lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/main)
 ```
