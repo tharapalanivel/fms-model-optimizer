@@ -9,13 +9,13 @@ This is an example of [block sequential PTQ](https://arxiv.org/abs/2102.05426). 
 ## Requirements
 
 - [FMS Model Optimizer requirements](../../README.md#requirements)
-- The inferencing step requires Nvidia GPUs with compute capability > 8.0 (A100 family or higher).
+- The inferencing step requires Nvidia GPUs with compute capability > 8.0 (A100 family or higher)
 - NVIDIA cutlass package (Need to clone the source, not pip install). Preferrably place in user's home directory: `cd ~ && git clone https://github.com/NVIDIA/cutlass.git`
 - [Ninja](https://ninja-build.org/)
 - `PyTorch 2.3.1` (as newer version will cause issue for the custom CUDA kernel)
 
 
-## Steps
+## Quickstart
 
 > [!NOTE]
 > This example is based on the HuggingFace [Transformers Question answering example](https://github.com/huggingface/transformers/tree/main/examples/pytorch/question-answering). Unlike our [QAT example](../QAT_INT8/README.md), which utilizes the training loop of the original code, our PTQ function will control the loop and the program will end before entering the original loop. Make sure the model doesn't get "tuned" twice!
@@ -87,6 +87,8 @@ python run_qa_no_trainer_ptq.py \
   --do_lowering
 ```
 
+Checkout [Example Test Results](#example-test-results) to compare against your results.
+
 ## Example Test Results
 
 The table below shows results obtained for the conditions listed:
@@ -104,13 +106,13 @@ The table below shows results obtained for the conditions listed:
 `Nouterloop` and  `ptq_nbatch` are PTQ specific hyper-parameter.
 Above experiments were run on v100 machine.
 
-## Example Explained
+## Code Walkthrough
 
 In this section, we will deep dive into what happens during the example steps.
 
 There are three parts to the example:
 
-**1. Fine-tuned a model** with 16-bit floating point (FP16) precision:
+**1. Fine-tune a model with 16-bit floating point (FP16) precision**
 
 Fine-tunes a BERT model on the question answering dataset, SQuAD. This step is based on the HuggingFace [Transformers Question answering example](https://github.com/huggingface/transformers/tree/main/examples/pytorch/question-answering). It was modified to collect additional training information in case we would like to tweak the hyper-parameters later.
 
@@ -124,7 +126,7 @@ In a nutshell, PTQ simply quantizes the weight and activation tensors in a block
 from fms_mo import qmodel_prep, qconfig_init
 
 # Create a config dict using a default recipe and CLI args
-# if same item exists in both, args take precedence over recipe.
+# If same item exists in both, args take precedence over recipe.
 qcfg = qconfig_init(recipe = 'ptq_int8', args=args)
 qcfg["tb_writer"] = accelerator.get_tracker("tensorboard", unwrap=True)
 qcfg["loader.batchsize"] = args.per_device_train_batch_size
@@ -146,13 +148,13 @@ logger.info(f"--- Accuracy of {args.model_name_or_path} before QAT/PTQ")
 > [!NOTE]
 > This step will compile an external kernel for INT matmul, which currently only works with `PyTorch 2.3.1`.
 
-Here is snippet of example code of the evaluation:
+Here is an example code snippet used for evaluation:
 
 ```python
 from fms_mo.modules.linear import QLinear, QLinearINT8Deploy
 # ...
 
-# only need 1 batch (not a list) this time, will be used by `torch.compile` as well.
+# Only need 1 batch (not a list) this time, will be used by `torch.compile` as well.
 exam_inp = next(iter(train_dataloader))
 
 qcfg = qconfig_init(recipe = 'qat_int8', args=args)
@@ -176,5 +178,5 @@ with torch.no_grad():
 
 # ...
 
-return # stop the run here, no further training loop
+return # Stop the run here, no further training loop
 ```

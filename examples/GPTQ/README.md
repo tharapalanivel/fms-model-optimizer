@@ -7,14 +7,14 @@ For generative LLMs, very often the bottleneck of inference is no longer the com
 
 - [FMS Model Optimizer requirements](../../README.md#requirements)
 - `auto-gptq` is needed for this example. Use `pip install auto-gptq` or [install from source](https://github.com/AutoGPTQ/AutoGPTQ?tab=readme-ov-file#install-from-source)
-- Optionally for the evaluation section below, install [lm-eval](https://github.com/EleutherAI/lm-evaluation-harness/tree/main)
-```
-pip install git+https://github.com/EleutherAI/lm-evaluation-harness.git
-```
+- Optionally for the evaluation section below, install [lm-eval](https://github.com/EleutherAI/lm-evaluation-harness)
+    ```
+    pip install lm-eval
+    ```
 
 
 ## Quickstart
-The end-to-end example utilizes the common set of interfaces provided by fms_mo for easily applying multiple quantization algorithms with  GPTQ being the focus of this example. The steps involved are:
+This end-to-end example utilizes the common set of interfaces provided by `fms_mo` for easily applying multiple quantization algorithms with GPTQ being the focus of this example. The steps involved are:
 
 1. **Convert the dataset into its tokenized form.** An example of tokenization using `LLAMA-3-8B`'s tokenizer is below.
 
@@ -68,7 +68,7 @@ The end-to-end example utilizes the common set of interfaces provided by fms_mo 
     torch.int32      672  3521.904640
     ```
 
-4. Further to **evaluate the quantized model**'s performance on a selected task using `lm-eval` library, the command below will run evaluation on [`lambada_openai`](https://huggingface.co/datasets/EleutherAI/lambada_openai) task and show the perplexity/accuracy at the end.
+4. **Evaluate the quantized model**'s performance on a selected task using `lm-eval` library, the command below will run evaluation on [`lambada_openai`](https://huggingface.co/datasets/EleutherAI/lambada_openai) task and show the perplexity/accuracy at the end.
 
     ```bash
     lm_eval --model hf \
@@ -79,7 +79,7 @@ The end-to-end example utilizes the common set of interfaces provided by fms_mo 
             --batch_size auto
     ```
 
-## Summary of results
+## Example Test Results
 
 - Unquantized Model
 ```bash
@@ -98,7 +98,7 @@ The end-to-end example utilizes the common set of interfaces provided by fms_mo 
 ```
 
 
-- Quantized model with `desc_act` set to True (could improve the model quality, but at the cost of inference speed.)
+- Quantized model with `desc_act` set to `True` (could improve the model quality, but at the cost of inference speed.)
 ```bash
     |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
     |------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
@@ -106,12 +106,12 @@ The end-to-end example utilizes the common set of interfaces provided by fms_mo 
     |            |              |       |none  |     5|perplexity|↓  |5.8879 |±  |0.1546|
 ```
 > [!NOTE]
-> There are some randomness in generating the model and data, the resulting accuracy may vary ~$\pm$ 0.05.
+> There is some randomness in generating the model and data, the resulting accuracy may vary ~$\pm$ 0.05.
 
 
 ## Code Walkthrough
 
-1.  Command line arguments will be used to create a GPTQ quantization config. (Information about the required arguments and their default values can be found in [fms_mo/training_args.py](../../fms_mo/training_args.py) )
+1.  Command line arguments will be used to create a GPTQ quantization config. Information about the required arguments and their default values can be found [here](../../fms_mo/training_args.py)
 
     ```python
     from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
@@ -122,7 +122,7 @@ The end-to-end example utilizes the common set of interfaces provided by fms_mo 
                 damp_percent=gptq_args.damp_percent)
     ```
 
-2. Load the pre_trained model with `auto_gptq` class/wrapper. (tokenizer is optional because we already tokenized the data in a previous step.)
+2. Load the pre_trained model with `auto_gptq` class/wrapper. Tokenizer is optional because we already tokenized the data in a previous step.
 
     ```python
     model = AutoGPTQForCausalLM.from_pretrained(

@@ -3,10 +3,10 @@ Direct quantization enables the quantization of large language models (LLMs) wit
 
 Here, we provide an example of direct quantization. In this case, we demonstrate DQ of `llama3-8b` model into INT8 and FP8 for weights, activations, and/or KV-cache. This example is referred to as the **experimental FP8** in the other [FP8 example](../FP8_QUANT/README.md), which means the quantization configurations and corresponding behavior can be studied this way, but the saved model cannot be directly served by `vllm` as the moment.
 
-## Requirement
+## Requirements
 - [FMS Model Optimizer requirements](../../README.md#requirements)
 
-## Steps
+## Quickstart
 
 **1. Prepare Data** for calibration process by converting into its tokenized form. An example of tokenization using `LLAMA-3-8B`'s tokenizer is below.
 
@@ -48,45 +48,45 @@ python  -m fms_mo.run_quant \
 **3. Compare the Perplexity score** For user convenience, the code will print out perplexity (controlled by `eval_ppl` flag) at the end of the run, so no additional steps needed (if the logging level is set to `INFO` in terminal). You can check output in the logging file. `./fms_mo.log`.
 
 ## Example Test Results
-The perplexity of the INT8 and FP8 quantized models on the wikitext dataset is shown below:
+The perplexity of the INT8 and FP8 quantized models on the `wikitext` dataset is shown below:
 
 | Model     |Type |QA            |QW            |DQ  |SQ  |Perplexity|
 |:---------:|:---:|:------------:|:------------:|:--:|:--:|:--------:|
 |`Llama3-8b`|INT8 |maxpertoken   |maxperCh      |yes |yes |6.21      |
 |           |FP8  |fp8_e4m3_scale|fp8_e4m3_scale|yes |yes |6.19      |
 
-## Example explained
+## Code Walkthrough
 
 **1. KV caching**
 
-In large language models (LLMs), key/value pairs are frequently cached during token generation, a process known as KV caching, to prevent redundant computations due to the autoregressive nature of token generation. However, the size of the KV cache increases with both batch size and context length, which can slow down model inference due to the need to access a large amount of data in memory. Quantizing the KV cache effectively reduces this memory bandwidth limitation, improving inference speed. To study the quantization behavior of KV cache, we can simply set the nbits_kvcache argument to 8 bit, then the KV cache will be quantized together with weights and activations. In addition, the `bmm1_qm1_mode`, `bmm1_qm2_mode`, and `bmm2_qm2_mode` [arguments](../../fms_mo/training_args.py) must be set to the same quantizer mode as `qa_mode`. **NOTE**: `bmm2_qm1_mode` should be kept as `minmax`.
+In large language models (LLMs), key/value pairs are frequently cached during token generation, a process known as KV caching, to prevent redundant computations due to the autoregressive nature of token generation. However, the size of the KV cache increases with both batch size and context length, which can slow down model inference due to the need to access a large amount of data in memory. Quantizing the KV cache effectively reduces this memory bandwidth limitation, improving inference speed. To study the quantization behavior of KV cache, we can simply set the `nbits_kvcache` argument to 8-bit, then the KV cache will be quantized together with weights and activations. In addition, the `bmm1_qm1_mode`, `bmm1_qm2_mode`, and `bmm2_qm2_mode` [arguments](../../fms_mo/training_args.py) must be set to the same quantizer mode as `qa_mode`. **NOTE**: `bmm2_qm1_mode` should be kept as `minmax`.
 
-The effect of setting the nbits_kvcache to 8 and its relevant code sections are:
+The effect of setting the `nbits_kvcache` to 8 and its relevant code sections are:
 
 - Enables eager attention for the quantization of attention operations, including KV cache.
-```python
-#for attention or kv-cache quantization, need to use eager attention
-attn_bits = [fms_mo_args.nbits_bmm1, fms_mo_args.nbits_bmm2, fms_mo_args.nbits_kvcache]
-if any(attn_bits) != 32:
-    attn_implementation = "eager"
-else:
-    attn_implementation = None
-```
+    ```python
+    # For attention or kv-cache quantization, need to use eager attention
+    attn_bits = [fms_mo_args.nbits_bmm1, fms_mo_args.nbits_bmm2, fms_mo_args.nbits_kvcache]
+    if any(attn_bits) != 32:
+        attn_implementation = "eager"
+    else:
+        attn_implementation = None
+    ```
 -  Enables Dynamo for quantized model preparation. We use PyTorch's Dynamo tracer to identify the bmm and KV cache inside the attention block.
-```python
-if any(x != 32 for x in attn_bits):
-    logger.info("Quantize attention bmms or kvcache, use dynamo for prep")
-    use_layer_name_pattern_matching = False
-    qcfg["qlayer_name_pattern"] = []
-    assert (
-        qcfg["qlayer_name_pattern"] == []
-    ), "ensure nothing in qlayer_name_pattern when use dynamo"
-    use_dynamo = True
-else:
-    logger.info("Do not quantize attention bmms")
-    use_layer_name_pattern_matching = True
-    use_dynamo = False
-```
+    ```python
+    if any(x != 32 for x in attn_bits):
+        logger.info("Quantize attention bmms or kvcache, use dynamo for prep")
+        use_layer_name_pattern_matching = False
+        qcfg["qlayer_name_pattern"] = []
+        assert (
+            qcfg["qlayer_name_pattern"] == []
+        ), "ensure nothing in qlayer_name_pattern when use dynamo"
+        use_dynamo = True
+    else:
+        logger.info("Do not quantize attention bmms")
+        use_layer_name_pattern_matching = True
+        use_dynamo = False
+    ```
 
 **2. Define quantization config** including quantizers and hyperparameters. Here we simply use the default [dq recipe](../../fms_mo/recipies/dq.json).
 
@@ -154,7 +154,7 @@ model.save_pretrained(output_dir, use_safetensors=True)
 tokenizer.save_pretrained(output_dir)
 ```
 
-**6. Check perplexity** (a simple way to evaluate the model quality.)
+**6. Check perplexity** (simple method to evaluate the model quality)
 
 ``` python
 if fms_mo_args.eval_ppl:
