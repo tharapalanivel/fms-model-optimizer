@@ -223,7 +223,10 @@ class QLinear(nn.Linear):
         self.smoothq = qcfg.get("smoothq", False)
         if self.smoothq:
             self.register_buffer("smoothq_act_scale", torch.zeros(w_size[1]))
-            self.smoothq_alpha = qcfg.get("smoothq_alpha", 0.5)
+            self.register_buffer(
+                "smoothq_alpha",
+                torch.tensor([qcfg.get("smoothq_alpha", 0.5)], dtype=torch.float32),
+            )
 
     def forward(self, x):
         """
@@ -335,11 +338,12 @@ class QLinear(nn.Linear):
             smoothq_scale = torch.tensor([1.0]).to(x.dtype).to(x.device)
         else:
             weight_scale = self.weight.abs().max(dim=0, keepdim=True)[0].clamp(min=1e-5)
+            if isinstance(self.smoothq_alpha, torch.Tensor):
+                alpha = self.smoothq_alpha.item()
+            else:
+                alpha = self.smoothq_alpha
             smoothq_scale = (
-                (
-                    self.smoothq_act_scale.pow(self.smoothq_alpha)
-                    / weight_scale.pow(1.0 - self.smoothq_alpha)
-                )
+                (self.smoothq_act_scale.pow(alpha) / weight_scale.pow(1.0 - alpha))
                 .clamp(min=1e-5)
                 .to(x.dtype)
             )
