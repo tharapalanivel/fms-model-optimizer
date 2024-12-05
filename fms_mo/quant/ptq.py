@@ -2420,7 +2420,7 @@ def get_act_scales(
 
     for data_mb, _ in zip(pbar, range(n_samples)):
         qcfg["sample_id"] += 1
-        data_mb = move_to(data_mb, dev)
+        data_mb = move_to(data_mb, device)
         if (
             qcfg["nbits_bmm1"] < 32
             or qcfg["nbits_bmm2"] < 32
