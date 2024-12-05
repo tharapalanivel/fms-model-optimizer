@@ -23,7 +23,7 @@ search_fold_and_remove_bn are modified from QDROP repo https://github.com/wimh96
 
 # Standard
 from functools import partial
-from typing import Optional
+from typing import Optional, Union
 import logging
 import math
 import random
@@ -2388,7 +2388,7 @@ def get_act_scales(
     model,
     dloader,
     qcfg: dict,
-    device: Optional[str | torch.device] = None,
+    device: Optional[Union[str, torch.device]] = None,
 ):
     """Compute smoothquant activation scales of quantized linear layers.
     Model and examples are moved to selected device, if provided.
@@ -2420,7 +2420,7 @@ def get_act_scales(
 
     for data_mb, _ in zip(pbar, range(n_samples)):
         qcfg["sample_id"] += 1
-        data_mb = move_to(data_mb, device)
+        data_mb = move_to(data_mb, dev)
         if (
             qcfg["nbits_bmm1"] < 32
             or qcfg["nbits_bmm2"] < 32
