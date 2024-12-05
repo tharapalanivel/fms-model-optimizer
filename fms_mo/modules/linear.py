@@ -343,10 +343,7 @@ class QLinear(nn.Linear):
             else:
                 alpha = self.smoothq_alpha
             smoothq_scale = (
-                (
-                    self.smoothq_act_scale.pow(alpha)
-                    / weight_scale.pow(1.0 - alpha)
-                )
+                (self.smoothq_act_scale.pow(alpha) / weight_scale.pow(1.0 - alpha))
                 .clamp(min=1e-5)
                 .to(x.dtype)
             )
