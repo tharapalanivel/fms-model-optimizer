@@ -2,7 +2,7 @@
 requires = ["setuptools>=60", "setuptools-scm>=8.0"]
 
 [project]
-name = "fms_mo"
+name = "fms-model-optimizer"
 description = "Quantization Techniques"
 readme = "README.md"
 license = {text = "Apache-2.0"}
