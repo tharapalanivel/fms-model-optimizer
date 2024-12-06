@@ -15,7 +15,7 @@
 """
 Post-Training Quantization (PTQ) functions
 
-Class StraightThrough, function _fold_bn, fold_bn_into_conv, reset_bn, and 
+Class StraightThrough, function _fold_bn, fold_bn_into_conv, reset_bn, and
 search_fold_and_remove_bn are modified from QDROP repo https://github.com/wimh966/QDrop
 
 
@@ -23,6 +23,7 @@ search_fold_and_remove_bn are modified from QDROP repo https://github.com/wimh96
 
 # Standard
 from functools import partial
+from typing import Optional, Union
 import logging
 import math
 import random
@@ -2383,15 +2384,26 @@ def input_stats_hook(m, x, _y, name, act_scales):
 
 
 @torch.no_grad()
-def get_act_scales(model, dloader, qcfg):
-    """
-    To get max() of activations for linear layers on one device.
-    Model size will be limited by memory (GPU) or speed (cpu)
+def get_act_scales(
+    model,
+    dloader,
+    qcfg: dict,
+    device: Optional[Union[str, torch.device]] = None,
+):
+    """Compute smoothquant activation scales of quantized linear layers.
+    Model and examples are moved to selected device, if provided.
     """
 
     model.eval()
-    model.cuda()
-    dev = next(model.parameters()).device
+
+    if device is None:
+        device = next(model.parameters()).device
+    else:
+        logger.info(
+            f"Moving model to {device} to compute smoothquant activation scales"
+        )
+        model.to(device)
+
     act_scales = {}
     qcfg["sample_id"] = 0
     hooks = []
@@ -2408,8 +2420,7 @@ def get_act_scales(model, dloader, qcfg):
 
     for data_mb, _ in zip(pbar, range(n_samples)):
         qcfg["sample_id"] += 1
-        # logger.info("Now for sample: ", qcfg["sample_id"] )
-        data_mb = move_to(data_mb, dev)
+        data_mb = move_to(data_mb, device)
         if (
             qcfg["nbits_bmm1"] < 32
             or qcfg["nbits_bmm2"] < 32
