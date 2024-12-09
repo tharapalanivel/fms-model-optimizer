@@ -505,52 +505,53 @@ def model_config_fp16():
     return deepcopy(ToyModel4().half())
 
 
-class ToyModelQuantized(torch.nn.Module):
-    """
-    Three layer Linear model that has a quantized layer
+# QLinear class requires Nvidia GPU and cuda
+if torch.cuda.is_available():
 
-    Extends:
-        torch.nn.Module
-    """
-
-    def __init__(self):
-        super().__init__()
-        kwargs = {"qcfg": qconfig_init()}  # QLinear requires qconfig to work
-        self.first_layer = torch.nn.Linear(3, 3, bias=True)
-        self.second_layer = QLinear(3, 3, bias=True, **kwargs)
-        self.third_layer = torch.nn.Linear(3, 3, bias=True)
-
-    def forward(self, input_tensor):
+    class ToyModelQuantized(torch.nn.Module):
         """
-        Forward func for Toy Model
+        Three layer Linear model that has a quantized layer
+
+        Extends:
+            torch.nn.Module
+        """
+
+        def __init__(self):
+            super().__init__()
+            kwargs = {"qcfg": qconfig_init()}  # QLinear requires qconfig to work
+            self.first_layer = torch.nn.Linear(3, 3, bias=True)
+            self.second_layer = QLinear(3, 3, bias=True, **kwargs)
+            self.third_layer = torch.nn.Linear(3, 3, bias=True)
+
+        def forward(self, input_tensor):
+            """
+            Forward func for Toy Model
+
+            Args:
+                input_tensor (torch.FloatTensor): Tensor to operate on
+
+            Returns:
+                torch.FloatTensor:
+            """
+            out = self.first_layer(input_tensor)
+            out = self.second_layer(out)
+            out = self.third_layer(out)
+            return out
+
+    model_quantized_params = [ToyModelQuantized()]
+
+    @pytest.fixture(scope="function", params=model_quantized_params)
+    def model_quantized(request):
+        """
+        Toy Model that has quantized layer
 
         Args:
-            input_tensor (torch.FloatTensor): Tensor to operate on
+            request (torch.nn.Module): Toy Model
 
         Returns:
-            torch.FloatTensor:
+            torch.nn.Module: Toy Model
         """
-        out = self.first_layer(input_tensor)
-        out = self.second_layer(out)
-        out = self.third_layer(out)
-        return out
-
-
-model_quantized_params = [ToyModelQuantized()]
-
-
-@pytest.fixture(scope="function", params=model_quantized_params)
-def model_quantized(request):
-    """
-    Toy Model that has quantized layer
-
-    Args:
-        request (torch.nn.Module): Toy Model
-
-    Returns:
-        torch.nn.Module: Toy Model
-    """
-    return deepcopy(request.param)
+        return deepcopy(request.param)
 
 
 # Get a model to test layer uniqueness

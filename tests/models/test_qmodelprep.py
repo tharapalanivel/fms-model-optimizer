@@ -28,26 +28,29 @@ from fms_mo import qmodel_prep
 from fms_mo.prep import has_quantized_module
 from tests.models.test_model_utils import delete_config, qmodule_error
 
-
 ################
 # Qmodel tests #
 ################
-def test_model_quantized(
-    model_quantized: torch.nn.Module,
-    sample_input_fp32: torch.FloatTensor,
-    config_fp32: dict,
-):
-    """
-    qmodel_prep should always throw RuntimeError if a model is already quantized
 
-    Args:
-        model_quantized (torch.nn.Module): Quantized Toy Model
-        sample_input_fp32 (torch.FloatTensor): Sample fp32 input for calibration.
-        config_fp32 (dict): Config w/ fp32 settings
-    """
-    delete_config()
-    with pytest.raises(RuntimeError):
-        qmodel_prep(model_quantized, sample_input_fp32, config_fp32)
+# Requires Nvidia GPU to run
+if torch.cuda.is_available():
+
+    def test_model_quantized(
+        model_quantized: torch.nn.Module,
+        sample_input_fp32: torch.FloatTensor,
+        config_fp32: dict,
+    ):
+        """
+        qmodel_prep should always throw RuntimeError if a model is already quantized
+
+        Args:
+            model_quantized (torch.nn.Module): Quantized Toy Model
+            sample_input_fp32 (torch.FloatTensor): Sample fp32 input for calibration.
+            config_fp32 (dict): Config w/ fp32 settings
+        """
+        delete_config()
+        with pytest.raises(RuntimeError):
+            qmodel_prep(model_quantized, sample_input_fp32, config_fp32)
 
 
 def test_double_qmodel_prep_assert(
