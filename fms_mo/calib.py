@@ -90,10 +90,9 @@ class ObserverPercentile(nn.Module):
                     x.reshape(1, -1).kthvalue(int(self.per[1] * nelem)).values.data[0]
                 )
                 if symmetric:
-                    upper_per_cur = (
-                        upper_per_cur_candidate
-                        if upper_per_cur_candidate > lower_per_cur_candidate.abs()
-                        else lower_per_cur_candidate.abs()
+                    upper_per_cur = max(
+                        upper_per_cur_candidate,
+                        lower_per_cur_candidate.abs(),
                     )
                     lower_per_cur = -upper_per_cur
                 else:

@@ -3574,11 +3574,7 @@ class Qdynamic(nn.Module):
                 )  # for very small tensor, lower_k could be 0, kthvalue(0) will cause error
 
                 if self.symmetric:
-                    cv_new = (
-                        cv_new_candidate
-                        if cv_new_candidate > cvn_new_candidate.abs()
-                        else cvn_new_candidate.abs()
-                    )
+                    cv_new = max(cv_new_candidate, cvn_new_candidate.abs())
                     cvn_new = -cv_new
                 else:
                     cv_new = cv_new_candidate
