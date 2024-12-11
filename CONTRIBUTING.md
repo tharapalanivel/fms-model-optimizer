@@ -77,8 +77,22 @@ Improvements to existing functionality are tracked as [GitHub issues using the U
 The following tools are required:
 
 - [git](https://git-scm.com)
-- [python](https://www.python.org) (v3.8+)
+- [python](https://www.python.org) (v3.11)
 - [pip](https://pypi.org/project/pip/) (v23.0+)
+
+You can setup your dev environment using `tox`, an environment orchestrator which allows for setting up environments for and invoking builds, unit tests, formatting, linting, etc. Install `tox` with:
+
+```shell
+pip install tox
+```
+
+If you want to manage your own virtual environment () instead of using `tox`, you can install model optimizer and all dependencies. Check out [installation](./README.md#installation) foir more details.
+
+Before pushing changes to GitHub, you need to run the tests and coding style as shown below. They can be run individually as shown in each sub-section or can be run with the one command:
+
+```shell
+tox
+```
 
 ### Unit tests
 
@@ -87,67 +101,44 @@ Unit tests are enforced by the CI system. When making changes, run the tests bef
 Running unit tests is as simple as:
 
 ```sh
-make test
+tox -e unit
+```
+
+By default, all tests found within the tests directory are run. However, specific unit tests can run by passing filenames, classes and/or methods to `pytest` using `tox` positional arguments. The following example invokes a single test method `test_double_qmodel_prep_assert` that is declared in the `tests/models/test_qmodelprep.py` file:
+
+```shell
+tox -e unit -- tests/models/test_qmodelprep.py::test_double_qmodel_prep_assert
 ```
 
 ### Coding style
 
-#### Formatting
+FMS Model Optimizer follows the Python [pep8](https://peps.python.org/pep-0008/) coding style. The coding style is enforced by the CI system, and your PR will fail until the style has been applied correctly.
 
-FMS Model Optimizer follows the python [pep8](https://peps.python.org/pep-0008/) coding style. The coding style is enforced by the CI system, and your PR will fail until the style has been applied correctly.
-
-We use [pre-commit](https://pre-commit.com/) to enforce coding style using [black](https://github.com/psf/black), [prettier](https://github.com/prettier/prettier) and [isort](https://pycqa.github.io/isort/).
+We use [pre-commit](https://pre-commit.com/) to enforce coding style using [black](https://github.com/psf/black), and [isort](https://pycqa.github.io/isort/).
 
 You can invoke formatting with:
 
 ```sh
-make fmt
+tox -e fmt
 ```
 
-You could optionally install the git pre-commit hooks if you would like to format the code automatically for each commit:
-```
-brew install pre-commit
+You could optionally install the git [pre-commit hooks](https://pre-commit.com/) if you would like to format the code automatically for each commit:
+
+```shell
+pip install pre-commit
 pre-commit install
 ```
 
-#### Lint
+In addition, we use [pylint](https://www.pylint.org/) to perform static code analysis of the code.
 
-In addition, we use [pylint](https://www.pylint.org) to perform static code analysis of the code for errors, coding standards, code convention and refactoring suggestions.
+You can invoke the linting with the following command
 
-Pylint emits [messages](https://pylint.pycqa.org/en/latest/user_guide/messages/index.html) that provides explanations of the failed checks.
-
-You should fix all message in the following order:
-1. Fix each message provided. Select a message [description](https://pylint.pycqa.org/en/latest/user_guide/messages/messages_overview.html#messages-overview) to fix a message.
-2. Disable a message (i.e: unbalanced-tuple-unpacking) caused by a particular line of code:
-    ```python
-    a, b = ... # pylint: disable=unbalanced-tuple-unpacking
-    ```
-    Please see [here](https://pylint.pycqa.org/en/latest/user_guide/messages/message_control.html#block-disables) for the progma syntax.
-
-3. Disable a checker globally. Please extend the `disable=` list in the [pylintrc](.pylintrc) file.
-    > Note: Disable checkers only if there is good reason.
-
-You can invoke the linting with the following command:
-
-```sh
-make lint
-```
-
-### Build Wheel
-
-To build a wheel file:
 ```shell
-tox -e build
+tox -e lint
 ```
-Running the command will create a single ZIP-format archive containing the library source code with the .whl extension in the `dist/` directory.
-
 ## Your First Code Contribution
 
 Unsure where to begin contributing? You can start by looking through these issues:
 
 - Issues with the [`good first issue` label](https://github.com/foundation-model-stack/fms-model-optimizer/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) - these should only require a few lines of code and are good targets if you're just starting contributing.
 - Issues with the [`help wanted` label](https://github.com/foundation-model-stack/fms-model-optimizer/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) - these range from simple to more complex, but are generally things we want but can't get to in a short time frame.
-
-<!-- ## Releasing (Maintainers only)
-
-The responsibility for releasing new versions of the libraries falls to the maintainers. Releases will follow standard [semantic versioning](https://semver.org/) and be hosted on [pypi](https://pypi.org/project/jtd-to-proto/). -->
