@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Data preparation functions for GPTQ and directQuant. Get data from different datasets and 
+"""Data preparation functions for GPTQ and directQuant. Get data from different datasets and
 tokenize.
 
 This code is modified from: https://github.com/IST-DASLab/gptq/blob/main/zeroShot/datautils.py

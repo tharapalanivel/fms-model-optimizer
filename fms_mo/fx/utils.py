@@ -12,9 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Utils for FX graph parsing and external kernel lowering
-
-"""
+"""Utils for FX graph parsing and external kernel lowering"""
 
 # Standard
 from typing import Any

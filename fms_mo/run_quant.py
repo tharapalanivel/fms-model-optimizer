@@ -24,6 +24,7 @@
 """
 Main entry point for quantize API for GPTQ, FP8 and DQ quantization techniques
 """
+
 # Standard
 import logging
 import time
