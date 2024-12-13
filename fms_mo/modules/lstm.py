@@ -318,9 +318,8 @@ class QLSTM(nn.LSTM):
         hidden = list(zip(*hidden))
 
         for layer in range(self.num_layers):
-            qoutput_all_ts_bidir = (
-                []
-            )  # For bidirectional LSTM, store outputs of both directions (otherwise stays empty)
+            # For bidirectional LSTM, store outputs of both directions (otherwise stays empty)
+            qoutput_all_ts_bidir = []
 
             if (
                 layer == 0

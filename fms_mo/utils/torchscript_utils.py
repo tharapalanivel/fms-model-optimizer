@@ -314,9 +314,7 @@ class Graph:
                 value_node.parents_ptr = [
                     self.dictionary_of_nodes[pi] for pi in value_node.parents
                 ]
-                for (
-                    pi
-                ) in (
+                for pi in (
                     value_node.parents_ptr
                 ):  # Here we can use pointer to parents directly
                     pi.children.append(key_node)

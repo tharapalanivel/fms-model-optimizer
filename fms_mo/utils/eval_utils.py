@@ -32,9 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 @torch.no_grad()
-def eval_llm_1GPU(
-    qcfg, model, test_dataset, pre_cache_func=None, **kwargs
-):  # pylint: disable=unused-argument
+def eval_llm_1GPU(qcfg, model, test_dataset, pre_cache_func=None, **kwargs):  # pylint: disable=unused-argument
     """
     Evaluate causal LLM with 1GPU, return perplexity
     Note: currently taking test_dataset as dict (instead of dataloader)

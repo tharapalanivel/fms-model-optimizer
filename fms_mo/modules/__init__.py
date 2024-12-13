@@ -17,7 +17,6 @@ Initialization for modules by import commonly used modules, here so that user ca
 import from modules directly, instead of import from modules.conv
 """
 
-
 # Local
 from fms_mo.modules.bmm import QBmm, QBmm_modules
 from fms_mo.modules.conv import QConv2d, QConv2d_modules, QConvTranspose2d

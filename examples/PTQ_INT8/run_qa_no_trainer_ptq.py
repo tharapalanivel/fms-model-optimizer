@@ -1126,7 +1126,6 @@ def main():
     from fms_mo import qconfig_init, qmodel_prep
 
     if args.do_qat:
-
         # create a config dict, if same item exists in both recipe and args, args has the priority.
         qcfg = qconfig_init(recipe="qat_int8", args=args)
 
@@ -1141,7 +1140,6 @@ def main():
         qmodel_prep(model, exam_inp, qcfg, optimizer, use_dynamo=True)
 
     if args.do_ptq:
-
         # Local
         from fms_mo.quant.ptq import calib_PTQ_lm
 
@@ -1216,7 +1214,6 @@ def main():
             ("int8", "ind"),
             ("int8", "cugr"),
         ]:
-
             logger.info(
                 f"\n    {label} {'with' if comp_mode else 'without'} torch.compile"
             )
@@ -1224,9 +1221,9 @@ def main():
 
             if label == "int8":
                 qcfg = qconfig_init(recipe="ptq_int8", args=args)
-                qcfg[
-                    "qmodel_calibration"
-                ] = 0  # no need to run calibration or trained scales will be lost.
+                qcfg["qmodel_calibration"] = (
+                    0  # no need to run calibration or trained scales will be lost.
+                )
                 qmodel_prep(
                     model_copy,
                     exam_inp,
@@ -1479,9 +1476,9 @@ def main():
             "step": completed_steps,
         }
     if args.do_predict:
-        log[
-            "squad_v2_predict" if args.version_2_with_negative else "squad_predict"
-        ] = predict_metric
+        log["squad_v2_predict" if args.version_2_with_negative else "squad_predict"] = (
+            predict_metric
+        )
 
         accelerator.log(log, step=completed_steps)
 

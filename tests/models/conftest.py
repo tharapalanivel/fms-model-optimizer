@@ -882,6 +882,7 @@ def qw_mode(request):
 # Save Config Fixtures #
 ########################
 
+
 # Dummy class
 class BadClass:
     """

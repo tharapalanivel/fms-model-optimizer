@@ -11,9 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Main user interfacing functions, such as qmodel_prep()
-
-"""
+"""Main user interfacing functions, such as qmodel_prep()"""
 
 # Standard
 from pathlib import Path
@@ -503,7 +501,6 @@ def q_any_net_5(model: nn.Module, qcfg: dict, verbose: bool = False):
     from torch.ao.quantization.utils import _parent_name
 
     for name, module in model.named_modules():
-
         parent_module_name, curr_mod_name = _parent_name(name)
         new_module = make_quant_module(module, name, qcfg)
         parent_module = model.get_submodule(parent_module_name)

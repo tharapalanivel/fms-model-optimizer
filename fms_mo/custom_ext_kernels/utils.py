@@ -514,7 +514,6 @@ def exllama_ops_load_and_reg(qcfg=None, run_unit_test=False):
         qcfg["AUTOGPTQ_AVAILABLE"] = True
         need_registration = False
     else:
-
         need_registration = (
             available_packages["exllama_kernels"]
             and available_packages["exllamav2_kernels"]
@@ -597,8 +596,7 @@ def exllama_ops_load_and_reg(qcfg=None, run_unit_test=False):
             q4: int,
             q4_width: int,
             force_cuda: bool,
-        ) -> torch.Tensor:
-            ...
+        ) -> torch.Tensor: ...
 
         # Generic implementation
         @kernel_impl(f"{namespace}::exv2_i4f16_fxinputs", "cuda")

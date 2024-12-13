@@ -868,9 +868,7 @@ class QLinearINT8Deploy(nn.Linear):
                 w_scale = torch.Tensor([w_cv * 2 / (2**qlinear_iW.nbits_w - 2)])
             else:
                 # fms_mo formula is a bit different from conventional PT formula
-                quant_scale = (2**qlinear_iW.nbits_a - 1) / torch.Tensor(
-                    [a_cv - a_cvn]
-                )
+                quant_scale = (2**qlinear_iW.nbits_a - 1) / torch.Tensor([a_cv - a_cvn])
                 quant_stepsize = 1.0 / quant_scale
                 quant_zero_point = torch.round(a_cvn * quant_scale)
                 input_scale = quant_stepsize
