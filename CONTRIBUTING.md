@@ -86,7 +86,7 @@ You can setup your dev environment using `tox`, an environment orchestrator whic
 pip install tox
 ```
 
-If you want to manage your own virtual environment () instead of using `tox`, you can install model optimizer and all dependencies. Check out [installation](./README.md#installation) foir more details.
+If you want to manage your own virtual environment instead of using `tox`, you can install the model optimizer and all dependencies. Check out [installation](./README.md#installation) for more details.
 
 Before pushing changes to GitHub, you need to run the tests and coding style as shown below. They can be run individually as shown in each sub-section or can be run with the one command:
 
@@ -114,12 +114,12 @@ tox -e unit -- tests/models/test_qmodelprep.py::test_double_qmodel_prep_assert
 
 FMS Model Optimizer follows the Python [pep8](https://peps.python.org/pep-0008/) coding style. The coding style is enforced by the CI system, and your PR will fail until the style has been applied correctly.
 
-We use [pre-commit](https://pre-commit.com/) to enforce coding style using [black](https://github.com/psf/black), and [isort](https://pycqa.github.io/isort/).
+We use [Ruff](https://docs.astral.sh/ruff/) to enforce coding style using [Black](https://github.com/psf/black), [isort](https://pycqa.github.io/isort/), and [Flake8](https://docs.astral.sh/ruff/faq/#how-does-ruffs-linter-compare-to-flake8).
 
-You can invoke formatting with:
+You can invoke Ruff with:
 
 ```sh
-tox -e fmt
+tox -e ruff
 ```
 
 You could optionally install the git [pre-commit hooks](https://pre-commit.com/) if you would like to format the code automatically for each commit:
@@ -136,6 +136,7 @@ You can invoke the linting with the following command
 ```shell
 tox -e lint
 ```
+
 ## Your First Code Contribution
 
 Unsure where to begin contributing? You can start by looking through these issues:
