@@ -6,7 +6,7 @@ Here, we provide an example of direct quantization. In this case, we demonstrate
 ## Requirements
 - [FMS Model Optimizer requirements](../../README.md#requirements)
 
-## Quickstart
+## QuickStart
 
 **1. Prepare Data** for calibration process by converting into its tokenized form. An example of tokenization using `LLAMA-3-8B`'s tokenizer is below.
 
@@ -55,7 +55,7 @@ The perplexity of the INT8 and FP8 quantized models on the `wikitext` dataset is
 |`Llama3-8b`|INT8 |maxpertoken   |maxperCh      |yes |yes |6.21      |
 |           |FP8  |fp8_e4m3_scale|fp8_e4m3_scale|yes |yes |6.19      |
 
-## Code Walkthrough
+## Code Walk-through
 
 **1. KV caching**
 

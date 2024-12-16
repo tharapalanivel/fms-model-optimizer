@@ -37,9 +37,9 @@ The quantization process can be illustrated in the following plots:
 
 ### Quantization-aware training (QAT)
 
-In order to accommodate the quantization errors, one straightfoward technique is to take quantization/dequantization into account during the training process, hence the name quantization-aware training [(QAT)](https://arxiv.org/pdf/1712.05877), as illustrated by Step 1 of the following figure. The training optimizer will then adjust the parameters of the model, e.g. weights, accordingly so that the resulting accuracy will be comparable to the original FP32 model.
+In order to accommodate the quantization errors, one straightforward technique is to take quantization/dequantization into account during the training process, hence the name quantization-aware training [(QAT)](https://arxiv.org/pdf/1712.05877), as illustrated by Step 1 of the following figure. The training optimizer will then adjust the parameters of the model, e.g. weights, accordingly so that the resulting accuracy will be comparable to the original FP32 model.
 
-There are many other techniques, such as post-training quantization ([PTQ](https://arxiv.org/abs/2102.05426)), that can achieve similar outcome. Users will need to pick the proper method for their specific task based on model size, dataset size, resource available, and other consideraions.
+There are many other techniques, such as post-training quantization ([PTQ](https://arxiv.org/abs/2102.05426)), that can achieve similar outcome. Users will need to pick the proper method for their specific task based on model size, dataset size, resource available, and other considerations.
 
 ![Quantize and deploy](./images/layer_swapping.png)
 
@@ -91,7 +91,7 @@ For generative LLMs, very often the bottleneck of inference is no longer the com
 
 The key architectural components are:
 1. **`model_analyzer`**, which traces the model and identifies the layers/operations to be quantized or to be skipped. It will try to recognize several well-known structures and configure based on best practice. However, users could also choose to bypass the tracing and manually specify the desired configuration with full flexibility.
-2. **A set of `wrappers`**. As shown in the figure above, the preparation for QAT and deployment can be viewed as a "layer swapping" process. One could identify a desired `torch.nn.Linear` layer to be quantized, e.g. Linear1 in the plot, and replace it with a `QLinear` wrapper, which contains a set of `quantizers` that can quantize/dequantize the inputs and weights before the Linear operation. Similarly, the `QLinear` wrapper for deployment stage will quantize the inputs, perform INT matmul, then dequantize the outcome. It is mathmatically equivalanet to the wrapper used in QAT, but it can utilize the INT compute engine.
+2. **A set of `wrappers`**. As shown in the figure above, the preparation for QAT and deployment can be viewed as a "layer swapping" process. One could identify a desired `torch.nn.Linear` layer to be quantized, e.g. Linear1 in the plot, and replace it with a `QLinear` wrapper, which contains a set of `quantizers` that can quantize/dequantize the inputs and weights before the Linear operation. Similarly, the `QLinear` wrapper for deployment stage will quantize the inputs, perform INT matmul, then dequantize the outcome. It is mathematically equivalent to the wrapper used in QAT, but it can utilize the INT compute engine.
 
 
 ### Interfaces

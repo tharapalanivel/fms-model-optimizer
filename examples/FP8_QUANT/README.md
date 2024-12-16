@@ -24,7 +24,7 @@ This is an example of mature FP8, which under the hood leverages some functional
 > [!CAUTION]
 > `vllm` may require a specific PyTorch version that is different from what is installed in your current environment and it may force install without asking. Make sure it's compatible with your settings or create a new environment if needed.
 
-## Quickstart
+## QuickStart
 This end-to-end example utilizes the common set of interfaces provided by `fms_mo` for easily applying multiple quantization algorithms with FP8 being the focus of this example. The steps involved are:
 
 1. **FP8 quantization through CLI**. Other arguments could be found here [FP8Args](../../fms_mo/training_args.py#L84).
@@ -88,7 +88,7 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
         |              |       |none  |     5|perplexity|↓  |3.8915|±  |0.3727|
     ```
 
-## Code Walkthrough
+## Code Walk-through
 
 1. The non-quantized pre-trained model is loaded using model wrapper from `llm-compressor`. The corresponding tokenizer is constructed as well.
 
