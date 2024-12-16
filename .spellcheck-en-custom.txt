@@ -74,6 +74,7 @@ pyenv
 pylint
 pygraphviz
 pyproject
+pyspelling
 pytest
 QAT
 QAT'ed
