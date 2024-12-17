@@ -1,5 +1,13 @@
 # FMS Model Optimizer
 
+![Lint](https://github.com/foundation-model-stack/fms-model-optimizer/actions/workflows/lint.yml/badge.svg?branch=main)
+![Tests](https://github.com/foundation-model-stack/fms-model-optimizer/actions/workflows/test.yml/badge.svg?branch=main)
+![Build](https://github.com/foundation-model-stack/fms-model-optimizer/actions/workflows/pypi.yml/badge.svg?branch=main)
+[![Minimum Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+![Release](https://img.shields.io/github/v/release/foundation-model-stack/fms-model-optimizer)
+![License](https://img.shields.io/github/license/foundation-model-stack/fms-model-optimizer)
+
+
 ## Introduction
 
 FMS Model Optimizer is a framework for developing reduced precision neural network models. Quantization techniques, such as [quantization-aware-training (QAT)](https://arxiv.org/abs/2407.11062), [post-training quantization (PTQ)](https://arxiv.org/abs/2102.05426), and several other optimization techniques on popular deep learning workloads are supported.
@@ -28,9 +36,9 @@ FMS Model Optimizer is a framework for developing reduced precision neural netwo
 ### Requirements
 
 1. **🐧 Linux system with Nvidia GPU (V100/A100/H100)**
-2. Python 3.10 or Python 3.11
+2. Python 3.9 to Python 3.11
     📋 Python 3.12 is currently not supported due to PyTorch Dynamo constraint
-2. CUDA >=12
+3. CUDA >=12
 
 *Optional packages based on optimization functionalities required:*
 
