@@ -13,7 +13,7 @@ For generative LLMs, very often the bottleneck of inference is no longer the com
     ```
 
 
-## Quickstart
+## QuickStart
 This end-to-end example utilizes the common set of interfaces provided by `fms_mo` for easily applying multiple quantization algorithms with GPTQ being the focus of this example. The steps involved are:
 
 1. **Convert the dataset into its tokenized form.** An example of tokenization using `LLAMA-3-8B`'s tokenizer is below.
@@ -109,7 +109,7 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 > There is some randomness in generating the model and data, the resulting accuracy may vary ~$\pm$ 0.05.
 
 
-## Code Walkthrough
+## Code Walk-through
 
 1.  Command line arguments will be used to create a GPTQ quantization config. Information about the required arguments and their default values can be found [here](../../fms_mo/training_args.py)
 

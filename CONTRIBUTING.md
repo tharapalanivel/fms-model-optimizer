@@ -88,7 +88,7 @@ pip install tox
 
 If you want to manage your own virtual environment instead of using `tox`, you can install the model optimizer and all dependencies. Check out [installation](./README.md#installation) for more details.
 
-Before pushing changes to GitHub, you need to run the tests and coding style as shown below. They can be run individually as shown in each sub-section or can be run with the one command:
+Before pushing changes to GitHub, you need to run the tests, coding style and spelling check as shown below. They can be run individually as shown in each sub-section or can be run with the one command:
 
 ```shell
 tox
@@ -135,6 +135,16 @@ You can invoke the linting with the following command
 
 ```shell
 tox -e lint
+```
+
+### Spelling check
+
+Spelling check is enforced by the CI system. Run the checker before pushing the changes to avoid CI issues. We use [pyspelling](https://github.com/facelessuser/pyspelling) spell check automation tool. It is a wrapper around CLI of [Aspell](http://aspell.net/) and [Hunspell](https://hunspell.github.io) which are spell checker tools. We configure `pyspelling` to use `Aspell` as the spell checker tool of choice.
+
+Running the spelling check is as simple as:
+
+```sh
+tox -e spellcheck
 ```
 
 ## Your First Code Contribution

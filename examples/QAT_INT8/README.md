@@ -23,7 +23,7 @@ In the following example, we will first create a fine-tuned FP16 model, and then
 - `PyTorch 2.3.1` (as newer version will cause issue for the custom CUDA kernel)
 
 
-## Quickstart
+## QuickStart
 
 > [!NOTE]
 > This example is based on the HuggingFace [Transformers Question answering example](https://github.com/huggingface/transformers/tree/main/examples/pytorch/question-answering).
@@ -101,7 +101,7 @@ For comparison purposes, here are some of the results we found during testing wh
 > [!NOTE]
 > Accuracy could vary ~ +-0.2 from run to run.
 
-|model|batchsize|torch.compile|accuracy(F1)|inference speed (msec)|
+|model|batch size|torch.compile|accuracy(F1)|inference speed (msec)|
 |----|--:|---------:|----:|------------:|
 |fp16|128|eager     |88.21 (as fine-tuned) |126.38|
 |    |128|Inductor  |     |71.59|
@@ -116,7 +116,7 @@ For comparison purposes, here are some of the results we found during testing wh
 
 <sup>3</sup> `CUDAGRAPH` is the most effective way to minimize job launching overheads and can achieve ~2X end-to-end speed-up in this case. However, there seem to be bugs associated with this option at the moment. Further investigation is still on-going.
 
-## Code Walkthrough
+## Code Walk-through
 
 In this section, we will deep dive into what happens during the example steps.
 

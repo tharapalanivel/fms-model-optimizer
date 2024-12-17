@@ -1,6 +1,6 @@
 # Notice
 
-In the `ptq.py` file in this folder, Class `StraightThrough`, function `_fold_bn`, `fold_bn_into_conv`, `reset_bn`, and `search_fold_and_remove_bn` are modified from `QDROP` reposotpry on GitHub. 
+In the `ptq.py` file in this folder, Class `StraightThrough`, function `_fold_bn`, `fold_bn_into_conv`, `reset_bn`, and `search_fold_and_remove_bn` are modified from `QDROP` repository on GitHub. 
 For the original code, see [QDrop](https://github.com/wimh966/QDrop/tree/qdrop/qdrop/quantization) which has no license stipulated.
 
 In the `quantizers.py` file in this folder, Class/function `MSEObserver`, `ObserverBase`, `fake_quantize_per_channel_affine`, `fake_quantize_per_tensor_affine`, `_transform_to_ch_axis`, `CyclicTempDecay`, `LinearTempDecay`, `AdaRoundSTE`, `AdaRoundQuantizerare` are modified from `BRECQ` repository on GitHub. For the original code, see [BRECQ](https://github.com/yhhhli/BRECQ) with the following license.

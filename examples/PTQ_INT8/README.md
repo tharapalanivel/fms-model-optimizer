@@ -15,7 +15,7 @@ This is an example of [block sequential PTQ](https://arxiv.org/abs/2102.05426). 
 - `PyTorch 2.3.1` (as newer version will cause issue for the custom CUDA kernel)
 
 
-## Quickstart
+## QuickStart
 
 > [!NOTE]
 > This example is based on the HuggingFace [Transformers Question answering example](https://github.com/huggingface/transformers/tree/main/examples/pytorch/question-answering). Unlike our [QAT example](../QAT_INT8/README.md), which utilizes the training loop of the original code, our PTQ function will control the loop and the program will end before entering the original loop. Make sure the model doesn't get "tuned" twice!
@@ -106,7 +106,7 @@ The table below shows results obtained for the conditions listed:
 `Nouterloop` and  `ptq_nbatch` are PTQ specific hyper-parameter.
 Above experiments were run on v100 machine.
 
-## Code Walkthrough
+## Code Walk-through
 
 In this section, we will deep dive into what happens during the example steps.
 
