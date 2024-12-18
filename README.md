@@ -73,7 +73,21 @@ source fms_mo_venv/bin/activate
 > [!TIP]
 > If you use [pyenv](https://github.com/pyenv/pyenv), [Conda Miniforge](https://github.com/conda-forge/miniforge) or other such tools for Python version management, create the virtual environment with that tool instead of venv. Otherwise, you may have issues with installed packages not being found as they are linked to your Python version management tool and not `venv`.
 
-To install `fms_mo` package from source:
+There are 2 ways to install the FMS Model Optimizer as follows:
+
+#### From Release
+
+To install from release ([PyPi package](https://pypi.org/project/fms-model-optimizer/)):
+
+```shell
+python3 -m venv fms_mo_venv
+source fms_mo_venv/bin/activate
+pip install fms-model-optimizer
+```
+
+#### From Source
+
+To install from source(GitHub Repository):
 
 ```shell
 python3 -m venv fms_mo_venv
