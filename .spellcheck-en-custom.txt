@@ -50,6 +50,7 @@ lossy
 LSTM
 matmul
 matmuls
+matplotlib
 maxperCh
 maxpertoken
 Miniforge
