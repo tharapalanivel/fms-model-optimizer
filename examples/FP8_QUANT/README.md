@@ -10,7 +10,7 @@ This is an example of mature FP8, which under the hood leverages some functional
 ## Requirements
 
 - [FMS Model Optimizer requirements](../../README.md#requirements)
-- Nvidia H100 family or higher
+- Nvidia A100 family or higher
 - The [llm-compressor](https://github.com/vllm-project/llm-compressor) library can be installed using pip:
 
     ```bash

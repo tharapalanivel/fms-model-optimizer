@@ -51,7 +51,7 @@ FMS Model Optimizer is a framework for developing reduced precision neural netwo
     - Clone the [CUTLASS](https://github.com/NVIDIA/cutlass) repository
     - `PyTorch 2.3.1` (as newer version will cause issue for the custom CUDA kernel used in these examples)
 - **FP8** is a reduced precision format like **INT8**:
-    - Nvidia H100 family or higher
+    - Nvidia A100 family or higher
     - [llm-compressor](https://github.com/vllm-project/llm-compressor)
 - To enable compute graph plotting function (mostly for troubleshooting purpose):
     - [matplotlib](https://matplotlib.org/)
@@ -59,7 +59,7 @@ FMS Model Optimizer is a framework for developing reduced precision neural netwo
     - [pygraphviz](https://pygraphviz.github.io/)
 
 > [!NOTE]
-> PyTorch version should be < 2.5 if you would like to experiment deployment with external INT8 kernel.
+> PyTorch version should be < 2.4 if you would like to experiment deployment with external INT8 kernel.
 
 ### Installation
 
