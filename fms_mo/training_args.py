@@ -78,6 +78,14 @@ class DataArguments:
     max_seq_length: Optional[int] = field(default=2048)
     num_calibration_samples: Optional[int] = field(default=512)
 
+@dataclass
+class OptArguments:
+    log_level: str = field(
+        default="INFO",
+        metadata={
+            "help": "The log level to adopt during optimization."
+        },
+    )
 
 @dataclass
 class FMSMOArguments:
