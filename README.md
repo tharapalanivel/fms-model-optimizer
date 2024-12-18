@@ -10,7 +10,7 @@
 
 ## Introduction
 
-FMS Model Optimizer is a framework for developing reduced precision neural network models. Quantization techniques, such as [quantization-aware-training (QAT)](https://arxiv.org/abs/2407.11062), [post-training quantization (PTQ)](https://arxiv.org/abs/2102.05426), and several other optimization techniques on popular deep learning workloads are supported.
+FMS Model Optimizer is a framework for developing reduced precision neural network models. [Quantization](https://www.ibm.com/think/topics/quantization) techniques, such as [quantization-aware-training (QAT)](https://arxiv.org/abs/2407.11062), [post-training quantization (PTQ)](https://arxiv.org/abs/2102.05426), and several other optimization techniques on popular deep learning workloads are supported.
 
 ## Highlights
 
@@ -37,10 +37,11 @@ FMS Model Optimizer is a framework for developing reduced precision neural netwo
 
 1. **🐧 Linux system with Nvidia GPU (V100/A100/H100)**
 2. Python 3.9 to Python 3.11
+
     📋 Python 3.12 is currently not supported due to PyTorch Dynamo constraint
 3. CUDA >=12
 
-*Optional packages based on optimization functionalities required:*
+*Optional packages based on optimization functionality required:*
 
 - **GPTQ** is a popular compression method for LLMs: 
     - [auto_gptq](https://pypi.org/project/auto-gptq/) or build from [source](https://github.com/AutoGPTQ/AutoGPTQ)
@@ -50,9 +51,10 @@ FMS Model Optimizer is a framework for developing reduced precision neural netwo
     - Clone the [CUTLASS](https://github.com/NVIDIA/cutlass) repository
     - `PyTorch 2.3.1` (as newer version will cause issue for the custom CUDA kernel used in these examples)
 - **FP8** is a reduced precision format like **INT8**:
-    - Nvidia H100 family or higher
+    - Nvidia A100 family or higher
     - [llm-compressor](https://github.com/vllm-project/llm-compressor)
 - To enable compute graph plotting function (mostly for troubleshooting purpose):
+    - [matplotlib](https://matplotlib.org/)
     - [graphviz](https://graphviz.org/)
     - [pygraphviz](https://pygraphviz.github.io/)
 
@@ -61,7 +63,7 @@ FMS Model Optimizer is a framework for developing reduced precision neural netwo
 
 ### Installation
 
-We recommend using a Python virtual environment with Python 3.10+. Here is how to setup a virtual environment using [Python venv](https://docs.python.org/3/library/venv.html):
+We recommend using a Python virtual environment with Python 3.9+. Here is how to setup a virtual environment using [Python venv](https://docs.python.org/3/library/venv.html):
 
 ```
 python3 -m venv fms_mo_venv
@@ -71,7 +73,21 @@ source fms_mo_venv/bin/activate
 > [!TIP]
 > If you use [pyenv](https://github.com/pyenv/pyenv), [Conda Miniforge](https://github.com/conda-forge/miniforge) or other such tools for Python version management, create the virtual environment with that tool instead of venv. Otherwise, you may have issues with installed packages not being found as they are linked to your Python version management tool and not `venv`.
 
-To install `fms_mo` package from source:
+There are 2 ways to install the FMS Model Optimizer as follows:
+
+#### From Release
+
+To install from release ([PyPi package](https://pypi.org/project/fms-model-optimizer/)):
+
+```shell
+python3 -m venv fms_mo_venv
+source fms_mo_venv/bin/activate
+pip install fms-model-optimizer
+```
+
+#### From Source
+
+To install from source(GitHub Repository):
 
 ```shell
 python3 -m venv fms_mo_venv
