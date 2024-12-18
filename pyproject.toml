@@ -21,12 +21,10 @@ classifiers=[
 ]
 dynamic = ["version"]
 dependencies = [
-"torch >=2.1, <2.4",
 "numpy",
 "tqdm",
 "tensorboard",
 "notebook",
-"torchvision>=0.8",
 "transformers",
 "accelerate",
 "evaluate",
@@ -35,6 +33,7 @@ dependencies = [
 "pandas",
 "safetensors",
 "ninja",
+"accelerate>=0.20.3,!=0.34,<1.1",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +41,8 @@ dev = ["pre-commit>=3.0.4,<5.0"]
 fp8 = ["llmcompressor"]
 gptq = ["auto_gptq"]
 visualize = ["matplotlib", "graphviz", "pygraphviz"]
+flash-attn = ["flash-attn>=2.5.3,<3.0"]
+opt = ["fms-model-optimizer[fp8, gptq]"]
 
 [project.urls]
 homepage = "https://github.com/foundation-model-stack/fms-model-optimizer"
