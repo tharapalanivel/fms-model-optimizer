@@ -31,7 +31,7 @@ import torch
 import torch.nn as nn
 
 # Local
-from fms_mo.aiu_addons.int8.int8_aiu_op import register_aiu_i8i8_op
+from fms_mo.aiu_addons.i8i8.i8i8_aiu_op import register_aiu_i8i8_op
 
 register_aiu_i8i8_op()
 
