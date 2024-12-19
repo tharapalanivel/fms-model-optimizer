@@ -21,10 +21,12 @@ classifiers=[
 ]
 dynamic = ["version"]
 dependencies = [
+"torch >=2.1, <2.4",
 "numpy",
 "tqdm",
 "tensorboard",
 "notebook",
+"torchvision>=0.8",
 "transformers",
 "accelerate",
 "evaluate",
