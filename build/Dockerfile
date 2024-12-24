@@ -142,13 +142,14 @@ RUN if [[ "${ENABLE_AIM}" == "true" ]]; then \
     fi
 
 # TPP Temporarily overwriting torch version
-ARG PYTORCH_INDEX="https://download.pytorch.org/whl"
-ARG PYTORCH_VERSION=2.2.1
-# Install specific version of torch
-RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
-    python -m pip install ninja==1.11.1.1 --no-cache-dir  && \
-    python -m  pip install packaging --no-cache-dir  && \
-    python -m  pip install torch==$PYTORCH_VERSION+cu121 torchvision --index-url "${PYTORCH_INDEX}/cu121" --no-cache-dir
+# ARG PYTORCH_INDEX="https://download.pytorch.org/whl"
+# ARG PYTORCH_VERSION=2.2.1
+# # Install specific version of torch
+# RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
+#     python -m pip install ninja==1.11.1.1 --no-cache-dir  && \
+#     python -m  pip install packaging --no-cache-dir  && \
+#     python -m  pip install torch==$PYTORCH_VERSION+cu121 torchvision --index-url "${PYTORCH_INDEX}/cu121" --no-cache-dir && \
+#     FLASH_ATTENTION_FORCE_BUILD=TRUE python -m pip install flash-attn
 
 # Clean up the wheel module. It's only needed by flash-attn install
 RUN python -m pip uninstall wheel build -y && \
