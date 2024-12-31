@@ -131,25 +131,30 @@ RUN if [[ -z "${WHEEL_VERSION}" ]]; \
     ls /tmp/*.whl >/tmp/bdist_name
 
 # Install from the wheel
+# TPP Temporarily overwriting torch version
+ARG PYTORCH_INDEX="https://download.pytorch.org/whl"
+ARG PYTORCH_VERSION=2.2.1
 RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
     python -m pip install --user wheel && \
-    python -m pip install --user "$(head bdist_name)[opt]" --no-build-isolation && \
     python -m pip install --user "$(head bdist_name)" && \
-    python -m pip install --user "$(head bdist_name)[flash-attn]" --no-build-isolation --force-reinstall
+    python -m pip install --user "$(head bdist_name)[flash-attn]" && \
+    python -m pip install --user torch==$PYTORCH_VERSION+cu121 torchvision --index-url "${PYTORCH_INDEX}/cu121" --no-cache-dir && \
+    python -m pip install --user "$(head bdist_name)[opt]" --no-build-isolation
+
 
 RUN if [[ "${ENABLE_AIM}" == "true" ]]; then \
         python -m pip install --user "$(head bdist_name)[aim]"; \
     fi
-
+    
 # TPP Temporarily overwriting torch version
 # ARG PYTORCH_INDEX="https://download.pytorch.org/whl"
 # ARG PYTORCH_VERSION=2.2.1
-# # Install specific version of torch
+# Install specific version of torch
 # RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
-#     python -m pip install ninja==1.11.1.1 --no-cache-dir  && \
-#     python -m  pip install packaging --no-cache-dir  && \
-#     python -m  pip install torch==$PYTORCH_VERSION+cu121 torchvision --index-url "${PYTORCH_INDEX}/cu121" --no-cache-dir && \
-#     FLASH_ATTENTION_FORCE_BUILD=TRUE python -m pip install flash-attn
+    # python -m pip install ninja==1.11.1.1 --no-cache-dir  && \
+    # python -m  pip install packaging --no-cache-dir  && \
+    # python -m pip install --user torch==$PYTORCH_VERSION+cu121 torchvision --index-url "${PYTORCH_INDEX}/cu121" --no-cache-dir && \
+    # FLASH_ATTENTION_FORCE_BUILD=TRUE python -m pip install --user flash-attn --force-reinstall
 
 # Clean up the wheel module. It's only needed by flash-attn install
 RUN python -m pip uninstall wheel build -y && \
