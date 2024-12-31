@@ -131,14 +131,9 @@ RUN if [[ -z "${WHEEL_VERSION}" ]]; \
     ls /tmp/*.whl >/tmp/bdist_name
 
 # Install from the wheel
-# TPP Temporarily overwriting torch version
-ARG PYTORCH_INDEX="https://download.pytorch.org/whl"
-ARG PYTORCH_VERSION=2.2.1
 RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
     python -m pip install --user wheel && \
     python -m pip install --user "$(head bdist_name)" && \
-    python -m pip install --user "$(head bdist_name)[flash-attn]" && \
-    python -m pip install --user torch==$PYTORCH_VERSION+cu121 torchvision --index-url "${PYTORCH_INDEX}/cu121" --no-cache-dir && \
     python -m pip install --user "$(head bdist_name)[opt]" --no-build-isolation
 
 
