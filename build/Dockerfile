@@ -133,7 +133,7 @@ RUN if [[ -z "${WHEEL_VERSION}" ]]; \
 # Install from the wheel
 RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
     python -m pip install --user wheel && \
-    python -m pip install --user "$(head bdist_name)" && \
+    python -m pip install --user "$(head bdist_name)" --extra-index-url https://download.pytorch.org/whl/cu121 && \
     python -m pip install --user "$(head bdist_name)[opt]" --no-build-isolation
 
 
