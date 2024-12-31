@@ -133,12 +133,9 @@ RUN if [[ -z "${WHEEL_VERSION}" ]]; \
 # Install from the wheel
 RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
     python -m pip install --user wheel && \
-    python -m pip install --user "$(head bdist_name)[fp8]" && \
+    python -m pip install --user "$(head bdist_name)[opt]" --no-build-isolation && \
     python -m pip install --user "$(head bdist_name)" && \
-    python -m pip install --user "$(head bdist_name)[flash-attn]" --no-build-isolation && \
-    git clone https://github.com/PanQiWei/AutoGPTQ.git && \
-        cd AutoGPTQ && \
-        python -m  pip install -vvv --no-build-isolation -e .
+    python -m pip install --user "$(head bdist_name)[flash-attn]" --no-build-isolation
 
 
 RUN if [[ "${ENABLE_AIM}" == "true" ]]; then \
