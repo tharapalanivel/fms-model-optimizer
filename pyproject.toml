@@ -24,7 +24,7 @@ dependencies = [
 "numpy>=1.26.4,<2.0",
 "accelerate>=0.20.3,!=0.34,<1.1",
 "transformers>=4.45,<4.46",
-"torch>=2.2.0,<2.4", 
+"torch=2.2.1", 
 "tqdm>=4.66.2,<5.0",
 "datasets>=2.15.0,<3.0",
 "ninja>=1.11.1.1,<2.0",
@@ -42,7 +42,7 @@ dev = ["pre-commit>=3.0.4,<5.0"]
 fp8 = ["llmcompressor"]
 gptq = ["auto_gptq>0.4.2", "optimum>=1.15.0"]
 visualize = ["matplotlib", "graphviz", "pygraphviz"]
-flash-attn = ["flash-attn>=2.5.3,<3.0"]
+flash-attn = ["flash-attn>=2.5.3,<2.5.7"]
 opt = ["fms-model-optimizer[fp8, gptq]"]
 
 [project.urls]
