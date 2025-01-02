@@ -32,7 +32,7 @@ class PerChSTEBase(torch.autograd.Function):
     """Base class for customized forward/backward functions that is NOT using PT native func.
     There's a family of non-learnable quantizers, such as SAWB, MinMax,
     whose forward can be the same quant functions and backward is simply STE.
-    We just need to calculate scales in the upper level quantizer class then those quantizers
+    We just need to calculate scale in the upper level quantizer class then those quantizers
     could all be using the same base "STE function"
 
     math should be consistent with pytorch: https://pytorch.org/docs/stable/quantization.html
@@ -74,18 +74,18 @@ class PerChSTEBase(torch.autograd.Function):
             torch.Tensor: Dequantized or Quantized output tensor.
         """
         clip_valn, clip_val = transform_clips(input_tensor.dtype, clip_valn, clip_val)
-        n_levels, scales, zero_points = PerChSTEBase.calc_qparams(
+        n_levels, scale, zero_point = PerChSTEBase.calc_qparams(
             input_tensor, num_bits, clip_valn, clip_val, qlevel_lowering
         )
         PerChSTEBase.save_tensors(
             ctx,
-            tensors=(input_tensor, n_levels, clip_valn, clip_val, scales, zero_points),
+            tensors=(input_tensor, n_levels, clip_valn, clip_val, scale, zero_point),
         )
         output = linear_quantization(
             input_tensor,
             num_bits,
-            scales,
-            zero_points,
+            scale,
+            zero_point,
             dequantize,
             symmetric,
             qlevel_lowering,
@@ -116,20 +116,21 @@ class PerChSTEBase(torch.autograd.Function):
             [torch.IntTensor, torch.FloatTensor, torch.IntTensor]: Quantized parameters
         """
         if symmetric:
-            n_levels, scales, zero_points = symmetric_linear_quantization_params(
+            n_levels, scale, zero_point = symmetric_linear_quantization_params(
                 num_bits,
                 clip_val,
                 qlevel_lowering,
             )
         else:
-            n_levels, scales, zero_points = asymmetric_linear_quantization_params(
+            n_levels, scale, zero_point = asymmetric_linear_quantization_params(
                 num_bits,
                 clip_valn,
                 clip_val,
                 integral_zero_point=True,
                 signed=False,
             )
-        return n_levels, scales, zero_points
+        return n_levels, scale, zero_point
+
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -151,7 +152,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
     """Base class for customized forward/backward functions.
     There's a family of non-learnable quantizers, such as SAWB, MinMax,
     whose forward can leverage PT native functions and backward is simply STE.
-    We just need to calculate scales in the upper level quantizer class then those quantizers
+    We just need to calculate scale in the upper level quantizer class then those quantizers
     could all be using the same base "STE function"
 
     math should be consistent with pytorch: https://pytorch.org/docs/stable/quantization.html
@@ -159,14 +160,6 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
         x_dq  = (x_int - zp) * scale
 
     This type of class will be used by Quantizer.forward(), e.g.
-
-    class MinMAxQuantizer():
-        ...
-        self.quantizer = MinMaxFwdBwd ( NOTE this class inherits FwdBwdSTEBase)
-        ...
-        def forward(inp):
-            out = self.quantizer.apply(inp, *args ...)
-            return out
     """
 
     @staticmethod
@@ -208,8 +201,8 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
         )
         (
             _,
-            scales,
-            zero_points,
+            scale,
+            zero_point,
             qint_l,
             qint_h,
             qint_dtype,
@@ -217,7 +210,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering
         )
         output = PerChSTEBase_PTnative.linear_quantization(
-            input_tensor, scales, zero_points, qint_l, qint_h, qint_dtype, dequantize
+            input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
         )
         return output
 
@@ -248,7 +241,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
         n_levels = 2**num_bits - 2 if qlevel_lowering else 2**num_bits - 1
         scale = (clip_val - clip_valn) / n_levels
         zero_point = (
-            torch.tensor(0)
+            torch.zeros_like(scale)
             if symmetric
             else torch.round(-clip_valn / scale).to(torch.int)
         )
@@ -289,8 +282,8 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
     def linear_quantization(
         cls,
         input_tensor: torch.FloatTensor,
-        scales: torch.FloatTensor,
-        zero_points: torch.IntTensor,
+        scale: torch.FloatTensor,
+        zero_point: torch.IntTensor,
         qint_l: int,
         qint_h: int,
         qint_dtype: torch.dtype,
@@ -301,8 +294,8 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
 
         Args:
             input_tensor (torch.FloatTensor): Tensor to be quantized
-            scales (torch.FloatTensor): Quantized bin ranges per channel.
-            zero_points (torch.IntTensor): Quantized integer bin mapping to fp 0.0 per channel.
+            scale (torch.FloatTensor): Quantized bin ranges per channel.
+            zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0 per channel.
             qint_l (int): Quantized integer lower clip value.
             qint_h (int): Quantized integer upper clip value.
             qint_dtype (torch.dtype): Quantized integer dtype.
@@ -311,20 +304,25 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
         Returns:
             torch.Tensor: PTnative quantized or dequantized tensor.
         """
-        # TODO check if we can use default values in this type of classes
         if dequantize:
+            # Note: scale + zero_point are per channel tensors
             output = torch.fake_quantize_per_channel_affine(
                 input_tensor.float(),
-                scales.float(),
-                zero_points,
+                scale.float(),
+                zero_point,
                 axis=0,
                 quant_min=qint_l,
                 quant_max=qint_h,
             ).to(input_tensor.dtype)
         else:
+            # Note: scale is multi-valued, but zero_point isn't...
             output = (
                 torch.quantize_per_channel(
-                    input_tensor, scales, zero_points, 0, qint_dtype
+                    input_tensor.float(),
+                    scale.float(),
+                    zero_point,
+                    axis=0,
+                    dtype=qint_dtype
                 )
                 .int_repr()
                 .clamp(qint_l, qint_h)
