@@ -286,8 +286,7 @@ def asymmetric_linear_quantization_params(
         diff = sat_max - sat_min
         # If float values are all 0, we just want the quantized values to be 0 as well.
         # So overriding the saturation value to 'n', so the scale becomes 1
-        if diff == 0.0:
-            diff = n_levels
+        diff[ diff == 0.0 ] = n_levels
         scale = diff / n_levels
         zero_point = -sat_min / scale
         if integral_zero_point:
@@ -307,14 +306,15 @@ def symmetric_linear_quantization_params(
 
     Args:
         num_bits (torch.IntTensor): Number of bits for quantization.
-        sat_max (torch.FloatTensor): Upper clip value.
+        sat_max (torch.FloatTensor): Upper clip value.  Can be multi-valued (perCh/perGp).
         qlevel_lowering (bool, optional): Specify lowering of quantized levels. Defaults to False.
+        Ngp_or_ch (int, optional): 
 
     Returns:
         [torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
             # of quantized levels, scale, zero point
     """
-    if sat_val < 0.0:
+    if torch.any(sat_val < 0.0):
         raise ValueError("Saturation value must be >= 0")
 
     with torch.no_grad():
@@ -324,8 +324,7 @@ def symmetric_linear_quantization_params(
         # If float values are all 0, we just want the quantized values to be 0 as well.
         # So overriding the saturationvalue to '2n', so the scale becomes 1
         diff = 2 * sat_val
-        if diff == 0.0:
-            diff = n_levels
+        diff[ diff == 0.0 ] = n_levels
         scale = diff / n_levels
         zero_point = torch.zeros_like(scale)
         return n_levels, scale, zero_point
