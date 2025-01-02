@@ -36,7 +36,7 @@ import os
 from datasets import load_from_disk
 from transformers import AutoTokenizer
 import transformers
-from huggingface_hub.utils._validators import HFValidationError
+from huggingface_hub.errors import HFValidationError
 from torch.cuda import OutOfMemoryError
 
 # Local
@@ -150,6 +150,8 @@ def run_gptq(model_args, data_args, opt_args, gptq_args, output_dir):
         quantize_config=quantize_config,
         torch_dtype=model_args.torch_dtype,
     )
+    if model_args.device:
+        model = model.to(model_args.device)
 
     logger.info(f"Loading data from {data_args.training_data_path}")
     tokenizer = AutoTokenizer.from_pretrained(
