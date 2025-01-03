@@ -51,7 +51,7 @@ from fms_mo.utils.utils import patch_torch_bmm, prepare_input
 logger = logging.getLogger(__name__)
 
 
-def run_dq(model_args, data_args, fms_mo_args, output_dir):
+def run_dq(model_args, data_args, opt_args, fms_mo_args):
     """
     For direct quantization LLMs without optimization:
     Models are directly quantized into INT8 or FP8 precisions using
@@ -63,8 +63,9 @@ def run_dq(model_args, data_args, fms_mo_args, output_dir):
             the model
         data_args (fms_mo.training_args.DataArguments): Data arguments to be used when loading the
             tokenized dataset
+        opt_args (fms_mo.training_args.OptArguments): Generic optimization arguments to be used
+            during DQ
         fms_mo_args (fms_mo.training_args.FMSMOArguments): Parameters to use for DQ quantization
-        output_dir (str) Output directory to write to
     """
     # for attention or kv-cache quantization, need to use eager attention
     attn_bits = [
@@ -218,9 +219,9 @@ def run_dq(model_args, data_args, fms_mo_args, output_dir):
                 with patch_torch_bmm(qcfg):
                     model(**data_mb)
 
-    logger.info(f"Saving quantized model and tokenizer to {output_dir}")
-    model.save_pretrained(output_dir, use_safetensors=True)
-    tokenizer.save_pretrained(output_dir)
+    logger.info(f"Saving quantized model and tokenizer to {opt_args.output_dir}")
+    model.save_pretrained(opt_args.output_dir, use_safetensors=True)
+    tokenizer.save_pretrained(opt_args.output_dir)
 
     if fms_mo_args.eval_ppl:
         path_test = Path(data_args.test_data_path)
