@@ -11,18 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Helpful datasets for configuring individual unit tests.
-"""
-# Standard
-import os
-
-### Constants used for data
-MODEL_NAME = "Maykeye/TinyLLama-v0"
-DATA_DIR = os.path.join(os.path.dirname(__file__))
-
-WIKITEXT_TOKENIZED_DATA_JSON = os.path.join(
-    DATA_DIR, "wiki_maykeye_tinyllama_v0_numsamp2_seqlen2048"
-)
-EMPTY_DATA = os.path.join(DATA_DIR, "empty_data.json")
-MALFORMATTED_DATA = os.path.join(DATA_DIR, "malformatted_data.json")
