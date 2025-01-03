@@ -42,9 +42,8 @@ class sqQscheme:
     """
 
     q_unit: str = "perT"
-    q_unit_allowed = ["perT", "perCh", "perGrp"]  # NOTE 'perch' will not allowed
+    q_unit_allowed = ["perT", "perCh", "perGrp", "perTok"]  # NOTE 'perch' not allowed
     symmetric: bool = True
-    Ngrp_or_ch = None
     # for PACT kind quantizer only, clipvaln always fixed at 0
     single_sided: bool = False
     # for symmetric quantizers: reduce qlevels to 2**b - 2 ; some special cases don't use this!
@@ -54,7 +53,8 @@ class sqQscheme:
         self,
         unit: str,
         symmetric: bool = True,
-        Ngrp_or_ch: int = None,
+        Nch: int = None,
+        Ngrp: int = None,
         single_sided: bool = False,
         qlevel_lowering: bool = True,
     ):
@@ -64,7 +64,8 @@ class sqQscheme:
         Args:
             unit (str): Type of quantization.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to True.
-            Ngrp_or_ch (int, optional): Number of channels or groups. Defaults to None.
+            Nch (int, optional): Number of channels. Defaults to None.
+            Ngrp (int, optional): Number of groups. Defaults to None.
             single_sided (bool, optional): Specify if clip values are positive. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
@@ -88,13 +89,27 @@ class sqQscheme:
         elif unit in self.q_unit_allowed:
             self.q_unit = unit
             self.symmetric = symmetric
-            if unit in ["perCh", "perGrp"]:
-                if issubclass(type(Ngrp_or_ch), int):
-                    self.Ngrp_or_ch = Ngrp_or_ch
+            if unit == "perCh":
+                if issubclass(type(Nch), int):
+                    assert Nch > 0, "Provided Nch is negative"
+                    self.Nch = Nch
                 else:
                     raise RuntimeError(
-                        "perCh or perGrp was selected without specifying Ngrp_or_ch."
+                        "perCh was selected without specifying Nch."
                     )
+            elif unit == "perGrp":
+                if issubclass(type(Ngrp), int):
+                    assert Ngrp > 0, "Provided Ngrp is negative"
+                    self.Ngrp = Ngrp
+                else:
+                    raise RuntimeError(
+                        "perGrp was selected without specifying Ngrp."
+                    )
+                # perGrp can be across channels, but is not required
+                if issubclass(type(Nch), int):
+                    assert Nch > 0, "Provided Nch is negative"
+                    self.Nch = Nch
+
             self.single_sided = single_sided
             self.qlevel_lowering = qlevel_lowering
         else:
