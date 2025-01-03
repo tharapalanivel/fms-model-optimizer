@@ -12,8 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Unit Tests for accelerate_launch script.
-"""
+"""Unit Tests for accelerate_launch script."""
 
 # Standard
 import os
@@ -36,9 +35,7 @@ from fms_mo.utils.import_utils import available_packages
 
 SCRIPT = os.path.join(os.path.dirname(__file__), "../..", "fms_mo/run_quant.py")
 BASE_KWARGS = {
-    "accelerate_launch_args":{
-        "num_processes": 1
-    },
+    "accelerate_launch_args": {"num_processes": 1},
     "model_name_or_path": MODEL_NAME,
 }
 BASE_GPTQ_KWARGS = {
@@ -48,7 +45,7 @@ BASE_GPTQ_KWARGS = {
         "bits": 4,
         "group_size": 64,
         "training_data_path": WIKITEXT_TOKENIZED_DATA_JSON,
-        "device": "cuda"
+        "device": "cuda",
     },
 }
 BASE_FP8_KWARGS = {
@@ -62,7 +59,7 @@ BASE_DQ_KWARGS = {
     **{
         "quant_method": "dq",
         "nbits_w": 8,
-        "nbits_a": 8, 
+        "nbits_a": 8,
         "nbits_kvcache": 32,
         "qa_mode": "fp8_e4m3_scale",
         "qw_mode": "fp8_e4m3_scale",
@@ -70,6 +67,7 @@ BASE_DQ_KWARGS = {
         "training_data_path": WIKITEXT_TOKENIZED_DATA_JSON,
     },
 }
+
 
 def setup_env(tempdir):
     os.environ["OPTIMIZER_SCRIPT"] = SCRIPT
@@ -84,7 +82,10 @@ def cleanup_env():
     os.environ.pop("TERMINATION_LOG_FILE", None)
 
 
-@pytest.mark.skipif(not available_packages["auto_gptq"], reason="Only runs if auto-gptq package is installed")
+@pytest.mark.skipif(
+    not available_packages["auto_gptq"],
+    reason="Only runs if auto-gptq package is installed",
+)
 def test_successful_gptq():
     """Check if we can gptq models"""
     with tempfile.TemporaryDirectory() as tempdir:
@@ -99,7 +100,10 @@ def test_successful_gptq():
         _validate_quantization_output(tempdir, "gptq")
 
 
-@pytest.mark.skipif(not available_packages["llmcompressor"], reason="Only runs if llm-compressor package is installed")
+@pytest.mark.skipif(
+    not available_packages["llmcompressor"],
+    reason="Only runs if llm-compressor package is installed",
+)
 def test_successful_fp8():
     """Check if we can fp8 quantize models"""
     with tempfile.TemporaryDirectory() as tempdir:
@@ -139,7 +143,7 @@ def test_bad_script_path():
 
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert pytest_wrapped_e.type == SystemExit
+        assert isinstance(pytest_wrapped_e.type, SystemExit)
         assert pytest_wrapped_e.value.code == INTERNAL_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -150,9 +154,10 @@ def test_blank_config_json_env_var():
         os.environ["FMS_MO_CONFIG_JSON_ENV_VAR"] = ""
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert pytest_wrapped_e.type == SystemExit
+        assert isinstance(pytest_wrapped_e.type, SystemExit)
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
+
 
 def test_blank_config_json_path():
     with tempfile.TemporaryDirectory() as tempdir:
@@ -160,9 +165,10 @@ def test_blank_config_json_path():
         os.environ["FMS_MO_CONFIG_JSON_PATH"] = ""
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert pytest_wrapped_e.type == SystemExit
+        assert isinstance(pytest_wrapped_e.type, SystemExit)
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
+
 
 def test_faulty_file_path():
     with tempfile.TemporaryDirectory() as tempdir:
@@ -176,7 +182,7 @@ def test_faulty_file_path():
         os.environ["FMS_MO_CONFIG_JSON_ENV_VAR"] = serialized_args
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert pytest_wrapped_e.type == SystemExit
+        assert isinstance(pytest_wrapped_e.type, SystemExit)
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -192,7 +198,7 @@ def test_bad_base_model_path():
         os.environ["FMS_MO_CONFIG_JSON_ENV_VAR"] = serialized_args
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert pytest_wrapped_e.type == SystemExit
+        assert isinstance(pytest_wrapped_e.type, SystemExit)
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -200,12 +206,15 @@ def test_bad_base_model_path():
 def test_config_parsing_error():
     with tempfile.TemporaryDirectory() as tempdir:
         setup_env(tempdir)
-        DQ_KWARGS = {**BASE_DQ_KWARGS, **{"nbits_w": "eight", "output_dir": tempdir}}  # Intentional type error
+        DQ_KWARGS = {
+            **BASE_DQ_KWARGS,
+            **{"nbits_w": "eight", "output_dir": tempdir},
+        }  # Intentional type error
         serialized_args = serialize_args(DQ_KWARGS)
         os.environ["FMS_MO_CONFIG_JSON_ENV_VAR"] = serialized_args
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert pytest_wrapped_e.type == SystemExit
+        assert isinstance(pytest_wrapped_e.type, SystemExit)
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -230,13 +239,13 @@ def _validate_quantization_output(base_dir, quant_method):
         assert os.path.exists(os.path.join(base_dir, "quantize_config.json")) is True
         assert os.path.exists(os.path.join(base_dir, "config.json")) is True
 
-    elif quant_method ==  "fp8":
+    elif quant_method == "fp8":
         assert len(glob.glob(os.path.join(base_dir, "model*.safetensors"))) > 0
         assert os.path.exists(os.path.join(base_dir, "generation_config.json")) is True
         assert os.path.exists(os.path.join(base_dir, "config.json")) is True
         assert os.path.exists(os.path.join(base_dir, "recipe.yaml")) is True
 
-    elif quant_method ==  "dq":
+    elif quant_method == "dq":
         assert len(glob.glob(os.path.join(base_dir, "model*.safetensors"))) > 0
         assert os.path.exists(os.path.join(base_dir, "generation_config.json")) is True
         assert os.path.exists(os.path.join(base_dir, "config.json")) is True

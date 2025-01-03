@@ -65,9 +65,7 @@ def main():
         log_level = job_config.get(
             "log_level"
         )  # this will be set to either the value found or None
-        if (
-            not log_level
-        ):  # if log level not set by job_config aka by JSON, set it via env var or set default
+        if not log_level:  # if log level not set by job_config aka by JSON, set it via env var or set default
             log_level = os.environ.get("LOG_LEVEL", "WARNING")
         logging.basicConfig(level=log_level.upper())
 

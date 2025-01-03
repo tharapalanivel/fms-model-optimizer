@@ -63,8 +63,11 @@ class ModelArguments:
     device: str = field(
         default=None,
         metadata={
-            "help": ("`torch.device`: The device on which the module is (assuming that all the module parameters are on the same device).")
-        }
+            "help": (
+                "`torch.device`: The device on which the module is (assuming that all the module \
+                    parameters are on the same device)."
+            )
+        },
     )
 
 
@@ -84,14 +87,16 @@ class DataArguments:
     max_seq_length: Optional[int] = field(default=2048)
     num_calibration_samples: Optional[int] = field(default=512)
 
+
 @dataclass
 class OptArguments:
+    """Dataclass for optimization related arguments."""
+
     log_level: str = field(
         default="INFO",
-        metadata={
-            "help": "The log level to adopt during optimization."
-        },
+        metadata={"help": "The log level to adopt during optimization."},
     )
+
 
 @dataclass
 class FMSMOArguments:

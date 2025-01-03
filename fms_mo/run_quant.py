@@ -27,17 +27,17 @@ Main entry point for quantize API for GPTQ, FP8 and DQ quantization techniques
 
 # Standard
 import logging
-import time
-import sys
-import traceback
 import os
+import sys
+import time
+import traceback
 
 # Third Party
 from datasets import load_from_disk
-from transformers import AutoTokenizer
-import transformers
 from huggingface_hub.errors import HFValidationError
 from torch.cuda import OutOfMemoryError
+from transformers import AutoTokenizer
+import transformers
 
 # Local
 from fms_mo.dq import run_dq
@@ -47,16 +47,17 @@ from fms_mo.training_args import (
     FP8Args,
     GPTQArgs,
     ModelArguments,
-    OptArguments
+    OptArguments,
 )
-from fms_mo.utils.import_utils import available_packages
 from fms_mo.utils.config_utils import get_json_config
 from fms_mo.utils.error_logging import (
     INTERNAL_ERROR_EXIT_CODE,
     USER_ERROR_EXIT_CODE,
     write_termination_log,
 )
+from fms_mo.utils.import_utils import available_packages
 from fms_mo.utils.logging_utils import set_log_level
+
 
 def quantize(
     model_args: ModelArguments,
@@ -107,7 +108,9 @@ def quantize(
         run_dq(model_args, data_args, fms_mo_args, output_dir)
     else:
         raise ValueError(
-            "{} is not a valid quantization technique option. Please choose from: gptq, fp8, dq".format(quant_method)
+            "{} is not a valid quantization technique option. Please choose from: gptq, fp8, dq".format(
+                quant_method
+            )
         )
 
 
@@ -217,6 +220,7 @@ def run_fp8(model_args, data_args, opt_args, fp8_args, output_dir):
     model.save_pretrained(output_dir)
     tokenizer.save_pretrained(output_dir)
 
+
 def get_parser():
     """Get the command-line argument parser."""
     parser = transformers.HfArgumentParser(
@@ -286,7 +290,7 @@ def parse_arguments(parser, json_config=None):
             gptq_args,
             fp8_args,
             additional,
-            _
+            _,
         ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
         quant_method = additional.quant_method
         output_dir = additional.output_dir

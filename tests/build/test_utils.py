@@ -28,6 +28,7 @@ HAPPY_PATH_DUMMY_CONFIG_PATH = os.path.join(
     os.path.dirname(__file__), "dummy_job_config.json"
 )
 
+
 # Note: job_config dict gets modified during processing training args
 @pytest.fixture(name="job_config", scope="session")
 def fixture_job_config():
@@ -67,4 +68,3 @@ def test_accelerate_launch_args_user_set_num_processes(job_config):
     args = process_accelerate_launch_args(job_config_copy)
     # json config values used
     assert args.num_processes == 3
-
