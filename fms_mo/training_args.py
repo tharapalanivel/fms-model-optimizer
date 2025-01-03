@@ -115,7 +115,7 @@ class FMSMOArguments:
 
 
 @dataclass
-class GPTQArgs:
+class GPTQArguments:
     """Dataclass for GPTQ related arguments that will be used by auto-gptq."""
 
     bits: int = field(default=4, metadata={"choices": [2, 3, 4, 8]})
@@ -133,7 +133,7 @@ class GPTQArgs:
 
 
 @dataclass
-class FP8Args:
+class FP8Arguments:
     """Dataclass for FP8 related arguments that will be used by llm-compressor."""
 
     targets: str = field(default="Linear")
