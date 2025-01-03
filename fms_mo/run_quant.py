@@ -44,8 +44,8 @@ from fms_mo.dq import run_dq
 from fms_mo.training_args import (
     DataArguments,
     FMSMOArguments,
-    FP8Args,
-    GPTQArgs,
+    FP8Arguments,
+    GPTQArguments,
     ModelArguments,
     OptArguments,
 )
@@ -64,8 +64,8 @@ def quantize(
     data_args: DataArguments,
     opt_args: OptArguments,
     fms_mo_args: FMSMOArguments,
-    gptq_args: GPTQArgs,
-    fp8_args: FP8Args,
+    gptq_args: GPTQArguments,
+    fp8_args: FP8Arguments,
     quant_method: str,
     output_dir: str,
 ):
@@ -77,8 +77,8 @@ def quantize(
         data_args (fms_mo.training_args.DataArguments): Data arguments to be used when loading the
             tokenized dataset
         fms_mo_args (fms_mo.training_args.FMSMOArguments): Parameters to use for PTQ quantization
-        gptq_args (fms_mo.training_args.GPTQArgs): Parameters to use for GPTQ quantization
-        fp8_args (fms_mo.training_args.FP8Args): Parameters to use for FP8 quantization
+        gptq_args (fms_mo.training_args.GPTQArguments): Parameters to use for GPTQ quantization
+        fp8_args (fms_mo.training_args.FP8Arguments): Parameters to use for FP8 quantization
         quant_method (str): Quantization technique, options are gptq, fp8 and dq
         output_dir (str) Output directory to write to
     """
@@ -122,7 +122,7 @@ def run_gptq(model_args, data_args, opt_args, gptq_args, output_dir):
             the model
         data_args (fms_mo.training_args.DataArguments): Data arguments to be used when loading the
             tokenized dataset
-        gptq_args (fms_mo.training_args.GPTQArgs): Parameters to use for GPTQ quantization
+        gptq_args (fms_mo.training_args.GPTQArguments): Parameters to use for GPTQ quantization
         output_dir (str) Output directory to write to
     """
 
@@ -187,7 +187,7 @@ def run_fp8(model_args, data_args, opt_args, fp8_args, output_dir):
             the model
         data_args (fms_mo.training_args.DataArguments): Data arguments to be used when loading the
             tokenized dataset
-        fp8_args (fms_mo.training_args.FP8Args): Parameters to use for FP8 quantization
+        fp8_args (fms_mo.training_args.FP8Arguments): Parameters to use for FP8 quantization
         output_dir (str) Output directory to write to
     """
 
@@ -229,8 +229,8 @@ def get_parser():
             DataArguments,
             OptArguments,
             FMSMOArguments,
-            GPTQArgs,
-            FP8Args,
+            GPTQArguments,
+            FP8Arguments,
         )
     )
 
@@ -261,9 +261,9 @@ def parse_arguments(parser, json_config=None):
             Arguments pertaining to what data we are going to use for optimization and evaluation.
         FMSMOArguments
             Configuration for PTQ quantization.
-        GPTQArgs
+        GPTQArguments
             Configuration for GPTQ quantization.
-        FP8Args
+        FP8Arguments
             Configuration for FP8 quantization.
         quant_method
             Selected quantization technique
