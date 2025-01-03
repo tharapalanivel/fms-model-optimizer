@@ -143,7 +143,7 @@ def test_bad_script_path():
 
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert isinstance(pytest_wrapped_e.type, SystemExit)
+        assert pytest_wrapped_e.type is SystemExit
         assert pytest_wrapped_e.value.code == INTERNAL_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -154,7 +154,7 @@ def test_blank_config_json_env_var():
         os.environ["FMS_MO_CONFIG_JSON_ENV_VAR"] = ""
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert isinstance(pytest_wrapped_e.type, SystemExit)
+        assert pytest_wrapped_e.type is SystemExit
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -165,7 +165,7 @@ def test_blank_config_json_path():
         os.environ["FMS_MO_CONFIG_JSON_PATH"] = ""
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert isinstance(pytest_wrapped_e.type, SystemExit)
+        assert pytest_wrapped_e.type is SystemExit
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -182,7 +182,7 @@ def test_faulty_file_path():
         os.environ["FMS_MO_CONFIG_JSON_ENV_VAR"] = serialized_args
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert isinstance(pytest_wrapped_e.type, SystemExit)
+        assert pytest_wrapped_e.type is SystemExit
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -198,7 +198,7 @@ def test_bad_base_model_path():
         os.environ["FMS_MO_CONFIG_JSON_ENV_VAR"] = serialized_args
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert isinstance(pytest_wrapped_e.type, SystemExit)
+        assert pytest_wrapped_e.type is SystemExit
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
@@ -214,7 +214,7 @@ def test_config_parsing_error():
         os.environ["FMS_MO_CONFIG_JSON_ENV_VAR"] = serialized_args
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             main()
-        assert isinstance(pytest_wrapped_e.type, SystemExit)
+        assert pytest_wrapped_e.type is SystemExit
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
