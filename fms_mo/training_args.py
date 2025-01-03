@@ -18,7 +18,10 @@ Arguments used for quantization
 
 # Standard
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Union
+
+# Third Party
+import torch
 
 
 @dataclass
@@ -26,10 +29,7 @@ class ModelArguments:
     """Dataclass for model related arguments."""
 
     model_name_or_path: Optional[str] = field(default="facebook/opt-125m")
-    torch_dtype: Optional[str] = field(
-        default=None,
-        metadata={"help": ["bfloat16", "float16", "float", "auto"]},
-    )
+    torch_dtype: Optional[Union[torch.dtype, str]] = torch.bfloat16
     use_fast_tokenizer: bool = field(
         default=True,
         metadata={
@@ -77,6 +77,24 @@ class DataArguments:
     )
     max_seq_length: Optional[int] = field(default=2048)
     num_calibration_samples: Optional[int] = field(default=512)
+
+
+@dataclass
+class OptArguments:
+    """Dataclass for optimization related arguments."""
+
+    quant_method: str = field(
+        metadata={"choices": ["gptq", "fp8", "dq"], "help": "Quantization technique"}
+    )
+    output_dir: str = field(
+        metadata={
+            "help": "Output directory to write quantized model artifacts and log files to"
+        }
+    )
+    log_level: str = field(
+        default="INFO",
+        metadata={"help": "The log level to adopt during optimization."},
+    )
 
 
 @dataclass

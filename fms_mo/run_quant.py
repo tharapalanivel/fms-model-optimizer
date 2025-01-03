@@ -42,6 +42,7 @@ from fms_mo.training_args import (
     FP8Arguments,
     GPTQArguments,
     ModelArguments,
+    OptArguments,
 )
 from fms_mo.utils.import_utils import available_packages
 
@@ -51,11 +52,10 @@ logger = logging.Logger("fms_mo.main")
 def quantize(
     model_args: ModelArguments,
     data_args: DataArguments,
-    fms_mo_args: FMSMOArguments,
-    gptq_args: GPTQArguments,
-    fp8_args: FP8Arguments,
-    quant_method: str,
-    output_dir: str,
+    opt_args: OptArguments,
+    fms_mo_args: FMSMOArguments = None,
+    gptq_args: GPTQArguments = None,
+    fp8_args: FP8Arguments = None,
 ):
     """Main entry point to quantize a given model with a set of specified hyperparameters
 
@@ -71,16 +71,17 @@ def quantize(
         output_dir (str) Output directory to write to
     """
 
-    logging.info(f"{fms_mo_args}\n{quant_method}\n")
-    if quant_method == "gptq":
+    logger.info(f"{fms_mo_args}\n{opt_args.quant_method}\n")
+
+    if opt_args.quant_method == "gptq":
         if not available_packages["auto_gptq"]:
             raise ImportError(
                 "Quantization method has been selected as gptq but unable to use external library, "
                 "auto_gptq module not found. For more instructions on installing the appropriate "
                 "package, see https://github.com/AutoGPTQ/AutoGPTQ?tab=readme-ov-file#installation"
             )
-        run_gptq(model_args, data_args, gptq_args, output_dir)
-    elif quant_method == "fp8":
+        run_gptq(model_args, data_args, opt_args, gptq_args)
+    elif opt_args.quant_method == "fp8":
         if not available_packages["llmcompressor"]:
             raise ImportError(
                 "Quantization method has been selected as fp8 but unable to use external library, "
@@ -89,16 +90,18 @@ def quantize(
                 "https://github.com/vllm-project/llm-compressor/tree/"
                 "main?tab=readme-ov-file#installation"
             )
-        run_fp8(model_args, data_args, fp8_args, output_dir)
-    elif quant_method == "dq":
-        run_dq(model_args, data_args, fms_mo_args, output_dir)
+        run_fp8(model_args, data_args, opt_args, fp8_args)
+    elif opt_args.quant_method == "dq":
+        run_dq(model_args, data_args, opt_args, fms_mo_args)
     else:
         raise ValueError(
-            "Not a valid quantization technique option. Please choose from: gptq, fp8, dq"
+            "{} is not a valid quantization technique option. Please choose from: gptq, fp8, dq".format(
+                opt_args.quant_method
+            )
         )
 
 
-def run_gptq(model_args, data_args, gptq_args, output_dir):
+def run_gptq(model_args, data_args, opt_args, gptq_args):
     """GPTQ quantizes a given model with a set of specified hyperparameters
 
     Args:
@@ -152,14 +155,16 @@ def run_gptq(model_args, data_args, gptq_args, output_dir):
         cache_examples_on_gpu=gptq_args.cache_examples_on_gpu,
     )
 
-    logger.info(f"Time to quantize model at {output_dir}: {time.time() - start_time}")
+    logger.info(
+        f"Time to quantize model at {opt_args.output_dir}: {time.time() - start_time}"
+    )
 
-    logger.info(f"Saving quantized model and tokenizer to {output_dir}")
-    model.save_quantized(output_dir, use_safetensors=True)
-    tokenizer.save_pretrained(output_dir)
+    logger.info(f"Saving quantized model and tokenizer to {opt_args.output_dir}")
+    model.save_quantized(opt_args.output_dir, use_safetensors=True)
+    tokenizer.save_pretrained(opt_args.output_dir)
 
 
-def run_fp8(model_args, data_args, fp8_args, output_dir):
+def run_fp8(model_args, data_args, opt_args, fp8_args):
     """FP8 quantizes a given model with a set of specified hyperparameters
 
     Args:
@@ -192,11 +197,13 @@ def run_fp8(model_args, data_args, fp8_args, output_dir):
         max_seq_length=data_args.max_seq_length,
         num_calibration_samples=data_args.num_calibration_samples,
     )
-    logger.info(f"Time to quantize model at {output_dir}: {time.time() - start_time}")
+    logger.info(
+        f"Time to quantize model at {opt_args.output_dir}: {time.time() - start_time}"
+    )
 
-    logger.info(f"Saving quantized model and tokenizer to {output_dir}")
-    model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
+    logger.info(f"Saving quantized model and tokenizer to {opt_args.output_dir}")
+    model.save_pretrained(opt_args.output_dir)
+    tokenizer.save_pretrained(opt_args.output_dir)
 
 
 def main():
@@ -206,53 +213,41 @@ def main():
         dataclass_types=(
             ModelArguments,
             DataArguments,
+            OptArguments,
             FMSMOArguments,
             GPTQArguments,
             FP8Arguments,
         )
     )
 
-    parser.add_argument(
-        "--quant_method",
-        type=str.lower,
-        choices=["gptq", "fp8", None, "none", "dq"],
-        default="none",
-    )
-
-    parser.add_argument("--output_dir", type=str)
-
     (
         model_args,
         data_args,
+        opt_args,
         fms_mo_args,
         gptq_args,
         fp8_args,
-        additional,
         _,
     ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
-    quant_method = additional.quant_method
-    output_dir = additional.output_dir
 
     logger.debug(
-        "Input args parsed: \nmodel_args %s, data_args %s, fms_mo_args %s, "
-        "gptq_args %s, fp8_args %s, quant_method %s, output_dir %s",
+        "Input args parsed: \nmodel_args %s, data_args %s, opt_args %s, fms_mo_args %s, "
+        "gptq_args %s, fp8_args %s",
         model_args,
         data_args,
+        opt_args,
         fms_mo_args,
         gptq_args,
         fp8_args,
-        quant_method,
-        output_dir,
     )
 
     quantize(
         model_args=model_args,
         data_args=data_args,
+        opt_args=opt_args,
         fms_mo_args=fms_mo_args,
         gptq_args=gptq_args,
         fp8_args=fp8_args,
-        quant_method=quant_method,
-        output_dir=output_dir,
     )
 
 
