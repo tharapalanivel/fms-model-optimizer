@@ -20,7 +20,7 @@ PACT quantizer
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import QuantizerBase, sqQscheme
+from fms_mo.quant_refactor.base_quant import QuantizerBase, Qscheme
 from fms_mo.quant_refactor.base_tensor import (
     PerTensorSTEBase,
     PerTensorSTEBase_PTnative,
@@ -41,10 +41,11 @@ class PACT_new(QuantizerBase):
         num_bits: torch.IntTensor,
         init_clip_valn: torch.FloatTensor = torch.tensor(0.0),
         init_clip_val: torch.FloatTensor = torch.tensor(8.0),
-        qscheme: sqQscheme = sqQscheme(
+        qscheme: Qscheme = Qscheme(
             unit="perT",
             symmetric=False,
-            Ngrp_or_ch=None,
+            Nch=None,
+            Ngrp=None,
             single_sided=True,
             qlevel_lowering=False,
         ),
@@ -59,8 +60,8 @@ class PACT_new(QuantizerBase):
             num_bits (torch.IntTensor): Number of bits for quantization.
             init_clip_valn (torch.FloatTensor, optional): Lower clip value bound. Defaults to 0.0.
             init_clip_val (torch.FloatTensor, optional): Upper clip value bound. Defaults to 8.0.
-            qscheme (sqQscheme, optional): Quantization scheme.
-                Defaults to sqQscheme( unit="perT", symmetric=False, Ngrp_or_ch=None,
+            qscheme (Qscheme, optional): Quantization scheme.
+                Defaults to Qscheme( unit="perT", symmetric=False, Nch=None, Ngrp=None,
                                        single_sided=True, qlevel_lowering=False, ).
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             pact_plus (bool, optional): Specify using PACT+ quantizer. Defaults to True.

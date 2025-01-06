@@ -21,7 +21,7 @@ import torch
 
 # Local
 # Qscheme class for defining quantizers
-from fms_mo.quant_refactor.base_quant import sqQscheme
+from fms_mo.quant_refactor.base_quant import Qscheme
 from fms_mo.quant_refactor.lsq_new import LSQPlus_new, LSQQuantization_new
 from fms_mo.quant_refactor.pact2_new import PACT2_new
 from fms_mo.quant_refactor.pact2sym_new import PACT2Sym_new
@@ -96,17 +96,17 @@ def tensor_single_sided(request):
 qschemes_symmetric_params = []
 for qunit in ["perT"]:  # ['perT','perCh','perGrp']:
     for symmetric in [True]:
-        for Ngrp_or_ch in [None]:  # TODO: what values are used?
-            # if qunit == 'perT': Ngrp_or_ch = None
-            for single_sided in [False]:
-                for qlevel_lowering in [
-                    True
-                ]:  # needs to be disabled for some special cases
-                    qschemes_symmetric_params.append(
-                        sqQscheme(
-                            qunit, symmetric, Ngrp_or_ch, single_sided, qlevel_lowering
+        for Nch in [None]:
+            for Ngrp in [None]:
+                for single_sided in [False]:
+                    for qlevel_lowering in [
+                        True
+                    ]:  # needs to be disabled for some special cases
+                        qschemes_symmetric_params.append(
+                            Qscheme(
+                                qunit, symmetric, Nch, Ngrp, single_sided, qlevel_lowering
+                            )
                         )
-                    )
 
 quantizer_symmetric_params = []
 for num_bits in torch.tensor([8, 4]):
@@ -140,15 +140,15 @@ def quantizer_symmetric(request):
 qschemes_asymmetric_params = []
 for qunit in ["perT"]:  # ['perT','perCh','perGrp']:
     for symmetric in [False]:
-        for Ngrp_or_ch in [None]:  # TODO: what values are used?
-            # if qunit == 'perT': Ngrp_or_ch = None
-            for single_sided in [False]:
-                for qlevel_lowering in [False]:
-                    qschemes_asymmetric_params.append(
-                        sqQscheme(
-                            qunit, symmetric, Ngrp_or_ch, single_sided, qlevel_lowering
+        for Nch in [None]:
+            for Ngrp in [None]:
+                for single_sided in [False]:
+                    for qlevel_lowering in [False]:
+                        qschemes_asymmetric_params.append(
+                            Qscheme(
+                                qunit, symmetric, Nch, Ngrp, single_sided, qlevel_lowering
+                            )
                         )
-                    )
 
 quantizer_asymmetric_params = []
 for num_bits in torch.tensor([8, 4]):
@@ -183,15 +183,15 @@ def quantizer_asymmetric(request):
 qschemes_single_sided_params = []
 for qunit in ["perT"]:  # ['perT','perCh','perGrp']:
     for symmetric in [False]:
-        for Ngrp_or_ch in [None]:  # TODO: what values are used?
-            # if qunit == 'perT': Ngrp_or_ch = None
-            for single_sided in [True]:
-                for qlevel_lowering in [False]:
-                    qschemes_single_sided_params.append(
-                        sqQscheme(
-                            qunit, symmetric, Ngrp_or_ch, single_sided, qlevel_lowering
+        for Nch in [None]:
+            for Ngrp in [None]:
+                for single_sided in [True]:
+                    for qlevel_lowering in [False]:
+                        qschemes_single_sided_params.append(
+                            Qscheme(
+                                qunit, symmetric, Nch, Ngrp, single_sided, qlevel_lowering
+                            )
                         )
-                    )
 
 quantizer_single_sided_params = []
 for num_bits in torch.tensor([8, 4]):

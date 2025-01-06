@@ -20,7 +20,7 @@ PACT2Symmetric Quantizer
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import QuantizerBase, sqQscheme
+from fms_mo.quant_refactor.base_quant import QuantizerBase, Qscheme
 from fms_mo.quant_refactor.base_tensor import (
     PerTensorSTEBase,
     PerTensorSTEBase_PTnative,
@@ -40,10 +40,11 @@ class PACT2Sym_new(QuantizerBase):
         num_bits: torch.IntTensor,
         init_clip_valn: torch.FloatTensor = torch.tensor(-8.0),
         init_clip_val: torch.FloatTensor = torch.tensor(8.0),
-        qscheme=sqQscheme(
+        qscheme=Qscheme(
             unit="perT",
             symmetric=True,
-            Ngrp_or_ch=None,
+            Nch=None,
+            Ngrp=None,
             single_sided=False,
             qlevel_lowering=False,
         ),
@@ -57,8 +58,8 @@ class PACT2Sym_new(QuantizerBase):
             num_bits (torch.IntTensor): Number of bits for quantization.
             init_clip_valn (torch.FloatTensor, optional): Lower clip value bound. Defaults to -8.0.
             init_clip_val (torch.FloatTensor, optional): Upper clip value bound. Defaults to 8.0.
-            qscheme (sqQscheme, optional): Quantization scheme.
-                Defaults to sqQscheme( unit="perT", symmetric=False, Ngrp_or_ch=None,
+            qscheme (Qscheme, optional): Quantization scheme.
+                Defaults to Qscheme( unit="perT", symmetric=False, Nch=None, Ngrp=None,
                                        single_sided=False, qlevel_lowering=False, ).
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             kwargs.use_PT_native_Qfunc (bool, optional): Use native PT quantizer.

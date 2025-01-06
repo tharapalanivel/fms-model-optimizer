@@ -16,6 +16,8 @@
 Functions to create quantizers for activation and weights.  Called from Qmodule level.
 """
 
+import torch
+
 # Local
 from fms_mo.quant.quantizers import (
     AdaRoundQuantizer,
@@ -25,7 +27,7 @@ from fms_mo.quant.quantizers import (
     to_custom_fp8,
     to_fp8,
 )
-from fms_mo.quant_refactor.base_quant import sqQscheme
+from fms_mo.quant_refactor.base_quant import Qscheme
 from fms_mo.quant_refactor.lsq_new import LSQPlus_new, LSQQuantization_new
 from fms_mo.quant_refactor.pact2_new import PACT2_new
 from fms_mo.quant_refactor.pact2sym_new import PACT2Sym_new
@@ -36,15 +38,15 @@ from fms_mo.quant_refactor.sawb_new import SAWB_new
 
 
 def get_activation_quantizer_new(
-    qa_mode="PACT",
-    nbits=32,
-    clip_val=None,
-    clip_valn=None,
-    non_neg=False,
-    align_zero=True,  # pylint: disable=unused-argument
-    extend_act_range=False,
-    use_PT_native_Qfunc=False,
-    use_subnormal=False,
+    qa_mode:str="PACT",
+    nbits:int=32,
+    clip_val:torch.FloatTensor=None,
+    clip_valn:torch.FloatTensor=None,
+    non_neg:bool=False,
+    align_zero:bool=True,  # pylint: disable=unused-argument
+    extend_act_range:bool=False,
+    use_PT_native_Qfunc:bool=False,
+    use_subnormal:bool=False,
 ):
     """Return a quantizer for activation quantization
     Regular quantizers:
@@ -68,10 +70,11 @@ def get_activation_quantizer_new(
             num_bits=nbits,
             init_clip_valn=clip_valn,
             init_clip_val=clip_val,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric="sym" in qa_mode,
-                Ngrp_or_ch=None,
+                Nch=None,
+                Ngrp=None,
                 single_sided="uni" in keyQact,
                 qlevel_lowering=False,
             ),
@@ -83,10 +86,11 @@ def get_activation_quantizer_new(
         act_quantizer = PACT2Sym_new(
             num_bits=nbits,
             init_clip_val=clip_val,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=True,
-                Ngrp_or_ch=None,
+                Nch=None,
+                Ngrp=None,
                 single_sided=False,
                 qlevel_lowering=False,
             ),
@@ -97,10 +101,11 @@ def get_activation_quantizer_new(
         act_quantizer = PACTplusSym_new(
             nbits,
             init_clip_val=clip_val,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=True,
-                Ngrp_or_ch=None,
+                Nch=None,
+                Ngrp=None,
                 single_sided=False,
                 qlevel_lowering=False,
             ),
@@ -113,10 +118,11 @@ def get_activation_quantizer_new(
             nbits,
             init_clip_valn=clip_valn,
             init_clip_val=clip_val,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=False,
-                Ngrp_or_ch=None,
+                Nch=None,
+                Ngrp=None,
                 single_sided=False,
                 qlevel_lowering=False,
             ),
@@ -131,10 +137,11 @@ def get_activation_quantizer_new(
     elif qa_mode == "max":
         act_quantizer = Qmax_new(
             nbits,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=False,
-                Ngrp_or_ch=None,
+                Nch=None,
+                Ngrp=None,
                 single_sided=False,
                 qlevel_lowering=False,
             ),
@@ -145,10 +152,11 @@ def get_activation_quantizer_new(
     elif qa_mode == "minmax":
         act_quantizer = Qmax_new(
             nbits,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=False,
-                Ngrp_or_ch=None,
+                Nch=None,
+                Ngrp=None,
                 single_sided=False,
                 qlevel_lowering=False,
             ),
@@ -159,10 +167,11 @@ def get_activation_quantizer_new(
     elif qa_mode == "maxsym":
         act_quantizer = Qmax_new(
             nbits,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=True,
-                Ngrp_or_ch=None,
+                Nch=None,
+                Ngrp=None,
                 single_sided=False,
                 qlevel_lowering=False,
             ),
@@ -203,16 +212,16 @@ def get_activation_quantizer_new(
 
 
 def get_weight_quantizer_new(
-    qw_mode="SAWB+",
-    nbits=32,
-    clip_val=None,
-    clip_valn=None,
-    align_zero=True,
-    w_shape=None,
-    recompute=False,  # pylint: disable=unused-argument
-    perGp=None,
-    use_PT_native_Qfunc=False,
-    use_subnormal=False,
+    qw_mode:str="SAWB+",
+    nbits:int=32,
+    clip_val:torch.FloatTensor=None,
+    clip_valn:torch.FloatTensor=None,
+    align_zero:bool=True,
+    w_shape:torch.Size=None,
+    recompute:bool=False,  # pylint: disable=unused-argument
+    perGp:int=None,
+    use_PT_native_Qfunc:bool=False,
+    use_subnormal:bool=False,
 ):
     """Return a quantizer for weight quantization
     Regular quantizers:
@@ -223,19 +232,26 @@ def get_weight_quantizer_new(
     - brecq, adaround
     """
 
+    Nch = w_shape[0] if w_shape is not None and "perCh" in qw_mode else False
+    Ngrp = (
+        [w_shape[0] * w_shape[1] // perGp, perGp] if "perGp" in qw_mode else False
+    )  # store clip_val size and group size
+    unit = (
+        "perCh"
+        if Nch is not False
+        else "perGrp"
+        if perGp is not None
+        else "perT"
+    )
     if "sawb" in qw_mode:
-        Nch = w_shape[0] if w_shape is not None and "perCh" in qw_mode else False
         clipSTE = "+" in qw_mode
         weight_quantizer = SAWB_new(
             nbits,
-            sqQscheme=sqQscheme(
-                unit="perCh"
-                if Nch is not False
-                else "perGp"
-                if perGp is not None
-                else "perT",
+            Qscheme=Qscheme(
+                unit=unit,
                 symmetric=True,
-                Ngrp_or_ch=Nch if Nch is not False else perGp,
+                Nch=Nch if Nch is not False else None,
+                Ngrp=Ngrp if Ngrp is not False else None,
                 single_sided=False,
                 qlevel_lowering=align_zero,
             ),
@@ -244,20 +260,14 @@ def get_weight_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif "max" in qw_mode:
-        Nch = w_shape[0] if w_shape is not None and "perCh" in qw_mode else False
-        Ngp = (
-            [w_shape[0] * w_shape[1] // perGp, perGp] if "perGp" in qw_mode else False
-        )  # store clip_val size and group size
+        
         weight_quantizer = Qmax_new(
             nbits,
-            sqQscheme=sqQscheme(
-                unit="perCh"
-                if Nch is not False
-                else "perGp"
-                if perGp is not None
-                else "perT",
+            Qscheme=Qscheme(
+                unit=unit,
                 symmetric=True,
-                Ngrp_or_ch=Nch if Nch is not False else Ngp,
+                Nch=Nch if Nch is not False else None,
+                Ngrp=Ngrp if Ngrp is not False else None,
                 single_sided=False,
                 qlevel_lowering=align_zero,
             ),
@@ -269,10 +279,11 @@ def get_weight_quantizer_new(
             nbits,
             init_clip_valn=clip_valn,
             init_clip_val=clip_val,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=True,  # Assumed symmetric for weights
-                Ngrp_or_ch=None,
+                Nch=Nch if Nch is not False else None,
+                Ngrp=Ngrp if Ngrp is not False else None,
                 single_sided=False,
                 qlevel_lowering=align_zero,
             ),
@@ -283,10 +294,11 @@ def get_weight_quantizer_new(
         weight_quantizer = PACTplusSym_new(
             nbits,
             init_clip_val=clip_val,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=True,  # Assumed symmetric for weights
-                Ngrp_or_ch=None,
+                Nch=Nch if Nch is not False else None,
+                Ngrp=Ngrp if Ngrp is not False else None,
                 single_sided=False,
                 qlevel_lowering=align_zero,
             ),
@@ -298,10 +310,11 @@ def get_weight_quantizer_new(
             nbits,
             init_clip_valb=clip_valn,
             init_clip_vals=clip_val,
-            sqQscheme=sqQscheme(
+            Qscheme=Qscheme(
                 unit="perT",
                 symmetric=True,  # Assumed symmetric for weights
-                Ngrp_or_ch=None,
+                Nch=Nch if Nch is not False else None,
+                Ngrp=Ngrp if Ngrp is not False else None,
                 single_sided=False,
                 qlevel_lowering=align_zero,
             ),

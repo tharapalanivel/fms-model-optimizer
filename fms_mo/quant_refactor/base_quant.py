@@ -16,7 +16,7 @@
 Base Quantizer classes to be inherited.
 
 Implements:
-    sqQscheme
+    Qscheme
     QuantizerBase
 """
 
@@ -28,7 +28,7 @@ import torch
 
 
 @dataclass
-class sqQscheme:
+class Qscheme:
     """
     To make it similar to torch.qscheme,
     accept torch.per_tensor_affine, torch.per_channel_symmetric, ...
@@ -37,7 +37,7 @@ class sqQscheme:
 
     Raises:
         RuntimeError: New PyTorch qscheme found.  Need to update.
-        RuntimeError: perCh or perGrp was selected without specifying Ngrp_or_ch.
+        RuntimeError: perCh or perGrp was selected without specifying Nch, Ngrp.
         RuntimeError: qscheme is not allowed, or could be a typo.
     """
 
@@ -59,7 +59,7 @@ class sqQscheme:
         qlevel_lowering: bool = True,
     ):
         """
-        Init sqQscheme
+        Init Qscheme
 
         Args:
             unit (str): Type of quantization.
@@ -72,7 +72,7 @@ class sqQscheme:
 
         Raises:
             RuntimeError: New PyTorch qscheme found.  Need to update.
-            RuntimeError: perCh or perGrp was selected without specifying Ngrp_or_ch.
+            RuntimeError: perCh or perGrp was selected without specifying Nch, Ngrp.
             RuntimeError: qscheme is not allowed, or could be a typo.
         """
         if isinstance(unit, torch.qscheme):
@@ -81,7 +81,7 @@ class sqQscheme:
             elif "per_tensor" in str(unit):
                 self.q_unit = "perT"
             else:
-                raise RuntimeError("New torch.qscheme! Need to update sqQscheme!")
+                raise RuntimeError("New torch.qscheme! Need to update Qscheme!")
             self.symmetric = "symmetric" in str(unit)
             self.single_sided = single_sided
             self.qlevel_lowering = qlevel_lowering
@@ -117,18 +117,19 @@ class sqQscheme:
 
     def __repr__(self):
         """
-        String representation of sqQscheme
+        String representation of Qscheme
 
         Returns:
             str: String of class
         """
         q_uint_str = f"qunit={self.q_unit}"
         symmetric_str = f", symmetric={self.symmetric}"
-        Ngrp_or_ch_str = f", Ngrp_or_ch={self.Ngrp_or_ch}"
+        Nch_str = f", Nch={self.Nch}",
+        Ngrp_str = f", Nch={self.Ngrp}",
         single_sided_str = f", single_sided={self.single_sided}"
         qlevel_lowering_str = f", qlevel_lowering={self.qlevel_lowering}"
         return (
-            f"{self.__class__.__name__}({q_uint_str}{symmetric_str}{Ngrp_or_ch_str}"
+            f"{self.__class__.__name__}({q_uint_str}{symmetric_str}{Nch_str}{Ngrp_str}"
             f"{single_sided_str}{qlevel_lowering_str})"
         )
 
@@ -163,7 +164,7 @@ class QuantizerBase(torch.nn.Module):
         self,
         num_bits: torch.IntTensor,
         dequantize: bool = True,
-        qscheme: sqQscheme = torch.per_tensor_symmetric,
+        qscheme: Qscheme = torch.per_tensor_symmetric,
         use_PT_native_Qfunc: bool = False,
         # --- the following flags should be deprecated
         inplace: bool = False,
@@ -177,9 +178,8 @@ class QuantizerBase(torch.nn.Module):
         Args:
             num_bits (torch.IntTensor): Number of bit for quantization.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
-            qscheme (sqQscheme, optional): Quantization scheme.
-                Defaults to sqQscheme( unit="perT", symmetric=False, Ngrp_or_ch=None,
-                                       single_sided=True, qlevel_lowering=False, ).
+            qscheme (Qscheme, optional): Quantization scheme.
+                Defaults to Qscheme(unit="perT", symmetric=True).
             inplace (bool, optional): _description_. Defaults to False.
             align_zero (bool, optional): _description_. Defaults to True.
             clipSTE (bool, optional): _description_. Defaults to True.
@@ -189,12 +189,12 @@ class QuantizerBase(torch.nn.Module):
         self.dequantize = dequantize
         self.qscheme = (
             qscheme
-            if isinstance(qscheme, sqQscheme)
-            else sqQscheme(qscheme)
+            if isinstance(qscheme, Qscheme)
+            else Qscheme(qscheme)
             if isinstance(qscheme, torch.qscheme)
-            else sqQscheme(*qscheme)
+            else Qscheme(*qscheme)
             if isinstance(qscheme, tuple)
-            else sqQscheme("perT", symmetric=True)
+            else Qscheme(unit="perT", symmetric=True)
         )
         self.use_PT_native_Qfunc = use_PT_native_Qfunc
 

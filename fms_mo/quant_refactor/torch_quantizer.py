@@ -27,7 +27,7 @@ import logging
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import sqQscheme
+from fms_mo.quant_refactor.base_quant import Qscheme
 from fms_mo.quant_refactor.sawb_utils import sawb_params, sawb_params_code
 
 logger = logging.getLogger(__name__)
@@ -44,10 +44,11 @@ class TorchQuantizer(torch.nn.Module):
         clip_low: torch.FloatTensor,
         clip_high: torch.FloatTensor,
         dequantize: bool = True,
-        qscheme: sqQscheme = sqQscheme(
+        qscheme: Qscheme = Qscheme(
             unit="perT",
             symmetric=False,
-            Ngrp_or_ch=None,
+            Nch=None,
+            Ngrp=None,
             single_sided=False,
             qlevel_lowering=True,
         ),
@@ -60,8 +61,8 @@ class TorchQuantizer(torch.nn.Module):
             clip_low (torch.FloatTensor): Lower clip value bound.
             clip_high (torch.FloatTensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
-            qscheme (sqQscheme, optional): Quantization scheme.
-                Defaults to sqQscheme( unit="perT", symmetric=True, Ngrp_or_ch=None,
+            qscheme (Qscheme, optional): Quantization scheme.
+                Defaults to Qscheme( unit="perT", symmetric=True, Nch=None, Ngrp=None,
                                        single_sided=False, qlevel_lowering=False, ).
         """
         super().__init__()
@@ -113,7 +114,7 @@ class TorchQuantizer(torch.nn.Module):
         """
         Set quantization parameters based on current member variables
         """
-        self.isQscheme = isinstance(self.qscheme, sqQscheme)
+        self.isQscheme = isinstance(self.qscheme, Qscheme)
         self.is_single_sided = self.isQscheme and self.qscheme.single_sided
         self.is_symmetric = self.isQscheme and self.qscheme.symmetric
 
@@ -144,12 +145,12 @@ class TorchQuantizer(torch.nn.Module):
         else:  # single_sided or zero_point != 0
             self.quant_min, self.quant_max = 0, self.n_levels  # eg (0, 255) or (0,15)
 
-    def set_qscheme(self, qscheme: sqQscheme):
+    def set_qscheme(self, qscheme: Qscheme):
         """
         Setter function for qscheme
 
         Args:
-            qscheme (sqQscheme): Quantization scheme.
+            qscheme (Qscheme): Quantization scheme.
         """
         self.qscheme = qscheme
         self.set_quant_bounds()  # reset quant_min,quant_max
