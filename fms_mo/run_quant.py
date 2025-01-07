@@ -308,15 +308,9 @@ def main():
 
         logger = set_log_level(opt_args.log_level, __name__)
 
-        logger.debug(
-            "Input args parsed: \nmodel_args %s, data_args %s, opt_args %s, fms_mo_args %s, gptq_args %s, fp8_args %s",
-            model_args,
-            data_args,
-            opt_args,
-            fms_mo_args,
-            gptq_args,
-            fp8_args,
-        )
+        logger.debug(f"Input args parsed: \nmodel_args {model_args}, data_args {data_args}, \
+                     opt_args {opt_args}, fms_mo_args {fms_mo_args}, gptq_args {gptq_args}, \
+                     fp8_args {fp8_args}")
     except Exception as e:  # pylint: disable=broad-except
         logger.error(traceback.format_exc())
         write_termination_log(
@@ -342,7 +336,7 @@ def main():
         sys.exit(INTERNAL_ERROR_EXIT_CODE)
     except FileNotFoundError as e:
         logger.error(traceback.format_exc())
-        write_termination_log("Unable to load file: {}".format(e))
+        write_termination_log(f"Unable to load file: {e}")
         sys.exit(USER_ERROR_EXIT_CODE)
     except HFValidationError as e:
         logger.error(traceback.format_exc())

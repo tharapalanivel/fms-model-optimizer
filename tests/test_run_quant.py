@@ -85,9 +85,10 @@ HAPPY_PATH_DUMMY_CONFIG_PATH = os.path.join(
 )
 
 
-# Note: job_config dict gets modified during process training args
 @pytest.fixture(name="job_config", scope="session")
 def fixture_job_config():
+    """Fixture to get happy path dummy config as a dict, note that job_config dict gets 
+    modified during process training args"""
     with open(HAPPY_PATH_DUMMY_CONFIG_PATH, "r", encoding="utf-8") as f:
         dummy_job_config_dict = json.load(f)
     return dummy_job_config_dict
@@ -97,15 +98,16 @@ def fixture_job_config():
 
 
 def test_parse_arguments(job_config):
+    """Test that arg parser can parse json job config correctly"""
     parser = get_parser()
     job_config_copy = copy.deepcopy(job_config)
     (
         model_args,
         data_args,
         opt_args,
-        fms_mo_args,
-        gptq_args,
-        fp8_args,
+        _,
+        _,
+        _,
     ) = parse_arguments(parser, job_config_copy)
     assert str(model_args.torch_dtype) == "torch.bfloat16"
     assert data_args.training_data_path == "data_train"
@@ -114,6 +116,7 @@ def test_parse_arguments(job_config):
 
 
 def test_parse_arguments_defaults(job_config):
+    """Test that defaults set in fms_mo/training_args.py are retained"""
     parser = get_parser()
     job_config_defaults = copy.deepcopy(job_config)
     assert "torch_dtype" not in job_config_defaults
@@ -123,10 +126,10 @@ def test_parse_arguments_defaults(job_config):
     (
         model_args,
         data_args,
-        opt_args,
+        _,
         fms_mo_args,
-        gptq_args,
-        fp8_args,
+        _,
+        _,
     ) = parse_arguments(parser, job_config_defaults)
     assert str(model_args.torch_dtype) == "torch.bfloat16"
     assert model_args.model_revision == "main"

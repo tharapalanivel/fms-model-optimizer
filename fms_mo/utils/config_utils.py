@@ -20,6 +20,7 @@ import pickle
 
 
 def update_config(config, **kwargs):
+    """Updates config from key-value pairs provided through kwargs"""
     if isinstance(config, (tuple, list)):
         for c in config:
             update_config(c, **kwargs)
