@@ -111,8 +111,8 @@ ARG USER_UID
 ARG ENABLE_AIM
 
 # consistent arch support anywhere we compile CUDA code
- ENV TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX;8.9"
- 
+ENV TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX;8.9"
+
 RUN dnf install -y git && \
     # perl-Net-SSLeay.x86_64 and server_key.pem are installed with git as dependencies
     # Twistlock detects it as H severity: Private keys stored in image
@@ -137,22 +137,12 @@ RUN if [[ -z "${WHEEL_VERSION}" ]]; \
 RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
     python -m pip install --user wheel && \
     python -m pip install --user "$(head bdist_name)" && \
-    pip install git+https://github.com/PanQiWei/AutoGPTQ.git
+    python -m pip install --user "$(head bdist_name)[opt]"
 
 
 RUN if [[ "${ENABLE_AIM}" == "true" ]]; then \
         python -m pip install --user "$(head bdist_name)[aim]"; \
     fi
-    
-# TPP Temporarily overwriting torch version
-# ARG PYTORCH_INDEX="https://download.pytorch.org/whl"
-# ARG PYTORCH_VERSION=2.2.1
-# Install specific version of torch
-# RUN --mount=type=cache,target=/home/${USER}/.cache/pip,uid=${USER_UID} \
-    # python -m pip install ninja==1.11.1.1 --no-cache-dir  && \
-    # python -m  pip install packaging --no-cache-dir  && \
-    # python -m pip install --user torch==$PYTORCH_VERSION+cu121 torchvision --index-url "${PYTORCH_INDEX}/cu121" --no-cache-dir && \
-    # FLASH_ATTENTION_FORCE_BUILD=TRUE python -m pip install --user flash-attn --force-reinstall
 
 # Clean up the wheel module. It's only needed by flash-attn install
 RUN python -m pip uninstall wheel build -y && \
