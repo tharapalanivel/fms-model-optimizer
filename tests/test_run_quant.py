@@ -34,9 +34,7 @@ from fms_mo.training_args import (
 )
 from tests.artifacts.testdata import MODEL_NAME, WIKITEXT_TOKENIZED_DATA_JSON
 
-MODEL_ARGS = ModelArguments(
-    model_name_or_path=MODEL_NAME, torch_dtype="float16"
-)
+MODEL_ARGS = ModelArguments(model_name_or_path=MODEL_NAME, torch_dtype="float16")
 DATA_ARGS = DataArguments(
     training_data_path=WIKITEXT_TOKENIZED_DATA_JSON,
 )
@@ -73,7 +71,7 @@ def test_run_train_fails_training_data_path_not_exist():
     """Check fails when data path not found."""
     updated_data_path_args = copy.deepcopy(DATA_ARGS)
     updated_data_path_args.training_data_path = "fake/path"
-    with pytest.raises(FileNotFoundError):  # TPP Should this be FileNotFoundError or ValueError?
+    with pytest.raises(FileNotFoundError):
         quantize(
             model_args=MODEL_ARGS,
             data_args=updated_data_path_args,

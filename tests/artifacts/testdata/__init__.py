@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helpful datasets for configuring individual unit tests.
-"""
+"""Helpful datasets for configuring individual unit tests."""
+
 # Standard
 import os
 

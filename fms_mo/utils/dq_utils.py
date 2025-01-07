@@ -38,7 +38,9 @@ def config_quantize_smooth_layers(qcfg):
         "granite-20b-code",
         "granite-20b-code",
     ]
-    if any(model in qcfg["model"] for model in llama_architecture) or any(model in qcfg["model_type"] for model in llama_architecture):
+    if any(model in qcfg["model"] for model in llama_architecture) or any(
+        model in qcfg["model_type"] for model in llama_architecture
+    ):
         qcfg["qlayer_name_pattern"] = ["model.layers."]
         qcfg["scale_layers"] = ["k_proj", "v_proj", "gate_proj", "up_proj"]
         qcfg["qskip_layer_name"] = []
