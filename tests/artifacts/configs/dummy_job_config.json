@@ -1,0 +1,12 @@
+{
+    "accelerate_launch_args": {
+        "main_process_port": 1234
+    },
+    "model_name_or_path": "Maykeye/TinyLLama-v0",
+    "training_data_path": "data_train",
+    "quant_method": "gptq",
+    "bits": 4,
+    "group_size": 128,
+    "output_dir": "models/Maykeye/TinyLLama-v0-GPTQ",
+    "log_level":"DEBUG"
+  }

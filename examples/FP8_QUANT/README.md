@@ -27,7 +27,7 @@ This is an example of mature FP8, which under the hood leverages some functional
 ## QuickStart
 This end-to-end example utilizes the common set of interfaces provided by `fms_mo` for easily applying multiple quantization algorithms with FP8 being the focus of this example. The steps involved are:
 
-1. **FP8 quantization through CLI**. Other arguments could be found here [FP8Args](../../fms_mo/training_args.py#L84).
+1. **FP8 quantization through CLI**. Other arguments could be found here [FP8Arguments](../../fms_mo/training_args.py#L84).
 
     ```bash
     python -m fms_mo.run_quant \
@@ -100,7 +100,7 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
     tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path)
     ```
 
-2. Quantization setting is provided using `QuantizationModifier`, additional settings can be found in [FP8Args](../../fms_mo/training_args.py#L84).
+2. Quantization setting is provided using `QuantizationModifier`, additional settings can be found in [FP8Arguments](../../fms_mo/training_args.py#L84).
 
     ```python
     recipe = QuantizationModifier(

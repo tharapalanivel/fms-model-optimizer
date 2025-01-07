@@ -12,12 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Helpful datasets for configuring individual unit tests.
-"""
+"""Helpful datasets for configuring individual unit tests."""
+
 # Standard
 import os
 
 ### Constants used for data
+MODEL_NAME = "Maykeye/TinyLLama-v0"
 DATA_DIR = os.path.join(os.path.dirname(__file__))
 
 WIKITEXT_TOKENIZED_DATA_JSON = os.path.join(

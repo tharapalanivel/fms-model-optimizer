@@ -18,7 +18,10 @@ Arguments used for quantization
 
 # Standard
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Union
+
+# Third Party
+import torch
 
 
 @dataclass
@@ -26,10 +29,7 @@ class ModelArguments:
     """Dataclass for model related arguments."""
 
     model_name_or_path: Optional[str] = field(default="facebook/opt-125m")
-    torch_dtype: Optional[str] = field(
-        default=None,
-        metadata={"help": ["bfloat16", "float16", "float", "auto"]},
-    )
+    torch_dtype: Optional[Union[torch.dtype, str]] = torch.bfloat16
     use_fast_tokenizer: bool = field(
         default=True,
         metadata={
@@ -80,6 +80,24 @@ class DataArguments:
 
 
 @dataclass
+class OptArguments:
+    """Dataclass for optimization related arguments."""
+
+    quant_method: str = field(
+        metadata={"choices": ["gptq", "fp8", "dq"], "help": "Quantization technique"}
+    )
+    output_dir: str = field(
+        metadata={
+            "help": "Output directory to write quantized model artifacts and log files to"
+        }
+    )
+    log_level: str = field(
+        default="INFO",
+        metadata={"help": "The log level to adopt during optimization."},
+    )
+
+
+@dataclass
 class FMSMOArguments:
     """Dataclass arguments used by fms_mo native quantization functions."""
 
@@ -115,7 +133,7 @@ class FMSMOArguments:
 
 
 @dataclass
-class GPTQArgs:
+class GPTQArguments:
     """Dataclass for GPTQ related arguments that will be used by auto-gptq."""
 
     bits: int = field(default=4, metadata={"choices": [2, 3, 4, 8]})
@@ -133,7 +151,7 @@ class GPTQArgs:
 
 
 @dataclass
-class FP8Args:
+class FP8Arguments:
     """Dataclass for FP8 related arguments that will be used by llm-compressor."""
 
     targets: str = field(default="Linear")

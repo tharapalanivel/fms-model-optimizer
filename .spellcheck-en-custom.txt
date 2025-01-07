@@ -26,10 +26,11 @@ eval
 fms
 fp
 FP
+FP8Arguments
 frac
 gptq
 GPTQ
-GPTQArgs
+GPTQArguments
 graphviz
 GPTQ
 hyperparameters
