@@ -60,6 +60,12 @@ class ModelArguments:
             )
         },
     )
+    device: str = field(
+        default=None,
+        metadata={
+            "help": ("`torch.device`: The device on which the module is (assuming that all the module parameters are on the same device).")
+        }
+    )
 
 
 @dataclass
