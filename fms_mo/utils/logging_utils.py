@@ -40,7 +40,7 @@ def set_log_level(log_level=None, logger_name=None):
     # Configure Python native logger
     # If CLI arg is passed, assign same log level to python native logger
     log_level = log_level or os.environ.get("LOG_LEVEL", "WARNING")
-    
+
     logging.basicConfig(
         format="%(levelname)s:%(filename)s:%(message)s", level=log_level.upper()
     )
