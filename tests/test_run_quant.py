@@ -21,6 +21,7 @@ import os
 
 # Third Party
 import pytest
+import torch
 
 # Local
 from fms_mo.run_quant import get_parser, parse_arguments, quantize
