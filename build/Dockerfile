@@ -110,6 +110,9 @@ ARG USER
 ARG USER_UID
 ARG ENABLE_AIM
 
+# consistent arch support anywhere we compile CUDA code
+ ENV TORCH_CUDA_ARCH_LIST="8.0;8.6+PTX;8.9"
+ 
 RUN dnf install -y git && \
     # perl-Net-SSLeay.x86_64 and server_key.pem are installed with git as dependencies
     # Twistlock detects it as H severity: Private keys stored in image
