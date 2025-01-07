@@ -87,7 +87,7 @@ HAPPY_PATH_DUMMY_CONFIG_PATH = os.path.join(
 
 @pytest.fixture(name="job_config", scope="session")
 def fixture_job_config():
-    """Fixture to get happy path dummy config as a dict, note that job_config dict gets 
+    """Fixture to get happy path dummy config as a dict, note that job_config dict gets
     modified during process training args"""
     with open(HAPPY_PATH_DUMMY_CONFIG_PATH, "r", encoding="utf-8") as f:
         dummy_job_config_dict = json.load(f)
