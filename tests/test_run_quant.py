@@ -55,6 +55,9 @@ DQ_ARGS = FMSMOArguments(
 )
 
 
+@pytest.mark.skipif(
+    not torch.cuda.is_available(), reason="Only runs if GPUs are available"
+)
 def test_run_train_requires_output_dir():
     """Check fails when output dir not provided."""
     updated_output_dir_opt_args = copy.deepcopy(OPT_ARGS)
@@ -68,9 +71,6 @@ def test_run_train_requires_output_dir():
         )
 
 
-@pytest.mark.skipif(
-    not torch.cuda.is_available(), reason="Only runs if GPUs are available"
-)
 def test_run_train_fails_training_data_path_not_exist():
     """Check fails when data path not found."""
     updated_data_path_args = copy.deepcopy(DATA_ARGS)
