@@ -107,9 +107,8 @@ def quantize(
         run_dq(model_args, data_args, opt_args, fms_mo_args)
     else:
         raise ValueError(
-            "{} is not a valid quantization technique option. Please choose from: gptq, fp8, dq".format(
-                opt_args.quant_method
-            )
+            f"{opt_args.quant_method} is not a valid quantization technique option. \
+            Please choose from: gptq, fp8, dq"
         )
 
 
