@@ -26,7 +26,7 @@ import pytest
 # First Party
 from build.accelerate_launch import main
 from build.utils import serialize_args
-from tests.artifacts.testdata import WIKITEXT_TOKENIZED_DATA_JSON
+from tests.artifacts.testdata import WIKITEXT_TOKENIZED_DATA_JSON, MODEL_NAME
 from fms_mo.utils.error_logging import (
     USER_ERROR_EXIT_CODE,
     INTERNAL_ERROR_EXIT_CODE,
@@ -35,7 +35,6 @@ from fms_mo.utils.import_utils import available_packages
 
 
 SCRIPT = os.path.join(os.path.dirname(__file__), "../..", "fms_mo/run_quant.py")
-MODEL_NAME = "Maykeye/TinyLLama-v0"
 BASE_KWARGS = {
     "accelerate_launch_args":{
         "num_processes": 1
