@@ -209,6 +209,10 @@ def test_config_parsing_error():
         assert pytest_wrapped_e.value.code == USER_ERROR_EXIT_CODE
         assert os.stat(tempdir + "/termination-log").st_size > 0
 
+        with open(tempdir + "/termination-log", "r", encoding="utf-8") as f:
+            contents = f.read()
+        assert contents == "Exception raised during optimization. This may be a problem with your input: The field `nbits_w` was assigned by `<class 'str'>` instead of `<class 'int'>`"
+
 
 def _validate_termination_files_when_quantization_succeeds(base_dir):
     # Check termination log and .complete files exist
