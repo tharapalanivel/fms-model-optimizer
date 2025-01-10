@@ -16,6 +16,8 @@
 Qmax Quantizers and STEs
 """
 
+from typing import List
+
 # Third Party
 import torch
 
@@ -444,7 +446,7 @@ class QmaxExtendRangeSTE_PTnative(PerTensorSTEQmax_PTnative):
         symmetric: bool = False,
         qlevel_lowering: bool = True,
         use_minmax: bool = False,
-    ) -> [
+    ) -> List[
         torch.IntTensor,
         torch.FloatTensor,
         torch.FloatTensor,

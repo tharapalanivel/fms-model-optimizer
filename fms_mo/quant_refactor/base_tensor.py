@@ -19,6 +19,8 @@ Each group has a PyTorch native implementation that uses the fake_quantize_per_t
 Each STE implements the torch.autograd.Function forward() and backward() functions.
 """
 
+from typing import List
+
 # Third Party
 import torch
 
@@ -121,7 +123,7 @@ class PerTensorSTEBase(torch.autograd.Function):
         clip_val: torch.FloatTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
-    ) -> [torch.IntTensor, torch.FloatTensor, torch.IntTensor]:
+    ) -> List[torch.IntTensor, torch.FloatTensor, torch.IntTensor]:
         """
         Compute the scale and zero_point from num_bits and clip values
 
@@ -241,7 +243,7 @@ class PerTensorSTEBase_PTnative(torch.autograd.Function):
         clip_val: torch.FloatTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
-    ) -> [torch.IntTensor, torch.FloatTensor, torch.IntTensor, int, int]:
+    ) -> List[torch.IntTensor, torch.FloatTensor, torch.IntTensor, int, int]:
         """
         Compute the scale and zero_point from num_bits and clip values.
         Also, compute qint bounds for PT clamping.
@@ -276,7 +278,7 @@ class PerTensorSTEBase_PTnative(torch.autograd.Function):
         zero_point: torch.IntTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
-    ) -> [int, int, torch.dtype]:
+    ) -> List[int, int, torch.dtype]:
         """
         qlevel_symmetric: shift qlevel from [-2**(b-1), 2**(b-1)-1] to [-2**(b-1)+1, 2**(b-1)-1]
         For int8: [-127,127] ; For int4 [-7,7]
@@ -424,7 +426,7 @@ class PerTensorSTESAWB(PerTensorSTEBase):
         symmetric: bool = True,
         qlevel_lowering: bool = False,
         use_code: bool = False,
-    ) -> [torch.IntTensor, torch.FloatTensor, torch.IntTensor]:
+    ) -> List[torch.IntTensor, torch.FloatTensor, torch.IntTensor]:
         """
         Compute the scale and zero_point from num_bits and clip values
 
@@ -545,7 +547,7 @@ class PerTensorSTESAWB_PTnative(PerTensorSTEBase_PTnative):
         symmetric: bool = False,
         qlevel_lowering: bool = False,
         use_code: bool = False,
-    ) -> [
+    ) -> List[
         torch.IntTensor,
         torch.FloatTensor,
         torch.FloatTensor,
@@ -692,7 +694,7 @@ class PerTensorSTEQmax(PerTensorSTEBase):
         symmetric: bool = False,
         qlevel_lowering: bool = False,
         use_minmax: bool = False,
-    ) -> [torch.IntTensor, torch.FloatTensor]:
+    ) -> List[torch.IntTensor, torch.FloatTensor]:
         """
         Compute the scale and zero_point from num_bits and clip values
 
@@ -808,7 +810,7 @@ class PerTensorSTEQmax_PTnative(PerTensorSTEBase_PTnative):
         symmetric: bool = True,
         qlevel_lowering: bool = False,
         use_minmax: bool = False,
-    ) -> [
+    ) -> List[
         torch.IntTensor,
         torch.FloatTensor,
         torch.FloatTensor,

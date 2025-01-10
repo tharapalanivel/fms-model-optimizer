@@ -15,6 +15,7 @@
 """
 Base Per Channel Quantizer Class
 """
+from typing import List
 
 # Third Party
 import torch
@@ -222,7 +223,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
         clip_val: torch.FloatTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
-    ) -> [torch.IntTensor, torch.FloatTensor, torch.IntTensor, int, int]:
+    ) -> List[torch.IntTensor, torch.FloatTensor, torch.IntTensor, int, int]:
         """
         Compute the scale and zero_point from num_bits and clip values.
         Also, compute qint bounds for PT clamping.
@@ -257,7 +258,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
         zero_point: torch.IntTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
-    ) -> [int, int, torch.dtype]:
+    ) -> List[int, int, torch.dtype]:
         """
         qlevel_symmetric: shift qlevel from [-2**(b-1), 2**(b-1)-1] to [-2**(b-1)+1, 2**(b-1)-1]
         For int8: [-127,127] ; For int4 [-7,7]

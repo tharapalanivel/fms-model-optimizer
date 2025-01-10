@@ -16,6 +16,8 @@
 SAWB Quantizer Rewrite
 """
 
+from typing import List
+
 # Third Party
 import torch
 
@@ -512,7 +514,7 @@ class SAWBPlus16ZeroSTE_PTnative(PerTensorSTESAWB_PTnative):
         qlevel_lowering: bool = False,
         use_code: bool = False,
         input_tensor: torch.FloatTensor = None,
-    ) -> [
+    ) -> List[
         torch.IntTensor,
         torch.FloatTensor,
         torch.FloatTensor,
