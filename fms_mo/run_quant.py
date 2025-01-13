@@ -27,10 +27,15 @@ Main entry point for quantize API for GPTQ, FP8 and DQ quantization techniques
 
 # Standard
 import logging
+import os
+import sys
 import time
+import traceback
 
 # Third Party
 from datasets import load_from_disk
+from huggingface_hub.errors import HFValidationError
+from torch.cuda import OutOfMemoryError
 from transformers import AutoTokenizer
 import transformers
 
@@ -44,9 +49,14 @@ from fms_mo.training_args import (
     ModelArguments,
     OptArguments,
 )
+from fms_mo.utils.config_utils import get_json_config
+from fms_mo.utils.error_logging import (
+    INTERNAL_ERROR_EXIT_CODE,
+    USER_ERROR_EXIT_CODE,
+    write_termination_log,
+)
 from fms_mo.utils.import_utils import available_packages
-
-logger = logging.Logger("fms_mo.main")
+from fms_mo.utils.logging_utils import set_log_level
 
 
 def quantize(
@@ -69,6 +79,8 @@ def quantize(
         gptq_args (fms_mo.training_args.GPTQArguments): Parameters to use for GPTQ quantization
         fp8_args (fms_mo.training_args.FP8Arguments): Parameters to use for FP8 quantization
     """
+
+    logger = set_log_level(opt_args.log_level, "fms_mo.quantize")
 
     logger.info(f"{fms_mo_args}\n{opt_args.quant_method}\n")
 
@@ -118,6 +130,8 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
 
     # Local
     from fms_mo.utils.custom_gptq_models import custom_gptq_classes
+
+    logger = set_log_level(opt_args.log_level, "fms_mo.run_gptq")
 
     quantize_config = BaseQuantizeConfig(
         bits=gptq_args.bits,
@@ -178,6 +192,8 @@ def run_fp8(model_args, data_args, opt_args, fp8_args):
     from llmcompressor.modifiers.quantization import QuantizationModifier
     from llmcompressor.transformers import SparseAutoModelForCausalLM, oneshot
 
+    logger = set_log_level(opt_args.log_level, "fms_mo.run_fp8")
+
     model = SparseAutoModelForCausalLM.from_pretrained(
         model_args.model_name_or_path, torch_dtype=model_args.torch_dtype
     )
@@ -204,9 +220,8 @@ def run_fp8(model_args, data_args, opt_args, fp8_args):
     tokenizer.save_pretrained(opt_args.output_dir)
 
 
-def main():
-    """Main entry point for quantize API for GPTQ, FP8 and DQ quantization techniques"""
-
+def get_parser():
+    """Get the command-line argument parser."""
     parser = transformers.HfArgumentParser(
         dataclass_types=(
             ModelArguments,
@@ -217,20 +232,53 @@ def main():
             FP8Arguments,
         )
     )
+    return parser
 
-    (
-        model_args,
-        data_args,
-        opt_args,
-        fms_mo_args,
-        gptq_args,
-        fp8_args,
-        _,
-    ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
 
-    logger.debug(
-        "Input args parsed: \nmodel_args %s, data_args %s, opt_args %s, fms_mo_args %s, "
-        "gptq_args %s, fp8_args %s",
+def parse_arguments(parser, json_config=None):
+    """Parses arguments provided either via command-line or JSON config.
+
+    Args:
+        parser: argparse.ArgumentParser
+            Command-line argument parser.
+        json_config: dict[str, Any]
+            Dict of arguments to use with tuning.
+
+    Returns:
+        ModelArguments
+            Arguments pertaining to which model we are going to quantize.
+        DataArguments
+            Arguments pertaining to what data we are going to use for optimization and evaluation.
+        OptArguments
+            Arguments generic to optimization.
+        FMSMOArguments
+            Configuration for PTQ quantization.
+        GPTQArguments
+            Configuration for GPTQ quantization.
+        FP8Arguments
+            Configuration for FP8 quantization.
+    """
+    if json_config:
+        (
+            model_args,
+            data_args,
+            opt_args,
+            fms_mo_args,
+            gptq_args,
+            fp8_args,
+        ) = parser.parse_dict(json_config, allow_extra_keys=True)
+    else:
+        (
+            model_args,
+            data_args,
+            opt_args,
+            fms_mo_args,
+            gptq_args,
+            fp8_args,
+            _,
+        ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
+
+    return (
         model_args,
         data_args,
         opt_args,
@@ -239,14 +287,72 @@ def main():
         fp8_args,
     )
 
-    quantize(
-        model_args=model_args,
-        data_args=data_args,
-        opt_args=opt_args,
-        fms_mo_args=fms_mo_args,
-        gptq_args=gptq_args,
-        fp8_args=fp8_args,
-    )
+
+def main():
+    """Main entry point for quantize API for GPTQ, FP8 and DQ quantization techniques"""
+
+    parser = get_parser()
+    logger = logging.getLogger()
+    job_config = get_json_config()
+    # accept arguments via command-line or JSON
+    try:
+        (
+            model_args,
+            data_args,
+            opt_args,
+            fms_mo_args,
+            gptq_args,
+            fp8_args,
+        ) = parse_arguments(parser, job_config)
+
+        logger = set_log_level(opt_args.log_level, __name__)
+
+        logger.debug(f"Input args parsed: \nmodel_args {model_args}, data_args {data_args}, \
+                     opt_args {opt_args}, fms_mo_args {fms_mo_args}, gptq_args {gptq_args}, \
+                     fp8_args {fp8_args}")
+    except Exception as e:  # pylint: disable=broad-except
+        logger.error(traceback.format_exc())
+        write_termination_log(
+            f"Exception raised during optimization. This may be a problem with your input: {e}"
+        )
+        sys.exit(USER_ERROR_EXIT_CODE)
+
+    if opt_args.output_dir:
+        os.makedirs(opt_args.output_dir, exist_ok=True)
+        logger.info("Using the output directory at %s", opt_args.output_dir)
+    try:
+        quantize(
+            model_args=model_args,
+            data_args=data_args,
+            opt_args=opt_args,
+            fms_mo_args=fms_mo_args,
+            gptq_args=gptq_args,
+            fp8_args=fp8_args,
+        )
+    except (MemoryError, OutOfMemoryError) as e:
+        logger.error(traceback.format_exc())
+        write_termination_log(f"OOM error during optimization. {e}")
+        sys.exit(INTERNAL_ERROR_EXIT_CODE)
+    except FileNotFoundError as e:
+        logger.error(traceback.format_exc())
+        write_termination_log(f"Unable to load file: {e}")
+        sys.exit(USER_ERROR_EXIT_CODE)
+    except HFValidationError as e:
+        logger.error(traceback.format_exc())
+        write_termination_log(
+            f"There may be a problem with loading the model. Exception: {e}"
+        )
+        sys.exit(USER_ERROR_EXIT_CODE)
+    except (TypeError, ValueError, EnvironmentError) as e:
+        logger.error(traceback.format_exc())
+        write_termination_log(
+            f"Exception raised during optimization. This may be a problem with your input: {e}"
+        )
+        sys.exit(USER_ERROR_EXIT_CODE)
+    except Exception as e:  # pylint: disable=broad-except
+        logger.error(traceback.format_exc())
+        write_termination_log(f"Unhandled exception during optimization: {e}")
+        sys.exit(INTERNAL_ERROR_EXIT_CODE)
 
 
 if __name__ == "__main__":
