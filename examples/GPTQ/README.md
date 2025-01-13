@@ -32,7 +32,7 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 > - Tokenized data will be saved in `<path_to_save>_train` and `<path_to_save>_test`
 > - If you have trouble downloading Llama family of models from Hugging Face ([LLama models require access](https://www.llama.com/docs/getting-the-models/hugging-face/)), you can use `ibm-granite/granite-8b-code` instead
 
-2. **Quantize the model** using the data generated above, the following command will kick off the quantization job (by invoking `auto_gptq` under the hood.) Additional acceptable arguments can be found here in [GPTQArgs](../../fms_mo/training_args.py#L127).
+2. **Quantize the model** using the data generated above, the following command will kick off the quantization job (by invoking `auto_gptq` under the hood.) Additional acceptable arguments can be found here in [GPTQArguments](../../fms_mo/training_args.py#L127).
 
     ```bash
     python -m fms_mo.run_quant \
