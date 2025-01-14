@@ -27,5 +27,3 @@ try:
     __version__ = version("fms_mo")
 except PackageNotFoundError:
     __version__ = VERSION_FALLBACK
-
-logging.basicConfig(filename="fms_mo.log", encoding="utf-8", level=logging.INFO)
