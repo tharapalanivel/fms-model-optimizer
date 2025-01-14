@@ -18,7 +18,7 @@ Arguments used for quantization
 
 # Standard
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import List, Optional, Union, get_origin
 
 # Third Party
 import torch
@@ -32,12 +32,14 @@ class TypeChecker:
         for name, field_type in self.__annotations__.items():
             val = self.__dict__[name]
             invalid_val = False
-            if not field_type is list:
+            if not get_origin(field_type) is list:
                 if not isinstance(val, field_type):
                     invalid_val = True
             else:
-                if not isinstance(val, list) or not all(
-                    isinstance(item, int) for item in val
+                if not (
+                    get_origin(val) is list
+                    or type(val) is list # pylint: disable=unidiomatic-typecheck
+                    or all(isinstance(item, int) for item in val)
                 ):
                     invalid_val = True
 
@@ -189,4 +191,4 @@ class FP8Arguments(TypeChecker):
 
     targets: str = field(default="Linear")
     scheme: str = field(default="FP8_DYNAMIC")
-    ignore: list[str] = field(default_factory=lambda: ["lm_head"])
+    ignore: List[str] = field(default_factory=lambda: ["lm_head"])
