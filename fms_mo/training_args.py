@@ -38,7 +38,7 @@ class TypeChecker:
             else:
                 if not (
                     get_origin(val) is list
-                    or type(val) is list # pylint: disable=unidiomatic-typecheck
+                    or type(val) is list  # pylint: disable=unidiomatic-typecheck
                     or all(isinstance(item, int) for item in val)
                 ):
                     invalid_val = True
