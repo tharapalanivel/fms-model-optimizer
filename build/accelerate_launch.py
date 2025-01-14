@@ -65,13 +65,9 @@ def main():
         log_level = job_config.get(
             "log_level"
         )  # this will be set to either the value found or None
-        if (
-            not log_level
-        ):  # if log level not set by job_config aka by JSON, set it via env var or set default
-            log_level = os.environ.get("LOG_LEVEL", "WARNING") # TPP should be WARNING
+        if not log_level:  # if log level not set by job_config aka by JSON, set it via env var or set default
+            log_level = os.environ.get("LOG_LEVEL", "WARNING")
         logging.basicConfig(level=log_level.upper())
-
-        logging.debug("About to parse args") #TPP add
 
         args = process_accelerate_launch_args(job_config)
         logging.debug("accelerate launch parsed args: %s", args)

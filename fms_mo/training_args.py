@@ -26,6 +26,8 @@ import torch
 
 @dataclass
 class TypeChecker:
+    """Parent dataclass used by other args dataclasses to support input type validation."""
+
     def __post_init__(self):
         for name, field_type in self.__annotations__.items():
             val = self.__dict__[name]
@@ -34,7 +36,9 @@ class TypeChecker:
                 if not isinstance(val, field_type):
                     invalid_val = True
             else:
-                if not isinstance(val, list) or not all(isinstance(item, int) for item in val):
+                if not isinstance(val, list) or not all(
+                    isinstance(item, int) for item in val
+                ):
                     invalid_val = True
 
             if invalid_val:
@@ -84,7 +88,8 @@ class ModelArguments(TypeChecker):
         default=None,
         metadata={
             "help": (
-                "`torch.device`: The device on which the module is (assuming that all the module parameters are on the same device)."
+                "`torch.device`: The device on which the module is (assuming that all the module \
+                parameters are on the same device)."
             )
         },
     )

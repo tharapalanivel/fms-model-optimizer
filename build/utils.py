@@ -43,6 +43,7 @@ def copy_checkpoint(source, destination, exclude_files: list[str] = None):
             # straight copy.
             shutil.copy2(source_file, destination_file)
 
+
 def serialize_args(args_json):
     """Given dict, converts to base64 byte representation.
 
