@@ -20,7 +20,7 @@ Raises:
     ValueError: SAWB code is not implemented
 """
 
-from typing import List
+from typing import Tuple
 
 # Third Party
 import torch
@@ -30,7 +30,7 @@ def sawb_params(
     input_tensor: torch.FloatTensor,
     num_bits: torch.IntTensor,
     qlevel_lowering: bool = False,
-) -> List[torch.IntTensor, torch.FloatTensor]:
+) -> Tuple[torch.IntTensor, torch.FloatTensor]:
     """
     Compute SAWB symmetric clip value and # of quantized levels.
 
@@ -77,7 +77,7 @@ def sawb_params_code(
     num_bits: torch.IntTensor,
     code: int,
     perCh: bool = False,
-) -> List[torch.IntTensor, torch.FloatTensor]:
+) -> Tuple[torch.IntTensor, torch.FloatTensor]:
     """
     Compute SAWB symmetric clip value and # of quantized levels
 

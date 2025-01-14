@@ -32,6 +32,15 @@ from fms_mo.quant_refactor.sawb_utils import sawb_params, sawb_params_code
 
 logger = logging.getLogger(__name__)
 
+perTQscheme_default = Qscheme(
+    unit="perT",
+    symmetric=False,
+    Nch=None,
+    Ngrp=None,
+    single_sided=True,
+    qlevel_lowering=False,
+)
+
 # Create a Torch Quanitizer class that returns  float + int quantized tensors
 class TorchQuantizer(torch.nn.Module):
     """
@@ -44,14 +53,7 @@ class TorchQuantizer(torch.nn.Module):
         clip_low: torch.FloatTensor,
         clip_high: torch.FloatTensor,
         dequantize: bool = True,
-        qscheme: Qscheme = Qscheme(
-            unit="perT",
-            symmetric=False,
-            Nch=None,
-            Ngrp=None,
-            single_sided=False,
-            qlevel_lowering=True,
-        ),
+        qscheme: Qscheme = perTQscheme_default,
     ) -> None:
         """
         Init TorchQuantizer Class

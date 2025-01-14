@@ -16,7 +16,7 @@
 SAWB Quantizer Rewrite
 """
 
-from typing import List
+from typing import Tuple
 
 # Third Party
 import torch
@@ -30,6 +30,16 @@ from fms_mo.quant_refactor.base_tensor import (
 from fms_mo.quant_refactor.linear_utils import linear_dequantize, linear_quantize
 from fms_mo.quant_refactor.sawb_utils import sawb_params, sawb_params_code
 
+perTQscheme_default = Qscheme(
+    unit="perT",
+    symmetric=True,
+    Nch=None,
+    Ngrp=None,
+    single_sided=True,
+    qlevel_lowering=False,
+)
+clip_valn_default = torch.tensor(-8.0)
+clip_val_default = torch.tensor(8.0)
 
 class SAWB_new(QuantizerBase):
     """
@@ -46,16 +56,9 @@ class SAWB_new(QuantizerBase):
     def __init__(
         self,
         num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = torch.tensor(-8.0),
-        init_clip_val: torch.FloatTensor = torch.tensor(8.0),
-        qscheme=Qscheme(
-            unit="perT",
-            symmetric=True,
-            Nch=None,
-            Ngrp=None,
-            single_sided=False,
-            qlevel_lowering=False,
-        ),
+        init_clip_valn: torch.FloatTensor = clip_valn_default,
+        init_clip_val: torch.FloatTensor = clip_val_default,
+        qscheme: Qscheme = perTQscheme_default,
         dequantize: bool = True,
         clipSTE: bool = False,
         align_zero: bool = False,
@@ -514,7 +517,7 @@ class SAWBPlus16ZeroSTE_PTnative(PerTensorSTESAWB_PTnative):
         qlevel_lowering: bool = False,
         use_code: bool = False,
         input_tensor: torch.FloatTensor = None,
-    ) -> List[
+    ) -> Tuple[
         torch.IntTensor,
         torch.FloatTensor,
         torch.FloatTensor,

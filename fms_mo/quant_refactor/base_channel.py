@@ -15,8 +15,7 @@
 """
 Base Per Channel Quantizer Class
 """
-from typing import List
-
+from typing import Tuple
 # Third Party
 import torch
 
@@ -114,7 +113,7 @@ class PerChSTEBase(torch.autograd.Function):
                 Defaults to True.
 
         Returns:
-            [torch.IntTensor, torch.FloatTensor, torch.IntTensor]: Quantized parameters
+            torch.IntTensor, torch.FloatTensor, torch.IntTensor: Quantized parameters
         """
         if symmetric:
             n_levels, scale, zero_point = symmetric_linear_quantization_params(
@@ -144,7 +143,7 @@ class PerChSTEBase(torch.autograd.Function):
             grad_output (torch.FloatTensor): Gradient tensor
 
         Returns:
-            [torch.FloatTensor, None,...,None]: STE Gradient
+            torch.FloatTensor, None,...,None: STE Gradient
         """
         return grad_output, None, None, None, None, None
 
@@ -223,7 +222,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
         clip_val: torch.FloatTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
-    ) -> List[torch.IntTensor, torch.FloatTensor, torch.IntTensor, int, int]:
+    ) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor, int, int]:
         """
         Compute the scale and zero_point from num_bits and clip values.
         Also, compute qint bounds for PT clamping.
@@ -237,7 +236,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
                 Defaults to True.
 
         Returns:
-            [torch.IntTensor, torch.FloatTensor, torch.IntTensor]: Quantized parameters
+            Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor]: Quantized parameters
         """
         n_levels = 2**num_bits - 2 if qlevel_lowering else 2**num_bits - 1
         scale = (clip_val - clip_valn) / n_levels
@@ -258,7 +257,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
         zero_point: torch.IntTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
-    ) -> List[int, int, torch.dtype]:
+    ) -> Tuple[int, int, torch.dtype]:
         """
         qlevel_symmetric: shift qlevel from [-2**(b-1), 2**(b-1)-1] to [-2**(b-1)+1, 2**(b-1)-1]
         For int8: [-127,127] ; For int4 [-7,7]
@@ -341,6 +340,6 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
             grad_output (torch.FloatTensor): Gradient tensor
 
         Returns:
-            [torch.FloatTensor, None,...,None]: STE Gradient
+            torch.FloatTensor, None,...,None: STE Gradient
         """
         return grad_output, None, None, None, None, None, None

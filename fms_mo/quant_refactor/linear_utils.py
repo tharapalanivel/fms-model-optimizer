@@ -19,7 +19,7 @@ Raises:
     ValueError: Lower clip value is less than 0 for symmetric quantization
 """
 
-from typing import List
+from typing import Tuple
 
 # Third Party
 import torch
@@ -29,7 +29,7 @@ def transform_clips(
     input_tensor_dtype: torch.dtype,
     clip_valn: torch.FloatTensor,
     clip_val: torch.FloatTensor,
-) -> List[torch.FloatTensor, torch.FloatTensor]:
+) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
     """
     Transform clip values to input datatype
 
@@ -49,7 +49,7 @@ def qint_bounds(
     zero_point: torch.IntTensor,
     symmetric: bool = False,
     qlevel_lowering: bool = False,
-) -> List[torch.IntTensor, torch.IntTensor, torch.dtype]:
+) -> Tuple[torch.IntTensor, torch.IntTensor, torch.dtype]:
     """
     Compute qint clamp bounds based on qparams.
 
@@ -105,7 +105,7 @@ def linear_quantize_residual(
     input_tensor: torch.FloatTensor,
     scale: torch.FloatTensor,
     zero_point: torch.IntTensor,
-) -> List[torch.FloatTensor, torch.FloatTensor]:
+) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
     """
     Quantize a tensor to quantized int space and compute residual
 
@@ -130,7 +130,7 @@ def linear_quantize_LSQresidual(
     input_tensor: torch.FloatTensor,
     scale: torch.FloatTensor,
     zero_point: torch.IntTensor,
-) -> List[torch.FloatTensor, torch.FloatTensor]:
+) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
     """
     Quantize a tensor to quantized int space and compute LSQ residual
 
@@ -267,7 +267,7 @@ def asymmetric_linear_quantization_params(
     integral_zero_point: bool = True,
     signed: bool = False,
     qlevel_lowering: bool = False,
-) -> List[torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
+) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
     """
     Default quantization setup for asymmetric quantization
 
@@ -302,7 +302,7 @@ def symmetric_linear_quantization_params(
     num_bits: torch.IntTensor,
     sat_val: torch.FloatTensor,
     qlevel_lowering: bool = True,
-) -> List[torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
+) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
     """
     Default quantization setup for symmetric quantization
 
