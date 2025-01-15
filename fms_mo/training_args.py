@@ -18,7 +18,7 @@ Arguments used for quantization
 
 # Standard
 from dataclasses import dataclass, field
-from typing import List, Optional, Union, get_origin
+from typing import List, Optional, Union, get_args, get_origin
 
 # Third Party
 import torch
@@ -32,7 +32,10 @@ class TypeChecker:
         for name, field_type in self.__annotations__.items():
             val = self.__dict__[name]
             invalid_val = False
-            if not get_origin(field_type) is list:
+            if get_origin(field_type) is Union:
+                if not type(val) in get_args(field_type):
+                    invalid_val = True
+            elif not get_origin(field_type) is list:
                 if not isinstance(val, field_type):
                     invalid_val = True
             else:
@@ -54,8 +57,8 @@ class TypeChecker:
 class ModelArguments(TypeChecker):
     """Dataclass for model related arguments."""
 
-    model_name_or_path: Optional[str] = field(default="facebook/opt-125m")
-    torch_dtype: Optional[Union[torch.dtype, str]] = torch.bfloat16
+    model_name_or_path: str = field(default="facebook/opt-125m")
+    torch_dtype: Union[torch.dtype, str] = torch.bfloat16
     use_fast_tokenizer: bool = field(
         default=True,
         metadata={
@@ -110,8 +113,8 @@ class DataArguments(TypeChecker):
         default=None,
         metadata={"help": "Path to the test data in JSON/JSONL format"},
     )
-    max_seq_length: Optional[int] = field(default=2048)
-    num_calibration_samples: Optional[int] = field(default=512)
+    max_seq_length: int = field(default=2048)
+    num_calibration_samples: int = field(default=512)
 
 
 @dataclass
