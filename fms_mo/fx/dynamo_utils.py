@@ -339,14 +339,20 @@ def find_conv_on_shortcut_gm(gm: torch.fx.GraphModule, lut_fx_mod_name_to_org={}
                     )
                 if conv_mod.out_channels > conv_mod.in_channels:  # see Note 2
                     qconv_candidate.append(
-                        get_org_mod_name_of_fx_node(n_conv_i, gm, lut_fx_mod_name_to_org)
+                        get_org_mod_name_of_fx_node(
+                            n_conv_i, gm, lut_fx_mod_name_to_org
+                        )
                     )
 
     return qconv_candidate
 
 
 def find_1st_last_gm(
-    gm, firstOps=None, lastOps=None, return_1st_last_sep=False, lut_fx_mod_name_to_org={}
+    gm,
+    firstOps=None,
+    lastOps=None,
+    return_1st_last_sep=False,
+    lut_fx_mod_name_to_org={},
 ):
     """Identify the first and last layer of interests
     Usually only interested in Conv and Linear, but could be others as well
@@ -1005,7 +1011,9 @@ def model_analyzer(
 
         # Check 3: single/double sided
         qcfg["qsinglesided_name"] += add_prefix_to_list_or_dict(
-            find_single_sided_op_gm(gm_fx, lut_fx_mod_name_to_org=lut_fx_mod_name_to_org),
+            find_single_sided_op_gm(
+                gm_fx, lut_fx_mod_name_to_org=lut_fx_mod_name_to_org
+            ),
             prefix,
         )
 

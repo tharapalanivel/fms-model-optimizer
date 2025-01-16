@@ -71,7 +71,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         use dynamo tracing instead of torchscript by default. if torchscript is needed, change
         1) config_kwarks and 2) use_dynamo in qmodel_prep()
 
-"""
+    """
     # for attention or kv-cache quantization, need to use eager attention
     attn_bits = [
         fms_mo_args.nbits_bmm1,
