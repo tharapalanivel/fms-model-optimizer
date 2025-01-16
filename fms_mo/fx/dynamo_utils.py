@@ -1164,9 +1164,12 @@ def model_analyzer(
 
     if qcfg["N_backend_called"] > 1:
         logger.warning(
-            f"Found {qcfg['N_backend_called']} graph breaks during Dynamo tracing. "
-            f"Layers being quantized may not be 100% accurate. Please double-check!\n"
-            f"Layers being skipped are: {qcfg['qskip_layer_name']}\n"
-            f"If needed, use qcfg['qskip_layer_name'], qcfg['qlayer_name_pattern'], "
-            f"or qcfg['qspecial_layers'] to control layer selection."
+            f"Found {qcfg['N_backend_called']} graph breaks during Dynamo tracing!! \n"
+            f"First/Last layer, which usually needs to stay unquantized, cannot be identified"
+            f" correctly now. Please double-check layers being skipped:\n"
+            f"{qcfg['qskip_layer_name']}\n NOTE: Users can control layer selection by adding layer"
+            f"names to:\n"
+            f"1. qcfg['qskip_layer_name'], qcfg['qspecial_layers'] (need to be exact names, will be"
+            f"added on top of what is found automatically.), or \n"
+            f"2. qcfg['qlayer_name_pattern'] (partial names, will bypass automatic search."
         )
