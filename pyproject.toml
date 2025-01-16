@@ -122,3 +122,24 @@ from-first=true
 # import_heading_localfolder="Local"
 known-local-folder=["fms_mo","tests"]
 # extend-skip="fms_mo/_version.py"
+
+[tool.mypy]
+mypy_path = [""]
+packages = ["fms_mo", "tests"]
+disable_error_code = []
+# TODO: tighten MyPy checks by enabling these checks over time.
+check_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+warn_return_any = true
+# honor excludes by not following there through imports
+follow_imports = "silent"
+exclude = []
+
+[[tool.mypy.overrides]]
+# packages without typing annotations, without stubs, or not available.
+module = [
+  "datasets",
+  "huggingface_hub.*",
+]
+ignore_missing_imports = true
