@@ -125,7 +125,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     logger.info(f"Tokenizer is {tokenizer}, block size is {block_size}")
     qcfg = qconfig_init(recipe="dq", args=fms_mo_args)
     # for models that cannot fit in 1 GPU, keep it in CPU and use block-wise calibration.
-    total_gpu_memory = 0.0
+    total_gpu_memory = 1e-5
     if torch.cuda.is_available():
         total_gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
     model_size = model_size_Wb(model, unit="GB")
