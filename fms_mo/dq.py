@@ -86,7 +86,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         "cache_dir": model_args.cache_dir,
         "revision": model_args.model_revision,
         "use_auth_token": True if model_args.use_auth_token else None,
-        "torchscript": False,
+        "torchscript": True,
         "attn_implementation": attn_implementation,
     }
     config = AutoConfig.from_pretrained(model_args.model_name_or_path, **config_kwargs)
