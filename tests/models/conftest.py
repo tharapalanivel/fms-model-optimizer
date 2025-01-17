@@ -1091,4 +1091,4 @@ def model_bert():
     Returns:
         transformers.models.bert.modeling_bert.BertModel: BERT model
     """
-    return BertModel.from_pretrained("bert-base-uncased")
+    return BertModel.from_pretrained("bert-base-uncased", torchscript=True)
