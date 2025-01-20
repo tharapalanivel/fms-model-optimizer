@@ -39,3 +39,9 @@ dictionary.dic
 
 # Generated error log
 error.log
+
+# Files generated from running examples
+fms_mo.log
+data_train/
+data_test/
+act_scales/
