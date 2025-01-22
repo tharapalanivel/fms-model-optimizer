@@ -17,8 +17,8 @@ can be found in fms_mo/utils.
 """
 
 # Standard
+from typing import Dict, Optional
 import logging
-from typing import Optional, Dict
 
 # Third Party
 import torch

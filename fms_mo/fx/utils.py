@@ -15,7 +15,7 @@
 """Utils for FX graph parsing and external kernel lowering"""
 
 # Standard
-from typing import Any, Optional, Dict
+from typing import Any, Dict, Optional
 import logging
 import operator
 import os
