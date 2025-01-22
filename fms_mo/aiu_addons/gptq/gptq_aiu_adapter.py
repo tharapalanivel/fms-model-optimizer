@@ -22,7 +22,8 @@ import torch
 
 
 def _gptq_qweights_transpose_aiu(
-    input_sd: Mapping[str, torch.Tensor], **kwargs
+    input_sd: Mapping[str, torch.Tensor],
+    **kwargs,  # pylint: disable=unused-argument
 ) -> Mapping[str, torch.Tensor]:
     new_sd = {}
     for name, param in input_sd.items():
