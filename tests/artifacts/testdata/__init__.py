@@ -24,5 +24,3 @@ DATA_DIR = os.path.join(os.path.dirname(__file__))
 WIKITEXT_TOKENIZED_DATA_JSON = os.path.join(
     DATA_DIR, "wiki_maykeye_tinyllama_v0_numsamp2_seqlen2048"
 )
-EMPTY_DATA = os.path.join(DATA_DIR, "empty_data.json")
-MALFORMATTED_DATA = os.path.join(DATA_DIR, "malformatted_data.json")

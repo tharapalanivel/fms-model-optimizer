@@ -150,6 +150,8 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
         quantize_config=quantize_config,
         torch_dtype=model_args.torch_dtype,
     )
+    if model_args.device:
+        model = model.to(model_args.device)
 
     logger.info(f"Loading data from {data_args.training_data_path}")
     tokenizer = AutoTokenizer.from_pretrained(
