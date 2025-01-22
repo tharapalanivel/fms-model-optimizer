@@ -36,6 +36,7 @@ dependencies = [
 "pandas",
 "safetensors",
 "ninja",
+"ibm-fms>=0.0.8"
 ]
 
 [project.optional-dependencies]
