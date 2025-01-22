@@ -47,7 +47,7 @@ def dfs_gm(
     prescreenOp=None,
     hook=None,
     return_nodes=False,
-    lut_fx_mod_name_to_org: Optional[Dict[int, str]] = None,
+    lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None,
 ):
     """Depth-First Search at FX IR level, to replace our old TorchScript equivalent func
     Because FX IR is a higher level IR, should have much fewer
@@ -229,7 +229,7 @@ def dfs_gm(
 
 
 def find_conv_on_shortcut_gm(
-    gm: torch.fx.GraphModule, lut_fx_mod_name_to_org: Optional[Dict[int, str]] = None
+    gm: torch.fx.GraphModule, lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None
 ):
     """Identify Conv on shortcut using FX GM DFS
     It's (almost) specific for ResNet-like CNNs, will return a list of module names (as used in the
@@ -355,7 +355,7 @@ def find_1st_last_gm(
     firstOps=None,
     lastOps=None,
     return_1st_last_sep=False,
-    lut_fx_mod_name_to_org: Optional[Dict[int, str]] = None,
+    lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None,
 ):
     """Identify the first and last layer of interests
     Usually only interested in Conv and Linear, but could be others as well
@@ -410,7 +410,7 @@ def find_single_sided_op_gm(
     op_of_interest=None,
     return_LUTs=False,
     verbose=False,
-    lut_fx_mod_name_to_org: Optional[Dict[int, str]] = None,
+    lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None,
 ):
     """Try to determine the "polarity" of output of "every nodes" based on their inputs and the Op
     itself, then decide which Conv/Linear (or user-specified Op) will use single-sided quantizer
@@ -584,7 +584,7 @@ def find_single_sided_op_gm(
 
 
 def find_qkvsync_candidates_gm(
-    gm, return_nodes=False, lut_fx_mod_name_to_org: Optional[Dict[int, str]] = None
+    gm, return_nodes=False, lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None
 ):
     """Identify groups of Linears that share the same parent. It's a transformer-specific feature.
 
@@ -635,7 +635,7 @@ def find_qkvsync_candidates_gm(
     return my_1st_sibling
 
 
-def find_silu_gm(gm, lut_fx_mod_name_to_org: Optional[Dict[int, str]] = None):
+def find_silu_gm(gm, lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None):
     """Special handle for Conv following silu, specific for EffDet and etc
     LLM could use SiLU as well (llama?), but not relavent to this func
     """
@@ -659,7 +659,7 @@ def find_rpn_fpn_gm(
     gm,
     verbose=False,
     Nsubgraph=0,
-    lut_fx_mod_name_to_org: Optional[Dict[int, str]] = None,
+    lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None,
 ):
     """For object detection CNN models, RPN (RegionProposalNetwork) and FPN (FeaturePyramidNetwork)
     are commonly used. prefer to skip them, but may be ok to quantize in some cases.
@@ -764,7 +764,7 @@ def find_rpn_fpn_gm(
     return fpn_convs
 
 
-def find_and_prep_bmm_gm(gm, lut_fx_mod_name_to_org: Optional[Dict[int, str]] = None):
+def find_and_prep_bmm_gm(gm, lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None):
     """Previously with TorchScript, we use this func to perform 2 tasks:
         a) create QBmms, and then attach them to the model,
         b) set up qcfg["which2patch_contextmanager"] so that patch_torch_bmm() context
