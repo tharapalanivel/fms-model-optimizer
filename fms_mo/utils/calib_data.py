@@ -399,7 +399,8 @@ def get_tokenized_data(
     if path_to_save:
         datasets.Dataset.from_list(traindataset).save_to_disk(path_to_save + "_train")
         if isinstance(testdataset, BatchEncoding):
-            os.mkdir(path_to_save + "_test")
+            if not os.path.exists(path_to_save + "_test"):
+                os.mkdir(path_to_save + "_test")
             torch.save(testdataset, path_to_save + "_test/testdataset.pt")
         elif isinstance(testdataset, list):
             datasets.Dataset.from_list(testdataset).save_to_disk(path_to_save + "_test")
