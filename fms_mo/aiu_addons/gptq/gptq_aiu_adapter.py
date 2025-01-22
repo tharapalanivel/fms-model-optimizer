@@ -41,7 +41,9 @@ serialization.register_adapter_step(
 serialization.register_adapter_step(
     "gpt_bigcode", "gptq_qweights_transpose_aiu", _gptq_qweights_transpose_aiu
 )
-serialization.register_adapter_step("granite", "gptq_qweights_transpose_aiu", _gptq_qweights_transpose_aiu)
+serialization.register_adapter_step(
+    "granite", "gptq_qweights_transpose_aiu", _gptq_qweights_transpose_aiu
+)
 serialization.register_adapter(
     "llama",
     "hf_gptq_aiu",
@@ -61,6 +63,11 @@ serialization.register_adapter(
 serialization.register_adapter(
     "granite",
     "hf_gptq_aiu",
-    ["hf_to_fms_names", "hf_to_fms_rope", "hf_gptq_fusion_check", "weight_fusion", "gptq_qweights_transpose_aiu"]
+    [
+        "hf_to_fms_names",
+        "hf_to_fms_rope",
+        "hf_gptq_fusion_check",
+        "weight_fusion",
+        "gptq_qweights_transpose_aiu",
+    ],
 )
-
