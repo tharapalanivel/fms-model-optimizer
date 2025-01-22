@@ -22,7 +22,7 @@ import torch
 
 
 def _int8_qparams_aiu(
-    input_sd: Mapping[str, torch.Tensor],
+    input_sd: Mapping[str, torch.Tensor], **kwargs
 ) -> Mapping[str, torch.Tensor]:
     new_sd = {}
     modules_seen = set()
