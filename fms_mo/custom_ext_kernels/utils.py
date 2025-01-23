@@ -500,7 +500,7 @@ def exllama_ops_load_and_reg(qcfg=None, run_unit_test=False):
         1. need to install gptqmodel python package
         2. Op registration signature changed drastically from torch 2.1 - 2.4. TODO: add 2.4 support
 
-    see https://github.com/ModelCloud/GPTQModel/tree/main?tab=readme-ov-file for installation instructions
+    see https://github.com/ModelCloud/GPTQModel for installation instructions
     """
     if qcfg is None:
         qcfg = {}
@@ -509,7 +509,9 @@ def exllama_ops_load_and_reg(qcfg=None, run_unit_test=False):
 
     namespace = "gptqmodel_gemm"
     # check before compile
-    if hasattr(torch.ops, namespace) and hasattr(torch.ops.gptqmodel_gemm, "exv1_i4f16"):
+    if hasattr(torch.ops, namespace) and hasattr(
+        torch.ops.gptqmodel_gemm, "exv1_i4f16"
+    ):
         logger.info("Custom GPTQModel functions have been loaded already!")
         qcfg["GPTQMODEL_AVAILABLE"] = True
         need_registration = False
@@ -623,7 +625,8 @@ def exllama_ops_load_and_reg(qcfg=None, run_unit_test=False):
             )
 
         logger.info(
-            f"New GPTQModel gemm functions have been loaded and registered to torch.ops.{namespace}."
+            f"New GPTQModel gemm functions have been loaded and registered to \
+            torch.ops.{namespace}."
         )
         if qcfg:
             qcfg["GPTQMODEL_AVAILABLE"] = True
@@ -1110,10 +1113,14 @@ def swap_nnlinear_to_quantlinear(model, qconfig, prefix=None, qlinear2use=None):
         QuantLinear = qlinear2use
     elif exVer == 1:
         # Third Party
-        from gptqmodel.nn_modules.qlinear.exllama import ExllamaQuantLinear as QuantLinear
+        from gptqmodel.nn_modules.qlinear.exllama import (
+            ExllamaQuantLinear as QuantLinear,
+        )
     else:
         # Third Party
-        from gptqmodel.nn_modules.qlinear.exllamav2 import ExllamaV2QuantLinear as QuantLinear
+        from gptqmodel.nn_modules.qlinear.exllamav2 import (
+            ExllamaV2QuantLinear as QuantLinear,
+        )
 
     num_swapped = 0
     for n, m in model.named_modules():

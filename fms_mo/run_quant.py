@@ -89,7 +89,7 @@ def quantize(
             raise ImportError(
                 "Quantization method has been selected as gptq but unable to use external library, "
                 "gptqmodel module not found. For more instructions on installing the appropriate "
-                "package, see https://github.com/ModelCloud/GPTQModel/tree/main?tab=readme-ov-file#install"
+                "package, see https://github.com/ModelCloud/GPTQModel"
             )
         run_gptq(model_args, data_args, opt_args, gptq_args)
     elif opt_args.quant_method == "fp8":
@@ -98,7 +98,7 @@ def quantize(
                 "Quantization method has been selected as fp8 but unable to use external library, "
                 "llmcompressor module not found. \n"
                 "For more instructions on installing the appropriate package, see "
-                "https://github.com/vllm-project/llm-compressor/tree/"
+                "https://github.com/vllm-project/llm-compressor"
                 "main?tab=readme-ov-file#installation"
             )
         run_fp8(model_args, data_args, opt_args, fp8_args)
