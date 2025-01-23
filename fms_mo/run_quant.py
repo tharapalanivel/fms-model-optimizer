@@ -124,28 +124,28 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
     """
 
     # Third Party
-    from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
-    from auto_gptq.modeling._const import SUPPORTED_MODELS
-    from auto_gptq.modeling.auto import GPTQ_CAUSAL_LM_MODEL_MAP
+    from gptqmodel import GPTQModel, QuantizeConfig
+    from gptqmodel.models._const import SUPPORTED_MODELS
+    from gptqmodel.models.auto import MODEL_MAP
 
     # Local
     from fms_mo.utils.custom_gptq_models import custom_gptq_classes
 
     logger = set_log_level(opt_args.log_level, "fms_mo.run_gptq")
 
-    quantize_config = BaseQuantizeConfig(
+    quantize_config = QuantizeConfig(
         bits=gptq_args.bits,
         group_size=gptq_args.group_size,
         desc_act=gptq_args.desc_act,
         damp_percent=gptq_args.damp_percent,
     )
 
-    # Add custom model_type mapping to auto_gptq LUT so AutoGPTQForCausalLM can recognize them.
+    # Add custom model_type mapping to auto_gptq LUT so GPTQModel can recognize them.
     for mtype, cls in custom_gptq_classes.items():
         SUPPORTED_MODELS.append(mtype)
-        GPTQ_CAUSAL_LM_MODEL_MAP[mtype] = cls
+        MODEL_MAP[mtype] = cls
 
-    model = AutoGPTQForCausalLM.from_pretrained(
+    model = GPTQModel.from_pretrained(
         model_args.model_name_or_path,
         quantize_config=quantize_config,
         torch_dtype=model_args.torch_dtype,
