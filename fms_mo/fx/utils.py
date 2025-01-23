@@ -15,7 +15,7 @@
 """Utils for FX graph parsing and external kernel lowering"""
 
 # Standard
-from typing import Any
+from typing import Any, Dict, Optional
 import logging
 import operator
 import os
@@ -317,7 +317,9 @@ def lname_to_org_name(Lname):
     return org_mod_name
 
 
-def get_org_mod_name_of_fx_node(node, gm=None, lut_fx2org={}):
+def get_org_mod_name_of_fx_node(
+    node, gm=None, lut_fx2org: Optional[Dict[str, str]] = None
+):
     """Given a FX node, could be call_module or call_fuction, find out the original module name,
     based on meta data
 
@@ -489,7 +491,7 @@ def plot_graph_module(
     skip_nodes=None,
     Nnode_to_plot=None,
     additional_coloring_rules=None,
-    lut_fx_mod_name_to_org={},
+    lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None,
 ):
     """Plots a GraphModule in .SVG format to visualize the compute graph. If graphviz/pygraphviz is
     not installed properly, this function will just print out a message and do nothing.
