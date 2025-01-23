@@ -86,7 +86,7 @@ def cleanup_env():
 
 
 @pytest.mark.skipif(
-    not available_packages["auto_gptq"],
+    not available_packages["gptqmodel"],
     reason="Only runs if auto-gptq package is installed",
 )
 def test_successful_gptq():
@@ -254,7 +254,7 @@ def _validate_quantization_output(base_dir, quant_method):
 
     # Check quantized model files exist
     if quant_method == "gptq":
-        assert len(glob.glob(os.path.join(base_dir, "gptq_model-*.safetensors"))) > 0
+        assert len(glob.glob(os.path.join(base_dir, "model*.safetensors"))) > 0
         assert os.path.exists(os.path.join(base_dir, "quantize_config.json")) is True
         assert os.path.exists(os.path.join(base_dir, "config.json")) is True
 

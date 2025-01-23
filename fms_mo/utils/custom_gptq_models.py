@@ -15,10 +15,10 @@
 """Allow users to add new GPTQ classes for their custom models easily."""
 
 # Third Party
-from auto_gptq.modeling import BaseGPTQForCausalLM
+from gptqmodel.models.base import BaseGPTQModel
 
 
-class GraniteGPTQForCausalLM(BaseGPTQForCausalLM):
+class GraniteGPTQForCausalLM(BaseGPTQModel):
     """Enable Granite for GPTQ."""
 
     layer_type = "GraniteDecoderLayer"
@@ -32,7 +32,7 @@ class GraniteGPTQForCausalLM(BaseGPTQForCausalLM):
     ]
 
 
-class GraniteMoeGPTQForCausalLM(BaseGPTQForCausalLM):
+class GraniteMoeGPTQForCausalLM(BaseGPTQModel):
     """Enable Granite MOE for GPTQ."""
 
     layer_type = "GraniteMoeDecoderLayer"

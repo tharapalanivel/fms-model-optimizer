@@ -85,11 +85,11 @@ def quantize(
     logger.info(f"{fms_mo_args}\n{opt_args.quant_method}\n")
 
     if opt_args.quant_method == "gptq":
-        if not available_packages["auto_gptq"]:
+        if not available_packages["gptqmodel"]:
             raise ImportError(
                 "Quantization method has been selected as gptq but unable to use external library, "
-                "auto_gptq module not found. For more instructions on installing the appropriate "
-                "package, see https://github.com/AutoGPTQ/AutoGPTQ?tab=readme-ov-file#installation"
+                "gptqmodel module not found. For more instructions on installing the appropriate "
+                "package, see https://github.com/ModelCloud/GPTQModel/tree/main?tab=readme-ov-file#install"
             )
         run_gptq(model_args, data_args, opt_args, gptq_args)
     elif opt_args.quant_method == "fp8":
@@ -127,6 +127,7 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
     from gptqmodel import GPTQModel, QuantizeConfig
     from gptqmodel.models._const import SUPPORTED_MODELS
     from gptqmodel.models.auto import MODEL_MAP
+    from gptqmodel.utils.backend import BACKEND
 
     # Local
     from fms_mo.utils.custom_gptq_models import custom_gptq_classes
@@ -164,9 +165,9 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
     start_time = time.time()
     model.quantize(
         data,
-        use_triton=gptq_args.use_triton,
+        backend=BACKEND.TRITON if gptq_args.use_triton else BACKEND.AUTO,
         batch_size=gptq_args.batch_size,
-        cache_examples_on_gpu=gptq_args.cache_examples_on_gpu,
+        calibration_enable_gpu_cache=gptq_args.cache_examples_on_gpu,
     )
 
     logger.info(
@@ -174,7 +175,7 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
     )
 
     logger.info(f"Saving quantized model and tokenizer to {opt_args.output_dir}")
-    model.save_quantized(opt_args.output_dir, use_safetensors=True)
+    model.save_quantized(opt_args.output_dir)
     tokenizer.save_pretrained(opt_args.output_dir)
 
 
