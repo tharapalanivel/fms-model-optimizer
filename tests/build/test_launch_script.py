@@ -87,7 +87,7 @@ def cleanup_env():
 
 @pytest.mark.skipif(
     not available_packages["gptqmodel"],
-    reason="Only runs if auto-gptq package is installed",
+    reason="Only runs if gptqmodel package is installed",
 )
 def test_successful_gptq():
     """Check if we can gptq models"""

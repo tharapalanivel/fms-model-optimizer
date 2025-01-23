@@ -1,7 +1,6 @@
 activations
 ADR
 Args
-AutoGPTQ
 autoregressive
 backpropagation
 bmm
@@ -31,8 +30,8 @@ frac
 gptq
 GPTQ
 GPTQArguments
+GPTQModel
 graphviz
-GPTQ
 hyperparameters
 Inductor
 inferenced

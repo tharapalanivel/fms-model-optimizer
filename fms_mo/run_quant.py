@@ -141,7 +141,7 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
         damp_percent=gptq_args.damp_percent,
     )
 
-    # Add custom model_type mapping to auto_gptq LUT so GPTQModel can recognize them.
+    # Add custom model_type mapping to gptqmodel LUT so GPTQModel can recognize them.
     for mtype, cls in custom_gptq_classes.items():
         SUPPORTED_MODELS.append(mtype)
         MODEL_MAP[mtype] = cls
