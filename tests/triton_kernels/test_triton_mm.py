@@ -47,9 +47,8 @@ def test_triton_matmul_fp(mkn, dtype_to_test):
         cuda_cc = torch.cuda.get_device_capability()
         if cuda_cc[0] < 9 and cuda_cc != (8, 9):
             return
-        else:
-            # torch.matmul does not support fp8 x fp8 on cuda
-            torch_mm_device = "cpu"
+        # torch.matmul does not support fp8 x fp8 on cuda
+        torch_mm_device = "cpu"
 
     a = a.to(dtype_to_test)
     b = b.to(dtype_to_test)
