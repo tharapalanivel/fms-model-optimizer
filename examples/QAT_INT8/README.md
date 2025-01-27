@@ -96,7 +96,7 @@ Checkout [Example Test Results](#example-test-results) to compare against your r
 
 ## Example Test Results
 
-For comparison purposes, here are some of the results from an A100. CUTLASS restuls were obtained with `PyTorch 2.3.1` while Triton results were obstained using `PyTorch 2.4.1`:
+For comparison purposes, here are some of the results from an A100. CUTLASS results were obtained with `PyTorch 2.3.1` while Triton results were obtained using `PyTorch 2.4.1`:
 
 > [!NOTE]
 > Accuracy could vary ~ +-0.2 from run to run.
