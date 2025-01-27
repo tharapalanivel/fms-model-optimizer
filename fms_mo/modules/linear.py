@@ -27,6 +27,9 @@ import torch
 import torch.nn.functional as F
 
 # Local
+from fms_mo.custom_ext_kernels.triton_kernels import (
+    tl_matmul_chunk_truncate as tl_matmul,
+)
 from fms_mo.custom_ext_kernels.utils import pack_vectorized
 from fms_mo.quant.quantizers import (
     HardPrune,
@@ -708,6 +711,17 @@ class QLinearINT8Deploy(nn.Linear):
         Args:
             cls: The class of the QLinearModule to be created.
             fms_mo_qlinear: The QLinear module to be converted.
+            (experimental)
+            useINTkernel: choose from ['cutlass', 'triton', False], "cutlass" kernel is faster,
+                            "triton" support chunky truncation, "False" fallback to torch.matmul
+            max_acc_bits: usually INT matmul accumulate in INT32, but some HW could have different
+                            design, such as using INT24 accumulator, which will saturate at
+                            (-2**(acc_bit-1) +1, 2**(acc_bit-1) )
+            truncate_lsb: some HW may apply truncation on least-significant bits (LSBs) of the
+                            accumulated partial sum
+            chunk_size: some HW may have specific chunk size (BLOCK SIZE, especially in k-dim) for
+                        the reason to avoid overflow/underflow problem. This can be simulated using
+                        PyTorch (break a matmul into serial smaller matmuls, slow) or Triton kernel
 
         Returns:
             A QLinearINT8Deploy object initialized with the weights and biases from the
@@ -731,10 +745,17 @@ class QLinearINT8Deploy(nn.Linear):
         )
         # Make sure to register an Op for integer matmul, could be real INT matmul or emulation
         qcfg = getattr(fms_mo_qlinear, "qcfg", {})
-        qlin_int.useINTkernel = qcfg.get("useINTkernel", True)
+        qlin_int.useINTkernel = kwargs.get(
+            "useINTkernel", qcfg.get("useINTkernel", "cutlass")
+        )
         qlin_int.usePTnativeQfunc = kwargs.get("use_PT_native_Qfunc", False)
-        qlin_int.acc24minmax = (int(-(2**24) / 2 + 1), int(2**24 / 2))
-        qlin_int.simi24toi16 = kwargs.get("simi24toi16", False)
+        qlin_int.max_acc_bits = kwargs.get("max_acc_bits", 32)
+        qlin_int.accminmax = (
+            -(1 << (qlin_int.max_acc_bits - 1)),
+            1 << (qlin_int.max_acc_bits - 1) - 1,
+        )
+        qlin_int.truncate_lsb = kwargs.get("truncate_lsb", 0)
+        qlin_int.chunk_size = kwargs.get("chunk_size", 100000)
         qlin_int.acc_dtype = torch.float16
         qlin_int.nbits_a = fms_mo_qlinear.num_bits_feature  # only support INT8 for now
         qlin_int.nbits_w = fms_mo_qlinear.num_bits_weight
@@ -751,7 +772,7 @@ class QLinearINT8Deploy(nn.Linear):
             )  # Qw.clipval should have been updated after this
             qlin_int.weight = nn.Parameter(
                 w_int8.to(torch.int8), requires_grad=False
-            )  # NOTE: Needs INT W stored as FP...
+            )  # NOTE: may needs INT W stored as FP in some cases
 
             if qlin_int.usePTnativeQfunc:
                 input_scale = torch.tensor(
@@ -856,8 +877,13 @@ class QLinearINT8Deploy(nn.Linear):
         qlinear_iW.weight = nn.Parameter(
             nnlin_iW.weight.to(torch.int8), requires_grad=False
         )
-        qlinear_iW.acc24minmax = (int(-(2**24) / 2 + 1), int(2**24 / 2))
-        qlinear_iW.simi24toi16 = kwargs.get("simi24toi16", False)
+        qlinear_iW.max_acc_bits = kwargs.get("max_acc_bits", 32)
+        qlinear_iW.accminmax = (
+            -(1 << (qlinear_iW.max_acc_bits - 1)),
+            1 << (qlinear_iW.max_acc_bits - 1) - 1,
+        )
+        qlinear_iW.truncate_lsb = kwargs.get("truncate_lsb", False)
+        qlinear_iW.chunk_size = kwargs.get("chunk_size", 100000)
 
         with torch.no_grad():
             if qlinear_iW.usePTnativeQfunc:
@@ -1001,25 +1027,35 @@ class QLinearINT8Deploy(nn.Linear):
         else:
             m1 = self.qa_fmo_mo_qfunc(m1)
 
-        if self.simi24toi16:
-            chunk_size = 99999
-            idx = list(range(0, m1.shape[1], chunk_size))
+        if m1.shape[1] > self.chunk_size:
+            idx = list(range(0, m1.shape[1], self.chunk_size))
             Nchunk = len(idx)
             idx.append(m1.shape[1])
             fp16_out = torch.zeros(
                 (m1.shape[0], m2.shape[1]), dtype=torch.float16, device=m1.device
             )
+            trun_scale = 1
+            if self.truncate_lsb > 0:
+                round_bit = 1 << (self.truncate_lsb - 1)
+                trun_scale = 1 << self.truncate_lsb
+
             for i in range(Nchunk):
                 imm_out = torch.ops.fms_mo.imatmul(
                     m1[:, idx[i] : idx[i + 1]], m2[idx[i] : idx[i + 1], :]
                 )
-                imm_out = imm_out.clamp(self.acc24minmax[0], self.acc24minmax[1])
-                imm_out = torch.bitwise_right_shift(imm_out + 128, 8)
-                imm_out = imm_out.to(torch.int16)
+                if self.max_acc_bits < 32:
+                    imm_out = imm_out.clamp(self.accminmax[0], self.accminmax[1])
+                if self.truncate_lsb > 0:
+                    imm_out = torch.bitwise_right_shift(
+                        imm_out + round_bit, self.truncate_lsb
+                    )
+                    # imm_out = imm_out.to(torch.int16)
+                    # only cast to i16 when truncating 8b from both side
                 fp16_out += imm_out.to(torch.float16)
 
             return (
-                fp16_out * (256 * self.input_scale * self.w_scale).to(torch.float16)
+                fp16_out
+                * (trun_scale * self.input_scale * self.w_scale).to(torch.float16)
                 + bias
             ).to(self.acc_dtype)
         # The safest casting, i32 -> f32
@@ -1067,13 +1103,23 @@ class QLinearINT8Deploy(nn.Linear):
             self.iaddmm = self.iaddmm_int if self.useINTkernel else self.iaddmm_FP
         else:
             # When swapping the first QLinear, need to register our custom Op and choose the kernel
+            # Standard
+            from functools import partial
+
             # Local
             from fms_mo.custom_ext_kernels.utils import (
                 cutlass_ops_load_and_reg,
                 imatmul_ops_reg,
             )
 
-            if self.useINTkernel:  # will use real imatmul
+            if self.useINTkernel == "triton":  # will use real imatmul written in triton
+                imm_func = partial(
+                    tl_matmul,
+                    chunk_trun_bits=self.truncate_lsb,
+                    chunk_size=self.chunk_size,
+                )
+
+            elif self.useINTkernel == "cutlass":
                 cutlass_ops_load_and_reg()
                 # Third Party
                 import cutlass_mm  # this module will only be available after calling reg()
@@ -1727,3 +1773,141 @@ def isinstance_qlinear(module):
         bool: True if the module is a quantized linear class, False otherwise.
     """
     return isinstance(module, QLinear_modules)
+
+
+class LinearFuncFPxFwdBwd(torch.autograd.Function):
+    """Linear function using FP24 accumulation, experimental only.
+    Input and weights can be fp16, bf16, or fp32. W.shape = [out, in].
+    W and bias could be of different dtype from input, will cast before calling
+    triton kernel. This triton kernel will always use fp32 accumulation, then
+    truncate/rounded last 8 or 16 or 20 bits (from LSB side).
+    Modified from microxcaling Linear.
+    """
+
+    @staticmethod
+    def forward(ctx, x, weight, bias=None, trun_bits=0, chunk_size=16):
+        assert x.dtype in [torch.float, torch.bfloat16, torch.float16]
+        # input can be 2D or 3D, need to reshape before tl_matmul
+        org_dtype = x.dtype
+        target_shape_output = x.shape[:-1] + (weight.shape[0],)
+        x = x.reshape(-1, x.shape[-1])
+
+        if bias is not None:
+            ctx.has_bias = True
+            ctx.bias_dtype = bias.dtype
+        else:
+            ctx.has_bias = False
+
+        ctx.save_for_backward(x, weight)  # x, W are saved in their original dtype
+        ctx.trun_bits = trun_bits
+        ctx.chunk_size = chunk_size
+
+        # triton kernel assumes 2D inputs and cast the return to input.dtype
+        output = tl_matmul(
+            x,
+            weight.t().to(org_dtype),
+            chunk_trun_bits=trun_bits,
+            chunk_size=chunk_size,
+        ).reshape(target_shape_output)
+
+        if bias is not None:
+            output = output + bias.to(org_dtype)
+
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # load context, should be bf16 already, x should be 2D already
+        x, weight = ctx.saved_tensors  # x, W are saved in original dtype
+        trun_bits = ctx.trun_bits
+        chunk_size = ctx.chunk_size
+        out_dim = weight.shape[0]
+        in_dim = weight.shape[1]
+        dtype_input = x.dtype
+        # input and output could be 3D tl_matmul only takes 2D.
+        target_shape_grad_input = grad_output.shape[:-1] + (in_dim,)
+        grad_output_2D = grad_output.reshape(-1, out_dim).to(dtype_input)
+
+        # Compute grad_weight, shape = [out, in]
+        # NOTE: this triton kernel requires A matrix to be contiguous
+        grad_weight = tl_matmul(
+            grad_output_2D.transpose(0, 1).contiguous(),
+            x,
+            chunk_trun_bits=trun_bits,
+            chunk_size=chunk_size,
+        ).to(weight.dtype)
+        # Compute grad_input in 2D then reshape to target shape, could be 3D or 2D
+        grad_input = (
+            tl_matmul(
+                grad_output_2D,
+                weight.to(dtype_input),
+                chunk_trun_bits=trun_bits,
+                chunk_size=chunk_size,
+            )
+            .reshape(target_shape_grad_input)
+            .to(dtype_input)
+        )
+
+        if not ctx.has_bias:
+            grad_bias = None
+        else:
+            grad_bias = grad_output_2D.sum(0).to(ctx.bias_dtype)
+
+        return grad_input, grad_weight, grad_bias, None
+
+
+class LinearFPxAcc(torch.nn.Linear):
+    """Linear layer wrapper that can simulate the HW behavior of LSB truncation on FP accumulation.
+    Some HW may have options to allow FP matmul engine to accumulate in precision lower than FP32,
+    such as accumulate in TF32 or even BF16. According to Nvidia doc, ~7-10x speed up with minor
+    accuracy trade-off. This support both FWD and BWD.
+    Ref:
+    1. https://developer.nvidia.com/blog/accelerating-ai-training-with-tf32-tensor-cores/
+    2. PyTorch's "torch.backends.cuda.matmul.allow_tf32"
+    """
+
+    @classmethod
+    def from_nn(cls, nnlin, trun_bits=0, **kwargs):
+        """Converts a torch.nn.Linear module to a LinearFPxAcc, which supports accumulation in
+        reduced precision FPx, where x < 32.
+
+        Args:
+            cls (class): The class to be created.
+            nnlin (torch.nn.Linear): The original torch.nn.Linear module.
+            trun_bits (int): truncate [0 to 22] LSBs from FP32 accumulation.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            LinearFPxAcc: The converted linear layer.
+        """
+
+        target_device = kwargs.get(
+            "target_device", kwargs.get("device", next(nnlin.parameters()).device)
+        )
+
+        lin24acc = cls(
+            nnlin.in_features,
+            nnlin.out_features,
+            bias=nnlin.bias is not None,
+            device=target_device,
+        )
+
+        lin24acc.weight = nnlin.weight
+        lin24acc.trun_bits = trun_bits
+
+        if nnlin.bias is not None:
+            lin24acc.bias = nnlin.bias
+        return lin24acc.to(target_device)
+
+    def forward(self, inputs):
+        # This Linear Class will cast to BF16 before matmul and return FP32
+        return LinearFuncFPxFwdBwd.apply(inputs, self.weight, self.bias, self.trun_bits)
+
+    def extra_repr(self) -> str:
+        """
+        Returns an alternative string representation of the object.
+        """
+        return (
+            f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
+            f"trun_bits={self.trun_bits}"
+        )

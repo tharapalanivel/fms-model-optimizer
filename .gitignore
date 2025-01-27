@@ -38,3 +38,4 @@ fms_mo.log
 data_train/
 data_test/
 act_scales/
+examples/
