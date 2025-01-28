@@ -389,7 +389,7 @@ def parse_args():
     parser.add_argument(
         "--do_lowering",
         type=str,
-        default=None,
+        default="triton",
         help="convert QAT model to utilize real INT8 GPU kernel, 'cutlass' or 'triton'",
     )
 

@@ -1049,8 +1049,9 @@ class QLinearINT8Deploy(nn.Linear):
                     imm_out = torch.bitwise_right_shift(
                         imm_out + round_bit, self.truncate_lsb
                     )
-                    # imm_out = imm_out.to(torch.int16)
-                    # only cast to i16 when truncating 8b from both side
+                    # could cast to smaller data type to further simulate HW behavior, for example,
+                    # if HW truncates 8b from both sides of i32 accumulator, the remaining data can
+                    # be cast to i16 to be more realistic. pay attention to overflow handling
                 fp16_out += imm_out.to(torch.float16)
 
             return (
