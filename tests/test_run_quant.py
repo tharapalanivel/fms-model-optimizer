@@ -28,7 +28,6 @@ from fms_mo.run_quant import get_parser, parse_arguments, quantize
 from fms_mo.training_args import (
     DataArguments,
     FMSMOArguments,
-    FP8Arguments,
     GPTQArguments,
     ModelArguments,
     OptArguments,
@@ -44,7 +43,6 @@ GPTQ_ARGS = GPTQArguments(
     bits=4,
     group_size=64,
 )
-FP8_ARGS = FP8Arguments()
 DQ_ARGS = FMSMOArguments(
     nbits_w=8,
     nbits_a=8,
