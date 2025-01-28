@@ -37,6 +37,10 @@ from fms_mo.modules.linear import LinearFPxAcc
 )
 def test_triton_matmul_fp(mkn, dtype_to_test):
     """Parametric tests for triton matmul kernel using variety of tensor sizes and dtypes."""
+    if not torch.cuda.is_available():
+        # only run the test when GPU is available
+        return
+
     torch.manual_seed(23)
     m = n = k = mkn
     a = torch.randn((m, k), device="cuda", dtype=torch.float)
@@ -70,6 +74,10 @@ def test_triton_matmul_fp(mkn, dtype_to_test):
 @pytest.mark.parametrize("mkn", [64, 256, 1024, 4096])
 def test_triton_matmul_int8(mkn):
     """Parametric tests for triton imatmul kernel using variety of tensor sizes."""
+    if not torch.cuda.is_available():
+        # only run the test when GPU is available
+        return
+
     torch.manual_seed(23)
     m = n = k = mkn
     a = torch.randint(-128, 127, (m, k), device="cuda", dtype=torch.int8)
@@ -93,6 +101,9 @@ def test_linear_fpx_acc(feat_in_out, trun_bits):
     """Parametric tests for LinearFPxAcc. This Linear utilizes triton kernel hence can only be run
     on CUDA.
     """
+    if not torch.cuda.is_available():
+        # only run the test when GPU is available
+        return
 
     torch.manual_seed(23)
     feat_in, feat_out = feat_in_out
