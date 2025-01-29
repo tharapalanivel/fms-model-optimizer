@@ -18,18 +18,47 @@ Arguments used for quantization
 
 # Standard
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional, Union, get_args, get_origin
 
 # Third Party
 import torch
 
 
 @dataclass
-class ModelArguments:
+class TypeChecker:
+    """Parent dataclass used by other args dataclasses to support input type validation."""
+
+    def __post_init__(self):
+        for name, field_type in self.__annotations__.items():
+            val = self.__dict__[name]
+            invalid_val = False
+            if get_origin(field_type) is Union:
+                if not type(val) in get_args(field_type):
+                    invalid_val = True
+            elif not get_origin(field_type) is list:
+                if not isinstance(val, field_type):
+                    invalid_val = True
+            else:
+                if not (
+                    get_origin(val) is list
+                    or type(val) is list  # pylint: disable=unidiomatic-typecheck
+                    or all(isinstance(item, int) for item in val)
+                ):
+                    invalid_val = True
+
+            if invalid_val:
+                current_type = type(val)
+                raise TypeError(
+                    f"The field `{name}` was assigned by `{current_type}` instead of `{field_type}`"
+                )
+
+
+@dataclass
+class ModelArguments(TypeChecker):
     """Dataclass for model related arguments."""
 
-    model_name_or_path: Optional[str] = field(default="facebook/opt-125m")
-    torch_dtype: Optional[Union[torch.dtype, str]] = torch.bfloat16
+    model_name_or_path: str = field(default="facebook/opt-125m")
+    torch_dtype: Union[torch.dtype, str] = torch.bfloat16
     use_fast_tokenizer: bool = field(
         default=True,
         metadata={
@@ -60,27 +89,36 @@ class ModelArguments:
             )
         },
     )
+    device: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": (
+                "`torch.device`: The device on which the module is (assuming that all the module \
+                parameters are on the same device)."
+            )
+        },
+    )
 
 
 @dataclass
-class DataArguments:
+class DataArguments(TypeChecker):
     """Dataclass for data related arguments."""
 
-    training_data_path: str = field(
+    training_data_path: Optional[str] = field(
         default=None,
         metadata={"help": "Path to the training data in JSON/JSONL format"},
     )
-    training_data_config: str = field(default=None)
-    test_data_path: str = field(
+    training_data_config: Optional[str] = field(default=None)
+    test_data_path: Optional[str] = field(
         default=None,
         metadata={"help": "Path to the test data in JSON/JSONL format"},
     )
-    max_seq_length: Optional[int] = field(default=2048)
-    num_calibration_samples: Optional[int] = field(default=512)
+    max_seq_length: int = field(default=2048)
+    num_calibration_samples: int = field(default=512)
 
 
 @dataclass
-class OptArguments:
+class OptArguments(TypeChecker):
     """Dataclass for optimization related arguments."""
 
     quant_method: str = field(
@@ -98,7 +136,7 @@ class OptArguments:
 
 
 @dataclass
-class FMSMOArguments:
+class FMSMOArguments(TypeChecker):
     """Dataclass arguments used by fms_mo native quantization functions."""
 
     nbits_w: int = field(default=32, metadata={"help": ("weight precision")})
@@ -133,7 +171,7 @@ class FMSMOArguments:
 
 
 @dataclass
-class GPTQArguments:
+class GPTQArguments(TypeChecker):
     """Dataclass for GPTQ related arguments that will be used by auto-gptq."""
 
     bits: int = field(default=4, metadata={"choices": [2, 3, 4, 8]})
@@ -151,7 +189,7 @@ class GPTQArguments:
 
 
 @dataclass
-class FP8Arguments:
+class FP8Arguments(TypeChecker):
     """Dataclass for FP8 related arguments that will be used by llm-compressor."""
 
     targets: str = field(default="Linear")

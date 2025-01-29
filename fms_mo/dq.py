@@ -103,6 +103,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     torch_dtype = (
         model_args.torch_dtype
         if model_args.torch_dtype in ["auto", None]
+        or not isinstance(model_args.torch_dtype, str)
         else getattr(torch, model_args.torch_dtype)
     )
     model = AutoModelForCausalLM.from_pretrained(
