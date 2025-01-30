@@ -712,8 +712,8 @@ class QLinearINT8Deploy(nn.Linear):
             cls: The class of the QLinearModule to be created.
             fms_mo_qlinear: The QLinear module to be converted.
             (experimental)
-            useINTkernel: choose from ['cutlass', 'triton', False], "cutlass" kernel is faster,
-                            "triton" support chunky truncation, "False" fallback to torch.matmul
+            use_int_kernel: choose from ['cutlass', 'triton', False], "cutlass" kernel is faster,
+                            "triton" supports chunky truncation, "False" fallbacks to torch.matmul
             max_acc_bits: usually INT matmul accumulate in INT32, but some HW could have different
                             design, such as using INT24 accumulator, which will saturate at
                             (-2**(acc_bit-1) +1, 2**(acc_bit-1) )
@@ -745,8 +745,8 @@ class QLinearINT8Deploy(nn.Linear):
         )
         # Make sure to register an Op for integer matmul, could be real INT matmul or emulation
         qcfg = getattr(fms_mo_qlinear, "qcfg", {})
-        qlin_int.useINTkernel = kwargs.get(
-            "useINTkernel", qcfg.get("useINTkernel", "cutlass")
+        qlin_int.use_int_kernel = kwargs.get(
+            "use_int_kernel", qcfg.get("use_int_kernel", "cutlass")
         )
         qlin_int.usePTnativeQfunc = kwargs.get("use_PT_native_Qfunc", False)
         qlin_int.max_acc_bits = kwargs.get("max_acc_bits", 32)
@@ -772,7 +772,7 @@ class QLinearINT8Deploy(nn.Linear):
             )  # Qw.clipval should have been updated after this
             qlin_int.weight = nn.Parameter(
                 w_int8.to(torch.int8), requires_grad=False
-            )  # NOTE: may needs INT W stored as FP in some cases
+            )  # NOTE: may need INT W stored as FP in some cases
 
             if qlin_int.usePTnativeQfunc:
                 input_scale = torch.tensor(
@@ -873,7 +873,7 @@ class QLinearINT8Deploy(nn.Linear):
         qlinear_iW.nbits_w = 8
         qlinear_iW.acc_dtype = torch.float16
         qlinear_iW.usePTnativeQfunc = kwargs.get("use_PT_native_Qfunc", True)
-        qlinear_iW.useINTkernel = True
+        qlinear_iW.use_int_kernel = True
         qlinear_iW.weight = nn.Parameter(
             nnlin_iW.weight.to(torch.int8), requires_grad=False
         )
@@ -1086,22 +1086,22 @@ class QLinearINT8Deploy(nn.Linear):
         """
         Sets the matmul operator for the quantized linear module.
 
-        If `useINTkernel` is True and CUDA is available, it will use the INT kernel
+        If `use_int_kernel` is True and CUDA is available, it will use the INT kernel
         for integer matrix multiplication. Otherwise, it will use the FP kernel.
 
         If the operator has already been set, it will do nothing.
         """
-        if self.useINTkernel and not torch.cuda.is_available():
+        if self.use_int_kernel and not torch.cuda.is_available():
             logger.warning(
-                "Cannot set useINTkernel=True when CUDA is not available. "
-                "Fallback to useINTkernel=False"
+                "Cannot set use_int_kernel=True when CUDA is not available. "
+                "Fallback to use_int_kernel=False"
             )
-            self.useINTkernel = False
+            self.use_int_kernel = False
 
         if hasattr(torch.ops, "fms_mo") and hasattr(torch.ops.fms_mo, "imatmul"):
             # imatmul already registered, e.g. when swapping the 2nd QLinear
             self.imatmul = torch.ops.fms_mo.imatmul
-            self.iaddmm = self.iaddmm_int if self.useINTkernel else self.iaddmm_FP
+            self.iaddmm = self.iaddmm_int if self.use_int_kernel else self.iaddmm_FP
         else:
             # When swapping the first QLinear, need to register our custom Op and choose the kernel
             # Standard
@@ -1113,14 +1113,16 @@ class QLinearINT8Deploy(nn.Linear):
                 imatmul_ops_reg,
             )
 
-            if self.useINTkernel == "triton":  # will use real imatmul written in triton
+            if self.use_int_kernel == "triton":
+                # will use real imatmul written in triton
                 imm_func = partial(
                     tl_matmul,
                     chunk_trun_bits=self.truncate_lsb,
                     chunk_size=self.chunk_size,
                 )
 
-            elif self.useINTkernel == "cutlass":
+            elif self.use_int_kernel == "cutlass":
+                # will use real imatmul written in cutlass
                 cutlass_ops_load_and_reg()
                 # Third Party
                 import cutlass_mm  # this module will only be available after calling reg()
@@ -1129,9 +1131,9 @@ class QLinearINT8Deploy(nn.Linear):
             else:
                 imm_func = torch.matmul
 
-            imatmul_ops_reg(self.useINTkernel, imm_func)
+            imatmul_ops_reg(self.use_int_kernel, imm_func)
             self.imatmul = torch.ops.fms_mo.imatmul
-            self.iaddmm = self.iaddmm_int if self.useINTkernel else self.iaddmm_FP
+            self.iaddmm = self.iaddmm_int if self.use_int_kernel else self.iaddmm_FP
 
     def _get_name(self):
         """
@@ -1145,7 +1147,7 @@ class QLinearINT8Deploy(nn.Linear):
         """
         return (
             f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
-            f"useINTkernel={self.useINTkernel}"
+            f"use_int_kernel={self.use_int_kernel}"
         )
 
     def __getstate__(self):
@@ -1861,7 +1863,7 @@ class LinearFPxAcc(torch.nn.Linear):
     """Linear layer wrapper that can simulate the HW behavior of LSB truncation on FP accumulation.
     Some HW may have options to allow FP matmul engine to accumulate in precision lower than FP32,
     such as accumulate in TF32 or even BF16. According to Nvidia doc, ~7-10x speed up with minor
-    accuracy trade-off. This support both FWD and BWD.
+    accuracy trade-off. This supports both FWD and BWD.
     Ref:
     1. https://developer.nvidia.com/blog/accelerating-ai-training-with-tf32-tensor-cores/
     2. PyTorch's "torch.backends.cuda.matmul.allow_tf32"

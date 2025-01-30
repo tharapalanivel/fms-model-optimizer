@@ -74,11 +74,9 @@ def get_cuda_autotune_config(chunk_size=None):
 #       meta-parameters (e.g., `BLOCK_SIZE_M`) and compilation options (e.g., `num_warps`) to try
 #   - An auto-tuning *key* whose change in values will trigger evaluation of all the
 #       provided configs
-# => Need to avoid using auto-tune for real model inference!
-# @triton.autotune(
-#     configs=get_cuda_autotune_config(),
-#     key=['M', 'N', 'K'],
-# )
+# => Need to avoid using auto-tune for real model inference! But for micro-benchmarking purpose, we
+#       could enable the decorator below
+# @triton.autotune(configs=get_cuda_autotune_config(), key=['M', 'N', 'K'])
 @triton.jit
 def matmul_kernel(
     # Pointers to matrices
@@ -187,10 +185,9 @@ def matmul_kernel(
     tl.store(c_ptrs, c, mask=c_mask)
 
 
-# @triton.autotune(
-#     configs=get_cuda_autotune_config(),
-#     key=['M', 'N', 'K'],
-# )
+# Reminder: avoid auto-tune for real model inference! But for micro-benchmarking purpose, could
+#           enable the decorator below
+# @triton.autotune(configs=get_cuda_autotune_config(),key=['M', 'N', 'K'],)
 @triton.jit
 def imatmul_kernel(
     a_ptr,

@@ -388,6 +388,7 @@ def parse_args():
     )
     parser.add_argument(
         "--do_lowering",
+        choices=["cutlass", "triton"],
         type=str,
         default="triton",
         help="convert QAT model to utilize real INT8 GPU kernel, 'cutlass' or 'triton'",
@@ -1162,7 +1163,7 @@ def main():
                         parent_mod,
                         module_name,
                         QLinearINT8Deploy.from_fms_mo(
-                            qmod, useINTkernel=args.do_lowering
+                            qmod, use_int_kernel=args.do_lowering
                         ),
                     )
 
