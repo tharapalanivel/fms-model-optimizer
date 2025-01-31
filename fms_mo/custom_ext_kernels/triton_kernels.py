@@ -235,6 +235,8 @@ def imatmul_kernel(
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.int32)
     ## ------ prepare LSB rounding/truncation masks -------
     round_bit = 1 << (chunk_trun_bits - 1) if chunk_trun_bits > 0 else 0
+    # full_32b_mask = 0xFFFFFFFF
+    # trun_mask = (full_32b_mask << chunk_trun_bits) & full_32b_mask
     ## ---------------------------------------------------------
 
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
@@ -326,7 +328,7 @@ def tl_matmul_chunk_truncate(a, b, activation="", chunk_trun_bits=0, chunk_size=
         kernel_config = {
             "BLOCK_SIZE_M": 128,
             "BLOCK_SIZE_K": chunk_size,
-            "BLOCK_SIZE_N": 32,
+            "BLOCK_SIZE_N": 128,  # was 32
             "GROUP_SIZE_M": 8,
             "num_warps": 2,
             "num_stages": 5,
@@ -335,7 +337,7 @@ def tl_matmul_chunk_truncate(a, b, activation="", chunk_trun_bits=0, chunk_size=
         kernel_config = {
             "BLOCK_SIZE_M": 128,
             "BLOCK_SIZE_K": chunk_size,
-            "BLOCK_SIZE_N": 64,
+            "BLOCK_SIZE_N": 128,  # was 64
             "GROUP_SIZE_M": 8,
             "num_warps": 4,
             "num_stages": 4,

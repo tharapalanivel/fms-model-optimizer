@@ -390,8 +390,14 @@ def parse_args():
         "--do_lowering",
         choices=["cutlass", "triton"],
         type=str,
-        default="triton",
+        default=None,
         help="convert QAT model to utilize real INT8 GPU kernel, 'cutlass' or 'triton'",
+    )
+    parser.add_argument(
+        "--verify_preccfg",
+        type=str,
+        default=None,
+        help="Path to an old version of AIU checkpoint, which should have a precconfig.json",
     )
 
     args = parser.parse_args()
@@ -1136,7 +1142,7 @@ def main():
             logger.info(
                 f"\n    {label} {'with' if comp_mode else 'without'} torch.compile"
             )
-            model_copy = deepcopy(model)
+            model_copy = deepcopy(model).half()
 
             if label == "int8":
                 qcfg = qconfig_init(recipe="qat_int8", args=args)
@@ -1178,7 +1184,7 @@ def main():
 
             # Median runtime using fixed input (in msec)
             med_runtime = speedtest(model_copy, exam_inp)
-            metrics = squad_eval(model_copy) if label == "int8" else {"f1": None}
+            metrics = squad_eval(model_copy)  # if label == "int8" else {"f1": None}
 
             summary["precision"].append(label)
             summary["compile mode"].append(comp_mode)
@@ -1193,6 +1199,18 @@ def main():
         )
         logger.info(pd.DataFrame(summary))
 
+        return
+
+    elif args.verify_preccfg:
+        # Local
+        from fms_mo.utils.aiu_utils import verify_preccfg
+
+        exam_inp = next(iter(train_dataloader))
+
+        model_aiu = verify_preccfg(args.verify_preccfg, exam_inp, sim_level=3)
+
+        metrics = squad_eval(model_aiu)
+        logger.info(metrics)
         return
 
     # ----------------------------------------------------
