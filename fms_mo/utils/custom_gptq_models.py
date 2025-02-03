@@ -22,9 +22,9 @@ class GraniteGPTQForCausalLM(BaseGPTQModel):
     """Enable Granite for GPTQ."""
 
     layer_type = "GraniteDecoderLayer"
-    layers_block_name = "model.layers"
-    outside_layer_modules = ["model.embed_tokens", "model.norm"]
-    inside_layer_modules = [
+    layers_node = "model.layers"
+    base_modules = ["model.embed_tokens", "model.norm"]
+    layer_modules = [
         ["self_attn.k_proj", "self_attn.v_proj", "self_attn.q_proj"],
         ["self_attn.o_proj"],
         ["mlp.up_proj", "mlp.gate_proj"],
@@ -36,9 +36,9 @@ class GraniteMoeGPTQForCausalLM(BaseGPTQModel):
     """Enable Granite MOE for GPTQ."""
 
     layer_type = "GraniteMoeDecoderLayer"
-    layers_block_name = "model.layers"
-    outside_layer_modules = ["model.embed_tokens", "model.norm"]
-    inside_layer_modules = [
+    layers_node = "model.layers"
+    base_modules = ["model.embed_tokens", "model.norm"]
+    layer_modules = [
         ["self_attn.k_proj", "self_attn.v_proj", "self_attn.q_proj"],
         ["self_attn.o_proj"],
         ["block_sparse_moe.input_linear", "block_sparse_moe.output_linear"],
