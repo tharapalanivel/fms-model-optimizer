@@ -29,8 +29,8 @@ import math
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import QuantizerBase, Qscheme
-from fms_mo.quant_refactor.base_tensor import PerTensorSTEBase
+from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
+from fms_mo.quant_refactor.per_tensor import PerTensorSTE
 from fms_mo.quant_refactor.linear_utils import (
     asymmetric_linear_quantization_params,
     linear_dequantize,
@@ -39,12 +39,12 @@ from fms_mo.quant_refactor.linear_utils import (
 )
 
 
-class LSQQuantization_new(QuantizerBase):
+class LSQQuantization_new(Quantizer):
     """
     LSQ Quantizer
 
     Extends:
-        QuantizerBase
+        Quantizer
     """
 
     def __init__(
@@ -95,12 +95,12 @@ class LSQQuantization_new(QuantizerBase):
         self.quantizer = LSQQuantizationSTE_new
 
 
-class LSQQuantizationSTE_new(PerTensorSTEBase):
+class LSQQuantizationSTE_new(PerTensorSTE):
     """
     1-sided LSQ quantization STE
 
     Extends:
-        PerTensorSTEBase
+        PerTensorSTE
     """
 
     @staticmethod
@@ -187,12 +187,12 @@ class LSQQuantizationSTE_new(PerTensorSTEBase):
         return grad_input, grad_alpha * grad_scale, None, None, None, None, None
 
 
-class LSQPlus_new(QuantizerBase):
+class LSQPlus_new(Quantizer):
     """
     LSQ+ Quantizater
 
     Extends:
-        QuantizerBase
+        Quantizer
     """
 
     def __init__(

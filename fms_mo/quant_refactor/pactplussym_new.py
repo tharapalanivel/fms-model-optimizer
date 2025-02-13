@@ -20,10 +20,10 @@ PACT+ Symmetric Quantizer
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import QuantizerBase, Qscheme
-from fms_mo.quant_refactor.base_tensor import (
-    PerTensorSTEBase,
-    PerTensorSTEBase_PTnative,
+from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
+from fms_mo.quant_refactor.per_tensor import (
+    PerTensorSTE,
+    PerTensorSTE_PTnative,
 )
 
 perTQscheme_default = Qscheme(
@@ -37,13 +37,13 @@ perTQscheme_default = Qscheme(
 clip_valn_default = torch.tensor(-8.0)
 clip_val_default = torch.tensor(8.0)
 
-class PACTplusSym_new(QuantizerBase):
+class PACTplusSym_new(Quantizer):
     """
     Two-sided symmetric PACT+
     PACTplusSym can be used to quantize both weights and activations
 
     Extends:
-        QuantizerBase
+        Quantizer
     """
 
     def __init__(
@@ -94,7 +94,7 @@ class PACTplusSym_new(QuantizerBase):
             if self.extend_act_range:
                 self.quantizer = PACTplusExtendRangeSTE_PTnative
             else:
-                self.quantizer = PerTensorSTEBase_PTnative
+                self.quantizer = PerTensorSTE_PTnative
         else:
             if self.extend_act_range:
                 self.quantizer = PACTplusExtendRangeSTE_new
@@ -113,12 +113,12 @@ class PACTplusSym_new(QuantizerBase):
         self.extend_act_range = extend_act_range
 
 
-class PACTplusSymSTE_new(PerTensorSTEBase):
+class PACTplusSymSTE_new(PerTensorSTE):
     """
     Symmetric 2-sided PACT+
 
     Extends:
-        PerTensorSTEBase: Uses PerTensorSTEBase.forward()
+        PerTensorSTE: Uses PerTensorSTE.forward()
     """
 
     @staticmethod

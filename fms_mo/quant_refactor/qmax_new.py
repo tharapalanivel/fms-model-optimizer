@@ -22,9 +22,9 @@ from typing import Tuple
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import QuantizerBase, Qscheme
-from fms_mo.quant_refactor.base_tensor import (
-    PerTensorSTEBase_PTnative,
+from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
+from fms_mo.quant_refactor.per_tensor import (
+    PerTensorSTE_PTnative,
     PerTensorSTEQmax,
     PerTensorSTEQmax_PTnative,
 )
@@ -40,7 +40,7 @@ perTQscheme_default = Qscheme(
 clip_valn_default = torch.tensor(-8.0)
 clip_val_default = torch.tensor(8.0)
 
-class Qmax_new(QuantizerBase):
+class Qmax_new(Quantizer):
     """
     SAWB with custom backward (gradient pass through for clip function)
     if align_zero: quantizer = SAWBSTE() for coded sawb such as 103, 403, 803
@@ -48,7 +48,7 @@ class Qmax_new(QuantizerBase):
     Qmax can quantize both weights and activations
 
     Extends:
-        QuantizerBase
+        Quantizer
     """
 
     def __init__(
@@ -435,7 +435,7 @@ class QmaxExtendRangeSTE_PTnative(PerTensorSTEQmax_PTnative):
         ) = QmaxExtendRangeSTE_PTnative.calc_qparams(
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering, use_minmax
         )
-        output = PerTensorSTEBase_PTnative.linear_quantization(
+        output = PerTensorSTE_PTnative.linear_quantization(
             input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
         )
         return output

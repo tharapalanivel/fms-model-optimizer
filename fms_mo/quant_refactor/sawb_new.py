@@ -22,8 +22,8 @@ from typing import Tuple
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import QuantizerBase, Qscheme
-from fms_mo.quant_refactor.base_tensor import (
+from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
+from fms_mo.quant_refactor.per_tensor import (
     PerTensorSTESAWB,
     PerTensorSTESAWB_PTnative,
 )
@@ -41,7 +41,7 @@ perTQscheme_default = Qscheme(
 clip_valn_default = torch.tensor(-8.0)
 clip_val_default = torch.tensor(8.0)
 
-class SAWB_new(QuantizerBase):
+class SAWB_new(Quantizer):
     """
     SAWB with custom backward (gradient pass through for clip function)
     if align_zero: quantizer = SAWBSTE() for coded sawb such as 103, 403, 803
@@ -50,7 +50,7 @@ class SAWB_new(QuantizerBase):
     SAWB is only used to quantize weights
 
     Extends:
-        QuantizerBase
+        Quantizer
     """
 
     def __init__(

@@ -17,7 +17,7 @@ Base Quantizer classes to be inherited.
 
 Implements:
     Qscheme
-    QuantizerBase
+    Quantizer
 """
 
 # Standard
@@ -134,7 +134,7 @@ class Qscheme:
         )
 
 
-class QuantizerBase(torch.nn.Module):
+class Quantizer(torch.nn.Module):
     """
     Base class for quantizers
     basic use should be:
@@ -173,7 +173,7 @@ class QuantizerBase(torch.nn.Module):
         **kwargs,
     ):
         """
-        Init QuantizerBase Class
+        Init Quantizer Class
 
         Args:
             num_bits (torch.IntTensor): Number of bit for quantization.
@@ -287,10 +287,10 @@ class QuantizerBase(torch.nn.Module):
 
     def __repr__(self):
         """
-        Represent a QuantizerBase class as a string.
+        Represent a Quantizer class as a string.
 
         Returns:
-            str: QuantizerBase string
+            str: Quantizer string
         """
         perCh_str = f", perCh{self.perCh}" if self.perCh else ""
         perGrp_str = f", perGrp{self.perGrp}" if self.perGrp else ""

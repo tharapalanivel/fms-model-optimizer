@@ -13,7 +13,7 @@
 # limitations under the License.
 """
 Base Tensor Quantizer classes.
-The PACT family of quantizers implements PerTensorSTEBase.
+The PACT family of quantizers implements PerTensorSTE.
 The SAWB and Qmax families implements their respective PerTensorSTE<family> quantizers.
 Each group has a PyTorch native implementation that uses the fake_quantize_per_tensor_affine.
 Each STE implements the torch.autograd.Function forward() and backward() functions.
@@ -33,7 +33,7 @@ from fms_mo.quant_refactor.linear_utils import (
 )
 
 
-class PerTensorSTEBase(torch.autograd.Function):
+class PerTensorSTE(torch.autograd.Function):
     """
     Base class for customized forward/backward functions that is NOT using PT native func.
     There's a family of non-learnable quantizers, such as SAWB, MinMax,
@@ -85,10 +85,10 @@ class PerTensorSTEBase(torch.autograd.Function):
             clip_valn,
             clip_val,
         )
-        n_levels, scale, zero_point = PerTensorSTEBase.calc_qparams(
+        n_levels, scale, zero_point = PerTensorSTE.calc_qparams(
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering
         )
-        PerTensorSTEBase.save_tensors(
+        PerTensorSTE.save_tensors(
             ctx,
             tensors=(input_tensor, n_levels, clip_valn, clip_val, scale, zero_point),
         )
@@ -170,7 +170,7 @@ class PerTensorSTEBase(torch.autograd.Function):
         return grad_output, None, None, None, None, None, None
 
 
-class PerTensorSTEBase_PTnative(torch.autograd.Function):
+class PerTensorSTE_PTnative(torch.autograd.Function):
     """
     Base class for customized forward/backward functions that IS using PT native func.
     There's a family of non-learnable quantizers, such as SAWB, MinMax,
@@ -227,10 +227,10 @@ class PerTensorSTEBase_PTnative(torch.autograd.Function):
             qint_l,
             qint_h,
             qint_dtype,
-        ) = PerTensorSTEBase_PTnative.calc_qparams(
+        ) = PerTensorSTE_PTnative.calc_qparams(
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering
         )
-        output = PerTensorSTEBase_PTnative.linear_quantization(
+        output = PerTensorSTE_PTnative.linear_quantization(
             input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
         )
         return output
@@ -266,7 +266,7 @@ class PerTensorSTEBase_PTnative(torch.autograd.Function):
             if symmetric
             else torch.round(-clip_valn / scale).to(torch.int)
         )
-        qint_l, qint_h, qint_dtype = PerTensorSTEBase_PTnative.qint_bounds(
+        qint_l, qint_h, qint_dtype = PerTensorSTE_PTnative.qint_bounds(
             num_bits, zero_point, symmetric, qlevel_lowering
         )
         return n_levels, scale, zero_point, qint_l, qint_h, qint_dtype
@@ -357,12 +357,12 @@ class PerTensorSTEBase_PTnative(torch.autograd.Function):
         return grad_output, None, None, None, None, None, None
 
 
-class PerTensorSTESAWB(PerTensorSTEBase):
+class PerTensorSTESAWB(PerTensorSTE):
     """
     PerTensorSTE Base for SAWB
 
     Extends:
-        PerTensorSTEBase
+        PerTensorSTE
     """
 
     @staticmethod
@@ -403,7 +403,7 @@ class PerTensorSTESAWB(PerTensorSTEBase):
         n_levels, scale, zero_point = PerTensorSTESAWB.calc_qparams(
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering, use_code
         )
-        PerTensorSTEBase.save_tensors(
+        PerTensorSTE.save_tensors(
             ctx, tensors=(input_tensor, n_levels, clip_val, scale, zero_point)
         )
         output = linear_quantization(
@@ -475,12 +475,12 @@ class PerTensorSTESAWB(PerTensorSTEBase):
         return grad_output, None, None, None, None, None, None, None
 
 
-class PerTensorSTESAWB_PTnative(PerTensorSTEBase_PTnative):
+class PerTensorSTESAWB_PTnative(PerTensorSTE_PTnative):
     """
     PerTensorSTE Base for SAWB PTnative
 
     Extends:
-        PerTensorSTEBase_PTnative
+        PerTensorSTE_PTnative
     """
 
     @staticmethod
@@ -533,7 +533,7 @@ class PerTensorSTESAWB_PTnative(PerTensorSTEBase_PTnative):
         ) = PerTensorSTESAWB_PTnative.calc_qparams(
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering, use_code
         )
-        output = PerTensorSTEBase_PTnative.linear_quantization(
+        output = PerTensorSTE_PTnative.linear_quantization(
             input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
         )
         return output
@@ -586,7 +586,7 @@ class PerTensorSTESAWB_PTnative(PerTensorSTEBase_PTnative):
             _, scale, zero_point = symmetric_linear_quantization_params(
                 num_bits, clip_val, qlevel_lowering
             )
-            qint_min, qint_max, qint_dtype = PerTensorSTEBase_PTnative.qint_bounds(
+            qint_min, qint_max, qint_dtype = PerTensorSTE_PTnative.qint_bounds(
                 num_bits, zero_point, symmetric, qlevel_lowering
             )
 
@@ -619,12 +619,12 @@ class PerTensorSTESAWB_PTnative(PerTensorSTEBase_PTnative):
         return grad_output, None, None, None, None, None, None, None
 
 
-class PerTensorSTEQmax(PerTensorSTEBase):
+class PerTensorSTEQmax(PerTensorSTE):
     """
     PerTensorSTE Base for Qmax
 
     Extends:
-        PerTensorSTEBase
+        PerTensorSTE
     """
 
     @staticmethod
@@ -670,7 +670,7 @@ class PerTensorSTEQmax(PerTensorSTEBase):
         n_levels, scale, zero_point = PerTensorSTEQmax.calc_qparams(
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering, minmax
         )
-        PerTensorSTEBase.save_tensors(
+        PerTensorSTE.save_tensors(
             ctx,
             tensors=(input_tensor, n_levels, clip_valn, clip_val, scale, zero_point),
         )
@@ -739,12 +739,12 @@ class PerTensorSTEQmax(PerTensorSTEBase):
         return grad_output, None, None, None, None, None, None, None
 
 
-class PerTensorSTEQmax_PTnative(PerTensorSTEBase_PTnative):
+class PerTensorSTEQmax_PTnative(PerTensorSTE_PTnative):
     """
     PerTensorSTE Base for QMax PTnative
 
     Extends:
-        PerTensorSTEBase_PTnative
+        PerTensorSTE_PTnative
     """
 
     @staticmethod
@@ -796,7 +796,7 @@ class PerTensorSTEQmax_PTnative(PerTensorSTEBase_PTnative):
         ) = PerTensorSTEQmax_PTnative.calc_qparams(
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering, use_minmax
         )
-        output = PerTensorSTEBase_PTnative.linear_quantization(
+        output = PerTensorSTE_PTnative.linear_quantization(
             input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
         )
         return output
@@ -848,7 +848,7 @@ class PerTensorSTEQmax_PTnative(PerTensorSTEBase_PTnative):
                 num_bits, clip_val, qlevel_lowering
             )
 
-        qint_min, qint_max, qint_dtype = PerTensorSTEBase_PTnative.qint_bounds(
+        qint_min, qint_max, qint_dtype = PerTensorSTE_PTnative.qint_bounds(
             num_bits, zero_point, symmetric, qlevel_lowering
         )
         return n_levels, clip_val, scale, zero_point, qint_min, qint_max, qint_dtype

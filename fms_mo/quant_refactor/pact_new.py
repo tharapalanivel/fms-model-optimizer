@@ -20,10 +20,10 @@ PACT quantizer
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import QuantizerBase, Qscheme
-from fms_mo.quant_refactor.base_tensor import (
-    PerTensorSTEBase,
-    PerTensorSTEBase_PTnative,
+from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
+from fms_mo.quant_refactor.per_tensor import (
+    PerTensorSTE,
+    PerTensorSTE_PTnative,
 )
 
 perTQscheme_default = Qscheme(
@@ -37,13 +37,13 @@ perTQscheme_default = Qscheme(
 clip_valn_default = torch.tensor(0.0)
 clip_val_default = torch.tensor(8.0)
 
-class PACT_new(QuantizerBase):
+class PACT_new(Quantizer):
     """
     1-sided original PACT
     PACT is only used to quantize activations
 
     Extends:
-        QuantizerBase
+        Quantizer
     """
 
     def __init__(
@@ -89,17 +89,17 @@ class PACT_new(QuantizerBase):
         Set quantizer STE based on current member variables
         """
         if self.use_PT_native_Qfunc:  # PTnative overrides all other options
-            self.quantizer = PerTensorSTEBase_PTnative
+            self.quantizer = PerTensorSTE_PTnative
         else:
             self.quantizer = PACTplusSTE_new if self.pact_plus else PACT_STE_new
 
 
-class PACT_STE_new(PerTensorSTEBase):
+class PACT_STE_new(PerTensorSTE):
     """
     Single-sided PACT STE
 
     Extends:
-        PerTensorSTEBase: Uses PerTensorSTEBase.forward()
+        PerTensorSTE: Uses PerTensorSTE.forward()
     """
 
     @staticmethod
@@ -130,12 +130,12 @@ class PACT_STE_new(PerTensorSTEBase):
         return grad_input, grad_alpha, None, None, None, None, None
 
 
-class PACTplusSTE_new(PerTensorSTEBase):
+class PACTplusSTE_new(PerTensorSTE):
     """
     Single-sided PACT+ STE
 
     Extends:
-        PerTensorSTEBase: Uses PerTensorSTEBase.forward()
+        PerTensorSTE: Uses PerTensorSTE.forward()
     """
 
     @staticmethod

@@ -20,10 +20,10 @@ PACT2 Quantizer
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import QuantizerBase, Qscheme
-from fms_mo.quant_refactor.base_tensor import (
-    PerTensorSTEBase,
-    PerTensorSTEBase_PTnative,
+from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
+from fms_mo.quant_refactor.per_tensor import (
+    PerTensorSTE,
+    PerTensorSTE_PTnative,
 )
 
 perTQscheme_default = Qscheme(
@@ -37,7 +37,7 @@ perTQscheme_default = Qscheme(
 clip_valn_default = torch.tensor(-8.0)
 clip_val_default = torch.tensor(8.0)
 
-class PACT2_new(QuantizerBase):
+class PACT2_new(Quantizer):
     """
     Two-sided original PACT
     PACT2 can be used to quantize both weights and activations
@@ -88,17 +88,17 @@ class PACT2_new(QuantizerBase):
         Set quantizer STE based on current member variables
         """
         if self.use_PT_native_Qfunc:
-            self.quantizer = PerTensorSTEBase_PTnative
+            self.quantizer = PerTensorSTE_PTnative
         else:
             self.quantizer = PACTplus2STE_new if self.pact_plus else PACT2_STE_new
 
 
-class PACT2_STE_new(PerTensorSTEBase):
+class PACT2_STE_new(PerTensorSTE):
     """
     two-sided original pact quantization for activation
 
     Extends:
-        PerTensorSTEBase: Uses PerTensorSTEBase.forward()
+        PerTensorSTE: Uses PerTensorSTE.forward()
     """
 
     @staticmethod
@@ -139,12 +139,12 @@ class PACT2_STE_new(PerTensorSTEBase):
         return grad_input, grad_alpha, grad_alphan, None, None, None, None
 
 
-class PACTplus2STE_new(PerTensorSTEBase):
+class PACTplus2STE_new(PerTensorSTE):
     """
     two-sided pact+ quantization for activation
 
     Extends:
-        PerTensorSTEBase: Uses PerTensorSTEBase.forward()
+        PerTensorSTE: Uses PerTensorSTE.forward()
     """
 
     @staticmethod
