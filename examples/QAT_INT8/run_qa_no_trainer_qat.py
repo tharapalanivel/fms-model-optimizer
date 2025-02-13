@@ -393,12 +393,6 @@ def parse_args():
         default=None,
         help="convert QAT model to utilize real INT8 GPU kernel, 'cutlass' or 'triton'",
     )
-    parser.add_argument(
-        "--verify_preccfg",
-        type=str,
-        default=None,
-        help="Path to an old version of AIU checkpoint, which should have a precconfig.json",
-    )
 
     args = parser.parse_args()
 
@@ -1199,18 +1193,6 @@ def main():
         )
         logger.info(pd.DataFrame(summary))
 
-        return
-
-    elif args.verify_preccfg:
-        # Local
-        from fms_mo.utils.aiu_utils import verify_preccfg
-
-        exam_inp = next(iter(train_dataloader))
-
-        model_aiu = verify_preccfg(args.verify_preccfg, exam_inp, sim_level=3)
-
-        metrics = squad_eval(model_aiu)
-        logger.info(metrics)
         return
 
     # ----------------------------------------------------
