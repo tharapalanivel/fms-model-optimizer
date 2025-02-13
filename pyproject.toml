@@ -36,7 +36,6 @@ dependencies = [
 "huggingface_hub",
 "pandas",
 "safetensors",
-"ninja",
 "ibm-fms>=0.0.8"
 ]
 
