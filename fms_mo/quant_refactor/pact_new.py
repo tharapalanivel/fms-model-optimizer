@@ -26,7 +26,9 @@ from fms_mo.quant_refactor.per_tensor import (
     PerTensorSTE_PTnative,
 )
 
-perTQscheme_default = Qscheme(
+clip_valn_default = torch.tensor(0.0)
+clip_val_default = torch.tensor(8.0)
+qscheme_per_tensor = Qscheme(
     unit="perT",
     symmetric=False,
     Nch=None,
@@ -34,8 +36,6 @@ perTQscheme_default = Qscheme(
     single_sided=True,
     qlevel_lowering=False,
 )
-clip_valn_default = torch.tensor(0.0)
-clip_val_default = torch.tensor(8.0)
 
 class PACT_new(Quantizer):
     """
@@ -51,7 +51,7 @@ class PACT_new(Quantizer):
         num_bits: torch.IntTensor,
         init_clip_valn: torch.FloatTensor = clip_valn_default,
         init_clip_val: torch.FloatTensor = clip_val_default,
-        qscheme: Qscheme = perTQscheme_default,
+        qscheme: Qscheme = qscheme_per_tensor,
         dequantize: bool = True,
         pact_plus: bool = True,
         **kwargs

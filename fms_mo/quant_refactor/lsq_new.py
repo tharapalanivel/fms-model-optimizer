@@ -38,6 +38,16 @@ from fms_mo.quant_refactor.linear_utils import (
     qint_bounds,
 )
 
+clip_valn_default = torch.tensor(-8.0)
+clip_val_default = torch.tensor(8.0)
+qscheme_per_tensor = Qscheme(
+    unit="perT",
+    symmetric=False,
+    Nch=None,
+    Ngrp=None,
+    single_sided=True,
+    qlevel_lowering=False,
+)
 
 class LSQQuantization_new(Quantizer):
     """
@@ -50,16 +60,9 @@ class LSQQuantization_new(Quantizer):
     def __init__(
         self,
         num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = torch.tensor(-8.0),
-        init_clip_val: torch.FloatTensor = torch.tensor(8.0),
-        qscheme=Qscheme(
-            unit="perT",
-            symmetric=False,
-            Nch=None,
-            Ngrp=None,
-            single_sided=True,
-            qlevel_lowering=False,
-        ),
+        init_clip_valn: torch.FloatTensor = clip_valn_default,
+        init_clip_val: torch.FloatTensor = clip_val_default,
+        qscheme=qscheme_per_tensor,
         dequantize: bool = True,
         **kwargs
     ):
@@ -198,16 +201,9 @@ class LSQPlus_new(Quantizer):
     def __init__(
         self,
         num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = torch.tensor(-8.0),
-        init_clip_val: torch.FloatTensor = torch.tensor(8.0),
-        qscheme=Qscheme(
-            unit="perT",
-            symmetric=False,
-            Nch=None,
-            Ngrp=None,
-            single_sided=False,
-            qlevel_lowering=False,
-        ),
+        init_clip_valn: torch.FloatTensor = clip_valn_default,
+        init_clip_val: torch.FloatTensor = clip_val_default,
+        qscheme=qscheme_per_tensor,
         dequantize: bool = True,
         **kwargs
     ):
