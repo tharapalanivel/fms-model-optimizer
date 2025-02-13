@@ -16,6 +16,7 @@
 # Third Party
 import pytest
 import torch
+from pathlib import Path
 
 # ================================================
 # GPTQ W4A16 fixtures
@@ -67,46 +68,61 @@ def get_gptq_gemm_inputs(request) -> tuple[torch.Tensor, ...]:
 
 i8i8_metadata = [
     {
-        "bs": 4,
-        "seq_len": 7,
-        "hid_dim": 256,
-        "out_feat": 512,
-        "dtype": torch.float16,
         "wtype": "per_tensor",  # per_channel
         "atype": "per_tensor_symm",  # per_tensor_asymm, per_token
         "smoothquant": False,
-    }
+    },
+    # {
+    #     "wtype": "per_channel",  # per_channel
+    #     "atype": "per_tensor_symm",  # per_tensor_asymm, per_token
+    #     "smoothquant": False,
+    # },
 ]
 
 
 @pytest.fixture(scope="session", params=i8i8_metadata)
 def get_i8i8_gemm_inputs(
     request,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str, str, bool]:
+) -> tuple[
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        str,
+        str,
+        bool,
+        torch.Tensor,
+    ]:
     """pytest fixture returning test inputs for INT8xINT8 op"""
 
     data = request.param
-    x = torch.randn(
-        (data["bs"], data["seq_len"], data["hid_dim"]),
-        dtype=data["dtype"],
-    ).clamp(-1, 1)
-    w_int = torch.randint(
-        low=-8,
-        high=8,
-        size=(data["out_feat"], data["hid_dim"]),
-        dtype=torch.int8,
+
+    filename = (
+        f"ref_w-{data['wtype']}_"
+        f"a-{data['atype']}_"
+        f"sq-{'Y' if data['smoothquant'] else 'N'}.pt"
     )
-    b = torch.zeros(data["out_feat"], dtype=data["dtype"])
-    qdata = create_qdata(
-        data["wtype"],
-        data["atype"],
-        data["hid_dim"],
-        data["out_feat"],
-        data["smoothquant"],
-        data["dtype"],
+    addon_references = Path("tests/artifacts/aiu_addons")
+    i8i8_data = torch.load(addon_references / filename, weights_only=True)
+
+    assert isinstance(i8i8_data, dict)
+    assert data["wtype"] == i8i8_data["weight_quant_type"]
+    assert data["atype"] == i8i8_data["activ_quant_type"]
+    assert data["smoothquant"] == i8i8_data["smoothquant"]
+    assert all(
+        [item in i8i8_data for item in ["x", "w_int", "bias", "qdata", "reference_out"]]
     )
 
-    return (x, w_int, b, qdata, data["wtype"], data["atype"], data["smoothquant"])
+    return (
+        i8i8_data["x"],
+        i8i8_data["w_int"],
+        i8i8_data["bias"],
+        i8i8_data["qdata"],
+        i8i8_data["weight_quant_type"],
+        i8i8_data["activ_quant_type"],
+        i8i8_data["smoothquant"],
+        i8i8_data["reference_out"],
+    )
 
 
 def create_qdata(
