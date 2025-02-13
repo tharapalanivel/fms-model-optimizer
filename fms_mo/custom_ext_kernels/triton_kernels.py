@@ -235,7 +235,7 @@ def imatmul_kernel(
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.int32)
     ## ------ prepare LSB rounding/truncation masks -------
     round_bit = 1 << (chunk_trun_bits - 1) if chunk_trun_bits > 0 else 0
-    msb_mask = 0x00FFFFFF  # only needed when simulating truncation on MSB
+    # msb_mask = 0x00FFFFFF  # only needed when simulating truncation on MSB
     ## ---------------------------------------------------------
 
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
