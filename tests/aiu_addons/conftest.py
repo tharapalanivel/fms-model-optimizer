@@ -13,10 +13,12 @@
 # limitations under the License.
 """Pytest configuration file with fixtures for add-ons functionality testing"""
 
+# Standard
+from pathlib import Path
+
 # Third Party
 import pytest
 import torch
-from pathlib import Path
 
 # ================================================
 # GPTQ W4A16 fixtures
@@ -84,15 +86,15 @@ i8i8_metadata = [
 def get_i8i8_gemm_inputs(
     request,
 ) -> tuple[
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        torch.Tensor,
-        str,
-        str,
-        bool,
-        torch.Tensor,
-    ]:
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    torch.Tensor,
+    str,
+    str,
+    bool,
+    torch.Tensor,
+]:
     """pytest fixture returning test inputs for INT8xINT8 op"""
 
     data = request.param
@@ -110,7 +112,7 @@ def get_i8i8_gemm_inputs(
     assert data["atype"] == i8i8_data["activ_quant_type"]
     assert data["smoothquant"] == i8i8_data["smoothquant"]
     assert all(
-        [item in i8i8_data for item in ["x", "w_int", "bias", "qdata", "reference_out"]]
+        item in i8i8_data for item in ["x", "w_int", "bias", "qdata", "reference_out"]
     )
 
     return (
@@ -123,25 +125,3 @@ def get_i8i8_gemm_inputs(
         i8i8_data["smoothquant"],
         i8i8_data["reference_out"],
     )
-
-
-def create_qdata(
-    wtype: str,
-    atype: str,
-    in_feat: int,
-    out_feat: int,
-    smoothquant: bool,
-    dtype: torch.dtype,
-) -> torch.Tensor:
-    """Generate dummy qdata tensor based on the provided quantization configuration"""
-
-    qdata_len = 2 if wtype == "per_tensor" else 2 * out_feat  # weight clips
-    qdata_len += 2  # activation clips
-    qdata_len += out_feat if atype == "per_tensor_asymm" else 1  # zero shift
-    qdata_len += in_feat if smoothquant else 1  # smoothquant scales
-
-    # TODO: improve dummy generation
-    qdata = torch.ones(qdata_len, dtype=dtype)
-    qdata[1] = -qdata[0]  # !!! temporary solution to enforce clip symmetry
-    qdata[3] = -qdata[2]
-    return qdata

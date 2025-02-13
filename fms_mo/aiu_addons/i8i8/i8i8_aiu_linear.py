@@ -200,7 +200,7 @@ def get_int8_aiu_linear(
     in_features: int,
     out_features: int,
     bias: bool,
-    linear_config: Optional[Mapping[str, Any]] = None,
+    linear_config: Mapping[str, Any],
     use_smoothquant: bool = True,
 ) -> torch.nn.Module:
     """Retrieve a W8A8 Linear module"""
