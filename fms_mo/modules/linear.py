@@ -752,7 +752,7 @@ class QLinearINT8Deploy(nn.Linear):
         qlin_int.max_acc_bits = kwargs.get("max_acc_bits", 32)
         qlin_int.accminmax = (
             -(1 << (qlin_int.max_acc_bits - 1)),
-            1 << (qlin_int.max_acc_bits - 1) - 1,
+            (1 << (qlin_int.max_acc_bits - 1)) - 1,
         )
         qlin_int.truncate_lsb = kwargs.get("truncate_lsb", 0)
         qlin_int.chunk_size = kwargs.get("chunk_size", 100000)
@@ -871,16 +871,16 @@ class QLinearINT8Deploy(nn.Linear):
 
         qlinear_iW.nbits_a = 8  # Only support INT8 for now
         qlinear_iW.nbits_w = 8
-        qlinear_iW.acc_dtype = torch.float16
+        qlinear_iW.acc_dtype = kwargs.get("acc_dtype", torch.float)
         qlinear_iW.usePTnativeQfunc = kwargs.get("use_PT_native_Qfunc", True)
-        qlinear_iW.use_int_kernel = True
+        qlinear_iW.use_int_kernel = kwargs.get("use_int_kernel", "triton")
         qlinear_iW.weight = nn.Parameter(
             nnlin_iW.weight.to(torch.int8), requires_grad=False
         )
         qlinear_iW.max_acc_bits = kwargs.get("max_acc_bits", 32)
         qlinear_iW.accminmax = (
             -(1 << (qlinear_iW.max_acc_bits - 1)),
-            1 << (qlinear_iW.max_acc_bits - 1) - 1,
+            (1 << (qlinear_iW.max_acc_bits - 1)) - 1,
         )
         qlinear_iW.truncate_lsb = kwargs.get("truncate_lsb", False)
         qlinear_iW.chunk_size = kwargs.get("chunk_size", 100000)
@@ -1027,11 +1027,11 @@ class QLinearINT8Deploy(nn.Linear):
         else:
             m1 = self.qa_fmo_mo_qfunc(m1)
 
-        if m1.shape[1] > self.chunk_size:
+        if m1.shape[1] > self.chunk_size and self.use_int_kernel != "triton":
             idx = list(range(0, m1.shape[1], self.chunk_size))
             Nchunk = len(idx)
             idx.append(m1.shape[1])
-            fp16_out = torch.zeros(
+            accumulator = torch.zeros(
                 (m1.shape[0], m2.shape[1]), dtype=torch.float16, device=m1.device
             )
             trun_scale = 1
@@ -1052,11 +1052,11 @@ class QLinearINT8Deploy(nn.Linear):
                     # could cast to smaller data type to further simulate HW behavior, for example,
                     # if HW truncates 8b from both sides of i32 accumulator, the remaining data can
                     # be cast to i16 to be more realistic. pay attention to overflow handling
-                fp16_out += imm_out.to(torch.float16)
+                accumulator += imm_out.to(torch.float16)
 
             return (
-                fp16_out
-                * (trun_scale * self.input_scale * self.w_scale).to(torch.float16)
+                accumulator
+                * (trun_scale * self.input_scale * self.w_scale)  # .to(torch.float16)
                 + bias
             ).to(self.acc_dtype)
         # The safest casting, i32 -> f32
@@ -1145,10 +1145,13 @@ class QLinearINT8Deploy(nn.Linear):
         """
         Returns an alternative string representation of the object
         """
-        return (
+        repr_str = (
             f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
-            f"use_int_kernel={self.use_int_kernel}"
+            f"int_kernel={self.use_int_kernel}"
         )
+        if self.truncate_lsb > 0 or self.max_acc_bits < 32:
+            repr_str += f", acc_bits={self.max_acc_bits}, trun_lsb={self.truncate_lsb}"
+        return repr_str
 
     def __getstate__(self):
         """
