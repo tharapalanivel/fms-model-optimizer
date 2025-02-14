@@ -38,6 +38,7 @@ Inductor
 inferenced
 inferencing
 isort
+JIT
 Jupyter
 Kubernetes
 KV
@@ -105,6 +106,7 @@ Tokenized
 tokenizer
 Tokenizer
 toml
+triton
 Unquantized
 vals
 venv
