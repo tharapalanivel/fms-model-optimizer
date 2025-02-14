@@ -390,7 +390,7 @@ def parse_args():
         "--do_lowering",
         choices=["cutlass", "triton"],
         type=str,
-        default="triton",
+        default=None,
         help="convert QAT model to utilize real INT8 GPU kernel, 'cutlass' or 'triton'",
     )
 
@@ -1136,7 +1136,7 @@ def main():
             logger.info(
                 f"\n    {label} {'with' if comp_mode else 'without'} torch.compile"
             )
-            model_copy = deepcopy(model)
+            model_copy = deepcopy(model).half()
 
             if label == "int8":
                 qcfg = qconfig_init(recipe="qat_int8", args=args)
@@ -1178,7 +1178,7 @@ def main():
 
             # Median runtime using fixed input (in msec)
             med_runtime = speedtest(model_copy, exam_inp)
-            metrics = squad_eval(model_copy) if label == "int8" else {"f1": None}
+            metrics = squad_eval(model_copy)  # if label == "int8" else {"f1": None}
 
             summary["precision"].append(label)
             summary["compile mode"].append(comp_mode)
