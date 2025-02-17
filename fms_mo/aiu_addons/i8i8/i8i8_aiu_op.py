@@ -84,7 +84,7 @@ def register_aiu_i8i8_op():
         x_dq = quant_dequant_activ(x, a_cv, a_cvn, sq, activ_quant_type)
         w_dq = dequant_weights(weight, w_cv, sq, weight_quant_type)
 
-        return F.linear(x_dq.to(dtype), w_dq.to(dtype), bias)
+        return F.linear(x_dq.to(dtype), w_dq.to(dtype), bias.to(dtype))
 
     @torch.library.impl_abstract(op_namespace_id)
     def i8i8_aiu_abstract(
