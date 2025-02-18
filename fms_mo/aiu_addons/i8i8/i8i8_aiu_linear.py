@@ -16,7 +16,8 @@
 # Standard
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional, Union
+import copy
 
 # Third Party
 from fms.modules.linear import (
@@ -197,16 +198,38 @@ class W8A8LinearAIU(torch.nn.Module):
         )
 
 
+def update_from_partial(
+    linear_config: Mapping[Union[str, Callable], Any],
+) -> Mapping[Union[str, Callable], Any]:
+    """Update linear config parameters using those of partial callable"""
+
+    linear_config_updated = copy.deepcopy(linear_config)
+    for k, v in linear_config["linear_type"].keywords.items():
+        linear_config_updated[k] = v
+    return linear_config_updated
+
+
 def get_int8_aiu_linear(
     in_features: int,
     out_features: int,
     bias: bool,
-    linear_config: Optional[Mapping[str, Any]] = None,
+    linear_config: Mapping[Union[str, Callable], Any],
+    linear_type: Optional[str] = None,
     use_smoothquant: bool = False,
 ) -> torch.nn.Module:
     """Retrieve a W8A8 Linear module"""
 
-    int8_config = W8A8LinearConfig(**linear_config)
+    # Preprocess linear_config if its linear_type field is a callable
+    # (which would not initialize correctly the dataclass parameters).
+    # We don't want to alter the original linear_config though.
+    linear_config_for_dataclass = None
+    if callable(linear_config["linear_type"]):
+        linear_config_for_dataclass = update_from_partial(linear_config)
+        linear_config_for_dataclass["linear_type"] = linear_type
+    if not linear_config_for_dataclass:
+        linear_config_for_dataclass = linear_config
+
+    int8_config = W8A8LinearConfig(**linear_config_for_dataclass)
     linear = W8A8LinearAIU(
         in_features=in_features,
         out_features=out_features,
@@ -281,9 +304,20 @@ def shard_int8_aiu_linear(
     # return unused_keys
 
 
-register_linear_type_to_module_map("int8_aiu", get_int8_aiu_linear)
+register_linear_type_to_module_map(
+    "int8_aiu",
+    partial(
+        get_int8_aiu_linear,
+        linear_type="int8_aiu",
+        use_smoothquant=False,
+    ),
+)
 register_linear_type_to_module_map(
     "int8_smoothquant_aiu",
-    partial(get_int8_aiu_linear, use_smoothquant=True),
+    partial(
+        get_int8_aiu_linear,
+        linear_type="int8_smoothquant_aiu",
+        use_smoothquant=True,
+    ),
 )
 register_linear_type_to_sharding_map("int8_aiu", shard_int8_aiu_linear)
