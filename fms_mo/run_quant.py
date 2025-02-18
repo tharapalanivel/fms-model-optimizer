@@ -37,6 +37,7 @@ from datasets import load_from_disk
 from huggingface_hub.errors import HFValidationError
 from torch.cuda import OutOfMemoryError
 from transformers import AutoTokenizer
+import torch
 import transformers
 
 # Local
@@ -306,6 +307,7 @@ def main():
             gptq_args,
             fp8_args,
         ) = parse_arguments(parser, job_config)
+        model_args.torch_dtype = getattr(torch, model_args.torch_dtype, torch.bfloat16)
 
         logger = set_log_level(opt_args.log_level, __name__)
 

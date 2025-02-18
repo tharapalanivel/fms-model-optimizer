@@ -20,6 +20,10 @@ import torch
 import triton
 import triton.language as tl
 
+DTYPE_I8 = [torch.int8]
+DTYPE_F8 = [torch.float8_e4m3fn, torch.float8_e5m2]
+DTYPE_8BIT = DTYPE_I8 + DTYPE_F8
+
 
 def get_cuda_autotune_config(chunk_size=None):
     """Basic use of triton.Config() is like:
@@ -145,8 +149,7 @@ def matmul_kernel(
     # NOTE mask will be applied on accumulator, which is alway FP32, so we may truncate up to 23b
     # e.g., 20b -> trun_mask = 0xFFF00000, round_bit = 0x00080000
     #        8b -> trun_mask = 0xFFFFFF00, round_bit = 0x00000080
-    full_32b_mask = 0xFFFFFFFF
-    trun_mask = (full_32b_mask << chunk_trun_bits) & full_32b_mask
+    trun_mask = tl.cast((0xFFFFFFFF >> chunk_trun_bits) << chunk_trun_bits, tl.uint32)
     round_bit = 1 << (chunk_trun_bits - 1) if chunk_trun_bits > 0 else 0
     ## ---------------------------------------------------------
 
@@ -160,7 +163,7 @@ def matmul_kernel(
         # tl.dot() default is using TF32 approximation, not good enough for LSB truncation exp
 
         ## ------ add chunky LSB rounding/masking --------
-        if chunk_trun_bits != 0:
+        if chunk_trun_bits > 0:
             accumulator = libdevice.uint_as_float(
                 (libdevice.float_as_uint(accumulator) + round_bit) & trun_mask
             )
@@ -269,7 +272,14 @@ def leaky_relu(x):
     return tl.where(x >= 0, x, 0.01 * x)
 
 
-def tl_matmul_chunk_truncate(a, b, activation="", chunk_trun_bits=0, chunk_size=16):
+def tl_matmul_chunk_truncate(
+    a,
+    b,
+    activation="",
+    chunk_trun_bits=0,
+    chunk_size=16,
+    cast_output_to_input_dtype=True,
+):
     """Triton matmul for HW behavior simulation. Supports float and int8.
     a. variable chunk size (i.e., BLOCK_SIZE_K)
     b. LSB truncation, must <23 if using float.
@@ -279,6 +289,10 @@ def tl_matmul_chunk_truncate(a, b, activation="", chunk_trun_bits=0, chunk_size=
         activation (str, optional): activation func to be fused, see relu example.
         chunk_trun_bits (int, optional): number of LSBs to be truncated/rounded.
         chunk_size (int, optional): BLOCK_SIZE_K, some HW has specific chunk size. must >= 16.
+        cast_output_to_input_dtype (bool, optional): accumulator has higher prec than input, usually
+                                                    FP32 or INT32. by default we cast the final
+                                                    output to the same dtype as input, but can be
+                                                    changed if needed.
 
     Returns:
         _type_: _description_
@@ -295,27 +309,32 @@ def tl_matmul_chunk_truncate(a, b, activation="", chunk_trun_bits=0, chunk_size=
     allowed_dtypes = [torch.float, torch.bfloat16, torch.float16]
     cuda_cc = torch.cuda.get_device_capability()
     if cuda_cc[0] >= 8:
-        allowed_dtypes.append(torch.int8)
+        allowed_dtypes += DTYPE_I8
     if cuda_cc[0] >= 9 or cuda_cc == (8, 9):
-        allowed_dtypes += [torch.float8_e4m3fn, torch.float8_e5m2]
+        allowed_dtypes += DTYPE_F8
     assert a.dtype in allowed_dtypes, "Input dtype is not supported"
     M, K = a.shape
     K, N = b.shape
 
-    # Allocates output, always accumulate in FP32/INT32 then cast (if floats)
+    # Allocates output, always accumulate in FP32 (if floats) or INT32 then cast
     def isPowerofTwo(x):
         """triton-specific limitation: block size needs to be power of 2."""
         return (x & (x - 1)) == 0
 
-    if a.dtype == torch.int8:
-        mm_kernel = imatmul_kernel
-        chunk_size = max(chunk_size, 32) if isPowerofTwo(chunk_size) else 32
-        c = torch.zeros((M, N), device=a.device, dtype=torch.int32)
+    min_chunk_size = 32 if a.dtype in DTYPE_8BIT else 16
+    if isPowerofTwo(chunk_size):
+        chunk_size = max(chunk_size, min_chunk_size)
     else:
-        assert chunk_trun_bits < 23, "FP32 accumulator only has 23 mantissa bits"
+        chunk_size = min_chunk_size
+
+    if a.dtype in DTYPE_I8:
+        acc_dtype = torch.int32
+        mm_kernel = imatmul_kernel
+    else:
+        acc_dtype = torch.float32
         mm_kernel = matmul_kernel
-        chunk_size = max(chunk_size, 16) if isPowerofTwo(chunk_size) else 16
-        c = torch.zeros((M, N), device=a.device, dtype=torch.float32)
+        assert chunk_trun_bits < 23, "FP32 accumulator only has 23 mantissa bits"
+    c = torch.zeros((M, N), device=a.device, dtype=acc_dtype)
 
     # 1D launch kernel where each block gets its own program.
     def grid(META):
@@ -327,7 +346,7 @@ def tl_matmul_chunk_truncate(a, b, activation="", chunk_trun_bits=0, chunk_size=
         kernel_config = {
             "BLOCK_SIZE_M": 128,
             "BLOCK_SIZE_K": chunk_size,
-            "BLOCK_SIZE_N": 128,  # was 32
+            "BLOCK_SIZE_N": 32,
             "GROUP_SIZE_M": 8,
             "num_warps": 2,
             "num_stages": 5,
@@ -336,7 +355,7 @@ def tl_matmul_chunk_truncate(a, b, activation="", chunk_trun_bits=0, chunk_size=
         kernel_config = {
             "BLOCK_SIZE_M": 128,
             "BLOCK_SIZE_K": chunk_size,
-            "BLOCK_SIZE_N": 128,  # was 64
+            "BLOCK_SIZE_N": 64,
             "GROUP_SIZE_M": 8,
             "num_warps": 4,
             "num_stages": 4,
@@ -359,4 +378,4 @@ def tl_matmul_chunk_truncate(a, b, activation="", chunk_trun_bits=0, chunk_size=
         ACTIVATION=activation,
         **kernel_config,  # if using auto-tune, comment this line out.
     )
-    return c.to(a.dtype) if a.dtype != torch.int8 else c
+    return c.to(a.dtype) if cast_output_to_input_dtype else c
