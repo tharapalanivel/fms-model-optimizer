@@ -16,7 +16,7 @@
 # Standard
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, Callable, Mapping, Optional, Union
+from typing import Any, Callable, Optional, Union
 import copy
 
 # Third Party
@@ -199,8 +199,8 @@ class W8A8LinearAIU(torch.nn.Module):
 
 
 def update_from_partial(
-    linear_config: Mapping[Union[str, Callable], Any],
-) -> Mapping[Union[str, Callable], Any]:
+    linear_config: dict[Union[str, Callable], Any],
+) -> dict[Union[str, Callable], Any]:
     """Update linear config parameters using those of partial callable"""
 
     linear_config_updated = copy.deepcopy(linear_config)
@@ -213,7 +213,7 @@ def get_int8_aiu_linear(
     in_features: int,
     out_features: int,
     bias: bool,
-    linear_config: Mapping[Union[str, Callable], Any],
+    linear_config: dict[Union[str, Callable], Any],
     linear_type: Optional[str] = None,
     use_smoothquant: bool = False,
 ) -> torch.nn.Module:
@@ -222,7 +222,7 @@ def get_int8_aiu_linear(
     # Preprocess linear_config if its linear_type field is a callable
     # (which would not initialize correctly the dataclass parameters).
     # We don't want to alter the original linear_config though.
-    linear_config_for_dataclass = None
+    linear_config_for_dataclass: Optional[dict[Union[str, Callable], Any]] = None
     if callable(linear_config["linear_type"]):
         linear_config_for_dataclass = update_from_partial(linear_config)
         linear_config_for_dataclass["linear_type"] = linear_type

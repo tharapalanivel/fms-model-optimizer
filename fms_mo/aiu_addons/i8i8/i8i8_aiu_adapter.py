@@ -47,7 +47,7 @@ def _int8_qparams_aiu(
 
 
 def _add_defaults_and_concat(
-    new_sd: Mapping[str, torch.Tensor],
+    new_sd: dict[str, torch.Tensor],
     modules_seen: set,
 ) -> None:
     """
