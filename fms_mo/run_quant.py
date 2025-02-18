@@ -281,6 +281,10 @@ def parse_arguments(parser, json_config=None):
             _,
         ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
 
+    model_args.torch_dtype = getattr(
+        torch, model_args.torch_dtype.replace("torch.", ""), torch.bfloat16
+    )
+
     return (
         model_args,
         data_args,
@@ -307,7 +311,6 @@ def main():
             gptq_args,
             fp8_args,
         ) = parse_arguments(parser, job_config)
-        model_args.torch_dtype = getattr(torch, model_args.torch_dtype, torch.bfloat16)
 
         logger = set_log_level(opt_args.log_level, __name__)
 

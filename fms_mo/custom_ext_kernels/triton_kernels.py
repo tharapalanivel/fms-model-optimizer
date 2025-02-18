@@ -278,7 +278,7 @@ def tl_matmul_chunk_truncate(
     activation="",
     chunk_trun_bits=0,
     chunk_size=16,
-    cast_output_to_input_dtype=True,
+    cast_output_to_input_dtype=None,
 ):
     """Triton matmul for HW behavior simulation. Supports float and int8.
     a. variable chunk size (i.e., BLOCK_SIZE_K)
@@ -291,8 +291,7 @@ def tl_matmul_chunk_truncate(
         chunk_size (int, optional): BLOCK_SIZE_K, some HW has specific chunk size. must >= 16.
         cast_output_to_input_dtype (bool, optional): accumulator has higher prec than input, usually
                                                     FP32 or INT32. by default we cast the final
-                                                    output to the same dtype as input, but can be
-                                                    changed if needed.
+                                                    output to the same dtype as input for non-8bits.
 
     Returns:
         _type_: _description_
@@ -306,6 +305,8 @@ def tl_matmul_chunk_truncate(
     assert a.is_contiguous(), "Matrix A must be contiguous"
     assert a.dtype == b.dtype, "Input dtypes inconsistent"
 
+    if cast_output_to_input_dtype is None:
+        cast_output_to_input_dtype = a.dtype not in DTYPE_8BIT
     allowed_dtypes = [torch.float, torch.bfloat16, torch.float16]
     cuda_cc = torch.cuda.get_device_capability()
     if cuda_cc[0] >= 8:
