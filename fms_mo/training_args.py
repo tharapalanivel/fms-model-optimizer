@@ -20,9 +20,6 @@ Arguments used for quantization
 from dataclasses import dataclass, field
 from typing import List, Optional, Union, get_args, get_origin
 
-# Third Party
-import torch
-
 
 @dataclass
 class TypeChecker:
