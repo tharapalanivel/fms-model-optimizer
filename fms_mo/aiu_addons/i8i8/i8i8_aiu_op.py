@@ -114,7 +114,7 @@ def extract_qdata(
     w_in_feat: int,
     w_out_feat: int,
     smoothquant: bool,
-) -> tuple[torch.Tensor]:
+) -> tuple[torch.Tensor, ...]:
     """6 tensors are to be de-concatenated from qdata:
     w_clip_val      [    : idx1]
     w_clip_valn     [idx1: idx2]
@@ -194,19 +194,19 @@ def quant_dequant_activ(
     """
     if activ_quant_type == "per_tensor_symm":
         scale_x = 127 / a_cv
-        x_int = torch.round(x / sq * scale_x).clamp(-127, 127)
-        return x_int / scale_x * sq
+        x_int = torch.round(x / sq * scale_x).clamp(-127, 127).to(torch.int8)
+        return x_int.div(scale_x).mul(sq)
     if activ_quant_type == "per_tensor_asymm":
         scale_x = 255 / (a_cv - a_cvn)
         zp_x = a_cvn * scale_x
         x_int = torch.round(x / sq * scale_x - zp_x).clamp(0, 255)
-        return (x_int + zp_x) / scale_x * sq
+        return x_int.add(zp_x).div(scale_x).mul(sq)
     if activ_quant_type == "per_token":
         x_sq = x / sq
         a_cv_per_token = x_sq.abs().max(dim=-1, keepdim=True)[0]
         scale_x = 127 / a_cv_per_token
         x_int = torch.round(x_sq * scale_x).clamp(-127, 127)
-        return x_int / scale_x * sq
+        return x_int.div(scale_x).mul(sq)
     raise NotImplementedError(
         f"activation quantizantion type {activ_quant_type} is not supported"
     )

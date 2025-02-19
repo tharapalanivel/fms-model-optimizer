@@ -48,7 +48,7 @@ def _int8_qparams_aiu(
 
 def _add_defaults_and_concat(
     new_sd: dict[str, torch.Tensor],
-    modules_seen: set,
+    modules_seen: set[str],
 ) -> None:
     """
     Add default activation clip values, zero_shift, and smoothquant_scale (if not

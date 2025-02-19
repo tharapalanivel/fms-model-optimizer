@@ -141,7 +141,7 @@ def get_gptq_aiu_linear(
     in_features: int,
     out_features: int,
     bias: bool,
-    linear_config: Optional[Mapping[str, Any]] = None,
+    linear_config: Mapping[str, Any],
 ) -> torch.nn.Module:
     """Retrieve a GPTQ W4A16 Linear module"""
 
