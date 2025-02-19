@@ -115,11 +115,11 @@ def quantizer_error(
         except AssertionError as e_dtype:
             # Debugging info
             logger.error("\nTensor Datatype Error:")
-            logger.error("Quantizer Tuple =", setup)
-            logger.error("Base Options =", base_options)
-            logger.error("Other Options =", other_options)
-            logger.error("FMS Model Optimizer datatype =", qtensor_fms_mo.dtype)
-            logger.error("Torch datatype =", qtensor_torch.dtype)
+            logger.error("Quantizer Tuple = %s", setup)
+            logger.error("Base Options = %s", base_options)
+            logger.error("Other Options = %s", other_options)
+            logger.error("FMS Model Optimizer datatype = %s", qtensor_fms_mo.dtype)
+            logger.error("Torch datatype = %s", qtensor_torch.dtype)
             raise e_dtype  # Reraise exception
 
     # Check if there any non-numbers in FMS Model Optimizer qtensor
@@ -148,48 +148,48 @@ def quantizer_error(
         except AssertionError as e_nan_inf:
             # Debugging info
             logger.error("\nTensor Non-Number Error:")
-            logger.error("Quantizer Tuple =", setup)
-            logger.error("Base Options =", base_options)
-            logger.error("Other Options =", other_options)
+            logger.error("Quantizer Tuple = %s", setup)
+            logger.error("Base Options = %s", base_options)
+            logger.error("Other Options = %s", other_options)
             if num_nan_fms_mo > 0:
-                logger.error("FMS Model Optimizer # of NaN =", num_nan_fms_mo)
-                logger.error("Original Tensor =\n", tensor[nan_indices_fms_mo].detach())
+                logger.error("FMS Model Optimizer # of NaN = %s", num_nan_fms_mo)
+                logger.error("Original Tensor =\n%s", tensor[nan_indices_fms_mo].detach())
                 logger.error(
-                    "FMS Model Optimizer Tensor =\n",
+                    "FMS Model Optimizer Tensor =\n%s",
                     qtensor_fms_mo[nan_indices_fms_mo].detach(),
                 )
                 logger.error(
-                    "Torch Tensor =\n", qtensor_torch[nan_indices_fms_mo].detach()
+                    "Torch Tensor =\n%s", qtensor_torch[nan_indices_fms_mo].detach()
                 )
             if num_inf_fms_mo > 0:
-                logger.error("FMS Model Optimizer # of INF =", num_inf_fms_mo)
-                logger.error("Original Tensor =\n", tensor[inf_indices_fms_mo].detach())
+                logger.error("FMS Model Optimizer # of INF = %s", num_inf_fms_mo)
+                logger.error("Original Tensor =\n%s", tensor[inf_indices_fms_mo].detach())
                 logger.error(
-                    "FMS Model Optimizer Tensor =\n",
+                    "FMS Model Optimizer Tensor =\n%s",
                     qtensor_fms_mo[inf_indices_fms_mo].detach(),
                 )
                 logger.error(
-                    "Torch Tensor =\n", qtensor_torch[inf_indices_fms_mo].detach()
+                    "Torch Tensor =\n%s", qtensor_torch[inf_indices_fms_mo].detach()
                 )
             if num_nan_torch > 0:
-                logger.error("Torch # of NaN =", num_nan_torch)
-                logger.error("Original Tensor =\n", tensor[nan_indices_torch].detach())
+                logger.error("Torch # of NaN = %s", num_nan_torch)
+                logger.error("Original Tensor =\n%s", tensor[nan_indices_torch].detach())
                 logger.error(
-                    "FMS Model Optimizer Tensor =\n",
+                    "FMS Model Optimizer Tensor =\n%s",
                     qtensor_fms_mo[nan_indices_torch].detach(),
                 )
                 logger.error(
-                    "Torch Tensor =\n", qtensor_torch[nan_indices_torch].detach()
+                    "Torch Tensor =\n%s", qtensor_torch[nan_indices_torch].detach()
                 )
             if num_inf_torch > 0:
-                logger.error("Torch # of INF =", num_inf_torch)
-                logger.error("Original Tensor =\n", tensor[inf_indices_torch].detach())
+                logger.error("Torch # of INF = %s", num_inf_torch)
+                logger.error("Original Tensor =\n%s", tensor[inf_indices_torch].detach())
                 logger.error(
-                    "FMS Model Optimizer Tensor =\n",
+                    "FMS Model Optimizer Tensor =\n%s",
                     qtensor_fms_mo[inf_indices_torch].detach(),
                 )
                 logger.error(
-                    "Torch Tensor =\n", qtensor_torch[inf_indices_torch].detach()
+                    "Torch Tensor =\n%s", qtensor_torch[inf_indices_torch].detach()
                 )
             raise e_nan_inf  # Reraise exception
 
@@ -221,15 +221,15 @@ def quantizer_error(
         except AssertionError as e_constant_qtensor:
             # Debugging info
             logger.error("\nTensor Constant Tensor Error:")
-            logger.error("Quantizer Tuple =", setup)
-            logger.error("Base Options =", base_options)
-            logger.error("Other Options =", other_options)
-            logger.error("Original Tensor =\n", tensor.detach())
+            logger.error("Quantizer Tuple = %s", setup)
+            logger.error("Base Options = %s", base_options)
+            logger.error("Other Options = %s", other_options)
+            logger.error("Original Tensor =\n%s", tensor.detach())
             logger.error(
-                "FMS Model Optimizer Tensor unique vals =\n",
+                "FMS Model Optimizer Tensor unique vals =\n%s",
                 fms_mo_unique_vals.detach(),
             )
-            logger.error("Torch Tensor unique vals =\n", torch_unique_vals.detach())
+            logger.error("Torch Tensor unique vals =\n%s", torch_unique_vals.detach())
             raise e_constant_qtensor  # reraise exception
 
     # In rare instances due to banker's rounding (ie torch.round), tensors can differ by 1 qlevel
@@ -289,33 +289,32 @@ def quantizer_error(
 
         except AssertionError as e_value:
             # Debugging info
-            logger.error("\nTensor Value Error: ", e_string)
-            logger.error("Quantizer Tuple =", setup)
-            logger.error("Base Options =", base_options)
-            logger.error("Other Options =", other_options)
+            logger.error("\nTensor Value Error: %s", e_string)
+            logger.error("Quantizer Tuple = %s", setup)
+            logger.error("Base Options = %s", base_options)
+            logger.error("Other Options = %s", other_options)
             logger.error(
-                "Total Non-zero Indices =", total_nonzero_indices, "/", diff.numel()
+                "Total Non-zero Indices = %s/%s", total_nonzero_indices, diff.numel()
             )
             logger.error(
-                "Total Non-scale Indices =", total_scale_indices, "/", diff.numel()
+                "Total Non-scale Indices = %s/%s", total_scale_indices, diff.numel()
             )
             logger.error(
-                "Total Non-scale, Non-zero Indices =",
+                "Total Non-scale, Non-zero Indices = %s/%s",
                 total_nonscale_nonzero_indices,
-                "/",
                 diff.numel(),
             )
-            logger.error("Nonzero Indicies =\n", nonzero_diff_indices)
-            logger.error("Original Tensor =\n", tensor[nonzero_diff_indices].detach())
+            logger.error("Nonzero Indicies =\n%s", nonzero_diff_indices)
+            logger.error("Original Tensor =\n%s", tensor[nonzero_diff_indices].detach())
             logger.error(
-                "FMS Model Optimizer Tensor =\n",
+                "FMS Model Optimizer Tensor =\n%s",
                 qtensor_fms_mo[nonzero_diff_indices].detach(),
             )
             logger.error(
-                "Torch Tensor =\n", qtensor_torch[nonzero_diff_indices].detach()
+                "Torch Tensor =\n%s", qtensor_torch[nonzero_diff_indices].detach()
             )
-            logger.error("Total Diff vals =", diff.unique().numel())
-            logger.error("Diff unique vals =\n", diff.unique().detach())
+            logger.error("Total Diff vals =%s", diff.unique().numel())
+            logger.error("Diff unique vals =\n%s", diff.unique().detach())
             raise e_value  # Reraise exception
 
 
