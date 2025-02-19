@@ -37,6 +37,7 @@ from datasets import load_from_disk
 from huggingface_hub.errors import HFValidationError
 from torch.cuda import OutOfMemoryError
 from transformers import AutoTokenizer
+import torch
 import transformers
 
 # Local
@@ -279,6 +280,10 @@ def parse_arguments(parser, json_config=None):
             fp8_args,
             _,
         ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
+
+    model_args.torch_dtype = getattr(
+        torch, model_args.torch_dtype.replace("torch.", ""), torch.bfloat16
+    )
 
     return (
         model_args,

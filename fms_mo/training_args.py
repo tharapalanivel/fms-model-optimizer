@@ -20,9 +20,6 @@ Arguments used for quantization
 from dataclasses import dataclass, field
 from typing import List, Optional, Union, get_args, get_origin
 
-# Third Party
-import torch
-
 
 @dataclass
 class TypeChecker:
@@ -58,7 +55,7 @@ class ModelArguments(TypeChecker):
     """Dataclass for model related arguments."""
 
     model_name_or_path: str = field(default="facebook/opt-125m")
-    torch_dtype: Union[torch.dtype, str] = torch.bfloat16
+    torch_dtype: str = field(default="bfloat16")
     use_fast_tokenizer: bool = field(
         default=True,
         metadata={
