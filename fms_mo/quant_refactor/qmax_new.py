@@ -89,9 +89,10 @@ class Qmax_new(Quantizer):
             use_PT_native_Qfunc=kwargs.get("use_PT_native_Qfunc", False),
         )
 
-        with torch.no_grad():
-            self.clip_valn.data *= init_clip_valn
-            self.clip_val.data *= init_clip_val
+        if not self.training:
+            with torch.no_grad():
+                self.clip_valn.data *= init_clip_valn
+                self.clip_val.data *= init_clip_val
 
         self.align_zero = align_zero
         self.clipSTE = clipSTE

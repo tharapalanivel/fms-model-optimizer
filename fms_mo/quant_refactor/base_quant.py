@@ -75,6 +75,9 @@ class Qscheme:
             RuntimeError: perCh or perGrp was selected without specifying Nch, Ngrp.
             RuntimeError: qscheme is not allowed, or could be a typo.
         """
+        # Init Nch/Ngrp to none incase they won't be set
+        self.Nch = None
+        self.Ngrp = None
         if isinstance(unit, torch.qscheme):
             if "per_channel" in str(unit):
                 self.q_unit = "perCh"
@@ -124,8 +127,8 @@ class Qscheme:
         """
         q_uint_str = f"qunit={self.q_unit}"
         symmetric_str = f", symmetric={self.symmetric}"
-        Nch_str = f", Nch={self.Nch}",
-        Ngrp_str = f", Nch={self.Ngrp}",
+        Nch_str = f", Nch={self.Nch}" if self.Nch is not None else "",
+        Ngrp_str = f", Ngrp={self.Ngrp}" if self.Ngrp is not None else "",
         single_sided_str = f", single_sided={self.single_sided}"
         qlevel_lowering_str = f", qlevel_lowering={self.qlevel_lowering}"
         return (
