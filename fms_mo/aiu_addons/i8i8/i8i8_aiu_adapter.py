@@ -37,7 +37,7 @@ def _int8_qparams_aiu(
 
             param_type = "w" if is_weight else "a"
             new_name = f"{module_name}.{param_type}_{name_split[-1]}"
-        elif "smoothq" in name:
+        elif "smoothq" in name and "smoothquant" not in name:
             new_name = name.replace("smoothq", "smoothquant")
 
         new_sd[new_name] = param
