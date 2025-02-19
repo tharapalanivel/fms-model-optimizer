@@ -30,7 +30,7 @@ import torch
 
 # Local
 from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
-from fms_mo.quant_refactor.per_tensor import PerTensorSTE
+from fms_mo.quant_refactor.per_tensor_ste import PerTensorSTE
 from fms_mo.quant_refactor.linear_utils import (
     asymmetric_linear_quantization_params,
     linear_dequantize,

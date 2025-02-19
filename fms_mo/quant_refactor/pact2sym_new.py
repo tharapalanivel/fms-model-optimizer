@@ -21,7 +21,7 @@ import torch
 
 # Local
 from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
-from fms_mo.quant_refactor.per_tensor import (
+from fms_mo.quant_refactor.per_tensor_ste import (
     PerTensorSTE,
     PerTensorSTE_PTnative,
 )

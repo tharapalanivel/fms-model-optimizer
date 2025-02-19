@@ -23,9 +23,13 @@ import torch
 
 # Local
 from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
-from fms_mo.quant_refactor.per_tensor import (
+from fms_mo.quant_refactor.per_tensor_ste import (
     PerTensorSTESAWB,
     PerTensorSTESAWB_PTnative,
+)
+from fms_mo.quant_refactor.per_channel_ste import (
+    PerChannelSTESAWB,
+    # PerChannelSTESAWB_PTnative,
 )
 from fms_mo.quant_refactor.linear_utils import linear_dequantize, linear_quantize
 from fms_mo.quant_refactor.sawb_utils import sawb_params, sawb_params_code
@@ -88,10 +92,9 @@ class SAWB_new(Quantizer):
             use_PT_native_Qfunc=kwargs.get("use_PT_native_Qfunc", False),
         )
 
-        if not self.training:
-            with torch.no_grad():
-                self.clip_valn.data *= init_clip_valn
-                self.clip_val.data *= init_clip_val
+        with torch.no_grad():
+            self.clip_valn.data *= init_clip_valn
+            self.clip_val.data *= init_clip_val
 
         self.clipSTE = clipSTE
         self.align_zero = align_zero
@@ -554,7 +557,7 @@ class SAWBPlus16ZeroSTE_PTnative(PerTensorSTESAWB_PTnative):
 
 
 # Placeholder classes for PerCh - need to rework #
-class SAWBPlusZeroPerChSTE_new(torch.autograd.Function):
+class SAWBPlusZeroPerChSTE_new(PerChannelSTESAWB):
     """
     per-channel SAWB with zero alignment, can use 15 or 16 bins, i.e. [-7,7] or [-7,8]
     """

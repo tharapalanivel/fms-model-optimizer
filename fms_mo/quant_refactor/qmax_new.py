@@ -23,7 +23,7 @@ import torch
 
 # Local
 from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
-from fms_mo.quant_refactor.per_tensor import (
+from fms_mo.quant_refactor.per_tensor_ste import (
     PerTensorSTE_PTnative,
     PerTensorSTEQmax,
     PerTensorSTEQmax_PTnative,
@@ -89,10 +89,9 @@ class Qmax_new(Quantizer):
             use_PT_native_Qfunc=kwargs.get("use_PT_native_Qfunc", False),
         )
 
-        if not self.training:
-            with torch.no_grad():
-                self.clip_valn.data *= init_clip_valn
-                self.clip_val.data *= init_clip_val
+        with torch.no_grad():
+            self.clip_valn.data *= init_clip_valn
+            self.clip_val.data *= init_clip_val
 
         self.align_zero = align_zero
         self.clipSTE = clipSTE

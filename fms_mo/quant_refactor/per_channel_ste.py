@@ -28,7 +28,7 @@ from fms_mo.quant_refactor.linear_utils import (
 )
 
 
-class PerChSTEBase(torch.autograd.Function):
+class PerChannelSTE(torch.autograd.Function):
     """Base class for customized forward/backward functions that is NOT using PT native func.
     There's a family of non-learnable quantizers, such as SAWB, MinMax,
     whose forward can be the same quant functions and backward is simply STE.
@@ -74,10 +74,10 @@ class PerChSTEBase(torch.autograd.Function):
             torch.Tensor: Dequantized or Quantized output tensor.
         """
         clip_valn, clip_val = transform_clips(input_tensor.dtype, clip_valn, clip_val)
-        n_levels, scale, zero_point = PerChSTEBase.calc_qparams(
+        n_levels, scale, zero_point = PerChannelSTE.calc_qparams(
             input_tensor, num_bits, clip_valn, clip_val, qlevel_lowering
         )
-        PerChSTEBase.save_tensors(
+        PerChannelSTE.save_tensors(
             ctx,
             tensors=(input_tensor, n_levels, clip_valn, clip_val, scale, zero_point),
         )
@@ -148,7 +148,7 @@ class PerChSTEBase(torch.autograd.Function):
         return grad_output, None, None, None, None, None
 
 
-class PerChSTEBase_PTnative(torch.autograd.Function):
+class PerChannelSTE_PTnative(torch.autograd.Function):
     """Base class for customized forward/backward functions.
     There's a family of non-learnable quantizers, such as SAWB, MinMax,
     whose forward can leverage PT native functions and backward is simply STE.
@@ -206,10 +206,10 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
             qint_l,
             qint_h,
             qint_dtype,
-        ) = PerChSTEBase_PTnative.calc_qparams(
+        ) = PerChannelSTE_PTnative.calc_qparams(
             num_bits, clip_valn, clip_val, symmetric, qlevel_lowering
         )
-        output = PerChSTEBase_PTnative.linear_quantization(
+        output = PerChannelSTE_PTnative.linear_quantization(
             input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
         )
         return output
@@ -245,7 +245,7 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
             if symmetric
             else torch.round(-clip_valn / scale).to(torch.int)
         )
-        qint_l, qint_h, qint_dtype = PerChSTEBase_PTnative.qint_bounds(
+        qint_l, qint_h, qint_dtype = PerChannelSTE_PTnative.qint_bounds(
             num_bits, zero_point, symmetric, qlevel_lowering
         )
         return n_levels, scale, zero_point, qint_l, qint_h, qint_dtype
@@ -343,3 +343,104 @@ class PerChSTEBase_PTnative(torch.autograd.Function):
             torch.FloatTensor, None,...,None: STE Gradient
         """
         return grad_output, None, None, None, None, None, None
+    
+class PerChannelSTESAWB(PerChannelSTE):
+    """
+    PerChannelSTE Base for SAWB
+
+    Extends:
+        PerChSTE
+    """
+    @staticmethod
+    def forward(
+        ctx,
+        input_tensor: torch.FloatTensor,
+        num_bits: torch.IntTensor,
+        clip_valn: torch.FloatTensor,
+        clip_val: torch.FloatTensor,
+        dequantize: bool = True,
+        symmetric: bool = False,
+        qlevel_lowering: bool = False,
+        use_code: bool = False,
+    ):
+        """
+        General forward method:
+            Set clip values to dtype of input_tensor tensor
+            Compute # of quantized levels, scale, and zero point
+            Save data for backward()
+            Perform linear quantization on input_tensor tensor
+            return output
+
+        Args:
+            ctx (torch.autograd.Function): Forward/Backward context object.
+            input_tensor_tensor (torch.FloatTensor): Tensor to be quantized.
+            num_bits (torch.IntTensor): Number of bit for quantization.
+            clip_valn (torch.FloatTensor): Lower clip value bound.
+            clip_val (torch.FloatTensor): Upper clip value bound.
+            dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
+            symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
+            qlevel_lowering (bool, optional): Specify lowering of quantized levels.
+                Defaults to True.
+
+        Returns:
+            torch.Tensor: Dequantized or Quantized output tensor.
+        """
+        clip_valn, clip_val = transform_clips(input_tensor.dtype, clip_valn, clip_val)
+        n_levels, scale, zero_point = PerChannelSTESAWB.calc_qparams(
+            input_tensor, num_bits, clip_valn, clip_val, qlevel_lowering, use_code
+        )
+        PerChannelSTE.save_tensors(
+            ctx,
+            tensors=(input_tensor, n_levels, clip_valn, clip_val, scale, zero_point),
+        )
+        output = linear_quantization(
+            input_tensor,
+            num_bits,
+            scale,
+            zero_point,
+            dequantize,
+            symmetric,
+            qlevel_lowering,
+        )
+        return output
+
+    @classmethod
+    def calc_qparams(
+        cls,
+        num_bits: torch.IntTensor,
+        clip_valn: torch.FloatTensor,
+        clip_val: torch.FloatTensor,
+        symmetric: bool = False,
+        qlevel_lowering: bool = True,
+        use_code: bool = False,
+    ):
+        """
+        Compute the scale and zero_point from num_bits and clip values
+
+        Args:
+            num_bits (torch.IntTensor): Number of bit for quantization.
+            clip_valn (torch.FloatTensor): Lower clip value.
+            clip_val (torch.FloatTensor): Upper clip value.
+            symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
+            qlevel_lowering (bool, optional): Specify lowering of quantized levels.
+                Defaults to True.
+
+        Returns:
+            torch.IntTensor, torch.FloatTensor, torch.IntTensor: Quantized parameters
+        """
+        # SAWB is always symmetric
+        output = None
+        if symmetric:
+            n_levels = (
+                2 ** (num_bits) - 2
+                if ((use_code and num_bits.item() in [2, 4, 8]) or qlevel_lowering)
+                else 2 ** (num_bits) - 1
+            )
+            _, scale, zero_point = symmetric_linear_quantization_params(
+                num_bits, clip_val, qlevel_lowering
+            )
+
+            output = n_levels, scale, zero_point
+        else:
+            raise ValueError("SAWB has non-symmetric Qscheme")
+        return output
