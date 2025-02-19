@@ -533,7 +533,7 @@ def qmaxnew_quantizer_symmetric(quantizer_symmetric):
         num_bits=quantizer_symmetric["num_bits"],
         # init_clip_valn=quantizer_symmetric["clip_low"],
         # init_clip_val=quantizer_symmetric["clip_high"],
-        # qscheme=quantizer_symmetric["scheme"],
+        qscheme=quantizer_symmetric["scheme"],
     )
 
 
