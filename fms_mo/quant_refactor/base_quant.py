@@ -205,7 +205,7 @@ class Quantizer(torch.nn.Module):
         self.align_zero = align_zero
         self.clipSTE = clipSTE
 
-        temp_clipvals = torch.ones(self.perCh) if self.perCh else torch.Tensor([1.0])
+        temp_clipvals = torch.ones(self.qscheme.Nch) if self.perCh else torch.Tensor([1.0])
         self.register_parameter("clip_val", torch.nn.Parameter(temp_clipvals.clone()))
         # Keep clip_valn as positive 1.0 to allow simpler multiplication with
         #   negative numbers (clip_valn.data *= clip_valn)
