@@ -103,6 +103,11 @@ serialization.register_adapter_step(
     "gpt_bigcode", "int8_qparams_aiu", _int8_qparams_aiu
 )
 serialization.register_adapter_step("roberta", "int8_qparams_aiu", _int8_qparams_aiu)
+serialization.register_adapter_step(
+    "roberta_question_answering",
+    "int8_qparams_aiu",
+    _int8_qparams_aiu,
+)
 
 # registration of multi-step adapter for each architecture
 serialization.register_adapter(
@@ -120,4 +125,13 @@ serialization.register_adapter(
 )
 serialization.register_adapter(
     "roberta", "fms_mo", ["hf_to_fms_names", "weight_fusion", "int8_qparams_aiu"]
+)
+serialization.register_adapter(
+    "roberta_question_answering",
+    "fms_mo",
+    [
+        "hf_to_fms_names",
+        "weight_fusion",
+        "int8_qparams_aiu",
+    ],
 )

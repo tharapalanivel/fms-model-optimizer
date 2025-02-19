@@ -15,6 +15,7 @@
 
 # Standard
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Mapping, Optional
 
 # Third Party
@@ -200,8 +201,8 @@ def get_int8_aiu_linear(
     in_features: int,
     out_features: int,
     bias: bool,
-    linear_config: Mapping[str, Any],
-    use_smoothquant: bool = True,
+    linear_config: Optional[Mapping[str, Any]] = None,
+    use_smoothquant: bool = False,
 ) -> torch.nn.Module:
     """Retrieve a W8A8 Linear module"""
 
@@ -281,4 +282,8 @@ def shard_int8_aiu_linear(
 
 
 register_linear_type_to_module_map("int8_aiu", get_int8_aiu_linear)
+register_linear_type_to_module_map(
+    "int8_smoothquant_aiu",
+    partial(get_int8_aiu_linear, use_smoothquant=True),
+)
 register_linear_type_to_sharding_map("int8_aiu", shard_int8_aiu_linear)
