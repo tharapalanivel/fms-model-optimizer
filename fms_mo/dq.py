@@ -21,7 +21,6 @@ Script for direct quantization
 # Standard
 from pathlib import Path
 import logging
-import os
 
 # Third Party
 from datasets import load_from_disk
@@ -114,7 +113,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         revision="main",
         use_auth_token=True if model_args.use_auth_token else None,
         torch_dtype=torch_dtype,
-        low_cpu_mem_usage=False,
+        low_cpu_mem_usage=model_args.low_cpu_mem_usage,
+        device_map="auto" if model_args.low_cpu_mem_usage else None,
     )
 
     embedding_size = model.get_input_embeddings().weight.shape[0]
@@ -125,7 +125,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     logger.info(f"Model is at {model.device} after intialization")
     logger.info(f"Tokenizer is {tokenizer}, block size is {block_size}")
     qcfg = qconfig_init(recipe="dq", args=fms_mo_args)
-    # for models that cannot fit in 1 GPU, keep it in CPU and use block-wise calibration.
+    # for models that cannot fit in 1 GPU, keep it on CPU and use block-wise calibration.
+    # or leverage HF's device_map="auto"
     total_gpu_memory = 1e-5
     if torch.cuda.is_available():
         total_gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
@@ -143,7 +144,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     qcfg["large_model"] = any(
         name in model_args.model_name_or_path for name in known_large_models
     ) or (gpu_mem_util_per > 0.7)
-    dev = "cpu" if qcfg["large_model"] else "cuda:0"
+    dev = "cpu" if qcfg["large_model"] else "cuda"
+    model.to(dev)
 
     if hasattr(model.config, "model_type"):
         qcfg["model_type"] = model.config.model_type
@@ -180,23 +182,27 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         batch_size=1,
     )
 
-    # For loading or creating smoothquant scale.
-    act_scale_directory = "./act_scales"
-    if not os.path.exists(act_scale_directory):
-        os.makedirs(act_scale_directory)
+    # For loading or creating smoothquant scale. Sometimes we may include scales in ckpt as well.
+    scale_file = Path(f"./act_scales/{qcfg['model'].replace('/', '-')}.pt")
+    if qcfg.get("act_scale_path", None):
+        # user provided a scale file (or a dir)
+        scale_file_or_dir = Path(qcfg["act_scale_path"])
+        if scale_file_or_dir.is_dir():
+            scale_file = scale_file_or_dir / f"{qcfg['model'].replace('/', '-')}.pt"
+        elif scale_file_or_dir.is_file():
+            scale_file = scale_file_or_dir
 
-    if qcfg["act_scale_path"] is not None:
-        act_scales = torch.load(qcfg["act_scale_path"], map_location="cpu")
+    if not scale_file.parent.exists():
+        scale_file.parent.mkdir(exist_ok=False)
+
+    if scale_file.exists():
+        act_scales = torch.load(scale_file, map_location=getattr(model, "device", dev))
     else:
         logger.info("Generate activation scales")
         if qcfg["large_model"]:
             act_scales = get_act_scales_1gpu(model, dq_dataloader, qcfg)
         else:
-            if gpu_mem_util_per < 0.7:
-                model.to(dev)
-
             act_scales = get_act_scales(model, dq_dataloader, qcfg)
-        scale_file = f"{act_scale_directory}/{qcfg['model'].replace('/', '-')}" + ".pt"
         torch.save(act_scales, scale_file)
 
     qmodel_prep(

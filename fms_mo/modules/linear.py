@@ -93,6 +93,10 @@ class QLinear(nn.Linear):
                                                 Defaults to 32.
             qw_mode (str, optional): Quantization mode for weight. Defaults to None.
             **kwargs (dict): Additional keyword arguments.
+
+        Note:
+            scales could be of higher precision than x or W, need to make sure qinput.dtype after
+            Qa(x/scale) are consistent with x. Same for W
         """
 
         super().__init__(
@@ -275,7 +279,7 @@ class QLinear(nn.Linear):
             # pylint: disable=not-callable
             return F.linear(x, self.W_fp, self.bias)
         else:
-            qinput = self.quantize_feature(x / scale)
+            qinput = self.quantize_feature(x / scale).to(x.dtype)
             # Default self.update_type == 'hard' pruning.
             if self.mask is not None:
                 pweight = HardPrune.apply(
@@ -283,7 +287,9 @@ class QLinear(nn.Linear):
                 )
                 qweight = self.quantize_weight(pweight)
             else:
-                qweight = self.quantize_weight(self.weight * scale)
+                qweight = self.quantize_weight(self.weight * scale).to(
+                    self.weight.dtype
+                )
 
         qbias = self.bias
 
