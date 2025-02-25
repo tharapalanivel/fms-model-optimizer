@@ -1117,7 +1117,7 @@ def model_analyzer(
             h.remove()
 
         # only add last layer
-        qcfg["qskip_layer_name"] += qcfg["mod_call_seq"][-1]
+        qcfg["qskip_layer_name"] += [qcfg["mod_call_seq"][-1]]
 
     with torch.no_grad():
         model_opt = torch.compile(
