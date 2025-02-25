@@ -1006,17 +1006,10 @@ def model_analyzer(
         if len(all_conv) > 0:
             skip_candidates += find_conv_on_shortcut_gm(gm_fx, lut_fx_mod_name_to_org)
 
-        # Check 2. first/last, see Note 2 and 3
+        # Check 2. first/last, see Note 2 and 3, NOTE that transformers are handled differently
         if qcfg["N_backend_called"] > 1:
             skip_candidates += []
-        elif is_transformers:
-            _, last_only = find_1st_last_gm(
-                gm_fx,
-                return_1st_last_sep=True,
-                lut_fx_mod_name_to_org=lut_fx_mod_name_to_org,
-            )
-            skip_candidates += last_only
-        else:
+        elif not is_transformers:
             # see Note 4
             skip_candidates += find_1st_last_gm(
                 gm_fx, lut_fx_mod_name_to_org=lut_fx_mod_name_to_org
@@ -1082,6 +1075,7 @@ def model_analyzer(
         model_to_be_traced = model
         model_param_size = 999
 
+    is_transformers = issubclass(type(model), PreTrainedModel)
     if model_param_size > 1:
         # Standard
         import sys
@@ -1091,7 +1085,7 @@ def model_analyzer(
 
     cus_bknd = partial(
         cus_backend_model_analyzer,
-        is_transformers=issubclass(type(model), PreTrainedModel),
+        is_transformers=is_transformers,
         plotsvg=plotsvg,
     )
 
@@ -1103,6 +1097,27 @@ def model_analyzer(
             qcfg[it] = {}
     if "bmm_prep" not in qcfg:
         qcfg["bmm_prep"] = {"which2patch_contextmanager": None, "layers_with_bmm": {}}
+
+    if is_transformers:
+        # NOTE simplified method to determine 1st/last modules for transformers.
+        # will not work if model has multiple parallel heads at the end, e.g. obj det
+        def call_seq_hook(mod, *_args, **_kwargs):
+            qcfg["mod_call_seq"].append(lut_weight2modname[mod.weight])
+
+        h_hooks = []
+        qcfg["mod_call_seq"] = []
+        for n, m in model.named_modules():
+            if isinstance(m, (torch.nn.Linear, torch.nn.Conv2d)):
+                h_hooks.append(m.register_forward_hook(call_seq_hook))
+
+        with torch.no_grad():
+            model(**sample_inp)
+
+        for h in h_hooks:
+            h.remove()
+
+        # only add last layer
+        qcfg["qskip_layer_name"] += qcfg["mod_call_seq"][-1]
 
     with torch.no_grad():
         model_opt = torch.compile(

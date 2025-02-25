@@ -56,11 +56,12 @@ class ModelArguments(TypeChecker):
 
     model_name_or_path: str = field(default="facebook/opt-125m")
     torch_dtype: str = field(default="bfloat16")
-    low_cpu_mem_usage: bool = field(
-        default=False,
+    device_map: Optional[str] = field(
+        default=None,
         metadata={
-            "help": "When set to True, leverage device_map='auto' and let HF to move modules"
-            "between cpu and cuda automatically during inference."
+            "help": "can be 'auto', 'balanced', 'balanced_low_0', 'sequential' or something like"
+            " {'encoder':'cuda:1', 'decoder': 'cuda:2'}.\n"
+            "HF will try to move modules between cpu and cuda automatically during inference."
         },
     )
     use_fast_tokenizer: bool = field(
