@@ -105,6 +105,12 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         or not isinstance(model_args.torch_dtype, str)
         else getattr(torch, model_args.torch_dtype)
     )
+    # NOTE for models that cannot fit in 1 GPU, keep it on CPU and use block-wise calibration.
+    # or leverage HF's device_map="auto", BUT tracing will not work properly with "auto"
+    total_gpu_memory = 1e-5
+    if torch.cuda.is_available():
+        total_gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
+
     model = AutoModelForCausalLM.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -113,8 +119,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         revision="main",
         use_auth_token=True if model_args.use_auth_token else None,
         torch_dtype=torch_dtype,
-        low_cpu_mem_usage=model_args.low_cpu_mem_usage,
-        device_map="auto" if model_args.low_cpu_mem_usage else None,
+        device_map=model_args.device_map,
+        low_cpu_mem_usage=bool(model_args.device_map),
     )
 
     embedding_size = model.get_input_embeddings().weight.shape[0]
@@ -125,11 +131,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     logger.info(f"Model is at {model.device} after intialization")
     logger.info(f"Tokenizer is {tokenizer}, block size is {block_size}")
     qcfg = qconfig_init(recipe="dq", args=fms_mo_args)
-    # for models that cannot fit in 1 GPU, keep it on CPU and use block-wise calibration.
-    # or leverage HF's device_map="auto"
-    total_gpu_memory = 1e-5
-    if torch.cuda.is_available():
-        total_gpu_memory = torch.cuda.get_device_properties(0).total_memory / 1e9
+
     model_size = model_size_Wb(model, unit="GB")
     gpu_mem_util_per = model_size / total_gpu_memory
 
@@ -145,7 +147,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         name in model_args.model_name_or_path for name in known_large_models
     ) or (gpu_mem_util_per > 0.7)
     dev = "cpu" if qcfg["large_model"] else "cuda"
-    model.to(dev)
+    if model_args.device_map is None:
+        model.to(dev)
 
     if hasattr(model.config, "model_type"):
         qcfg["model_type"] = model.config.model_type
