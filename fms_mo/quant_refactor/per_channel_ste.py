@@ -25,6 +25,7 @@ from fms_mo.quant_refactor.linear_utils import (
     linear_quantization,
     symmetric_linear_quantization_params,
     transform_clips,
+    per_channel_axis,
 )
 
 
@@ -50,6 +51,7 @@ class PerChannelSTE(torch.autograd.Function):
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
+        axis: int = 0,
     ):
         """
         General forward method:
@@ -61,7 +63,7 @@ class PerChannelSTE(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor_tensor (torch.FloatTensor): Tensor to be quantized.
+            input_tensor (torch.FloatTensor): Tensor to be quantized.
             num_bits (torch.IntTensor): Number of bit for quantization.
             clip_valn (torch.FloatTensor): Lower clip value bound.
             clip_val (torch.FloatTensor): Upper clip value bound.
@@ -69,13 +71,15 @@ class PerChannelSTE(torch.autograd.Function):
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
+            axis (int, optional): Specify which tensor dimension to quantize indiviually.
+                Defaults to 0.
 
         Returns:
             torch.Tensor: Dequantized or Quantized output tensor.
         """
         clip_valn, clip_val = transform_clips(input_tensor.dtype, clip_valn, clip_val)
         n_levels, scale, zero_point = PerChannelSTE.calc_qparams(
-            input_tensor, num_bits, clip_valn, clip_val, qlevel_lowering
+            num_bits, clip_valn, clip_val, qlevel_lowering, axis, input_tensor.shape
         )
         PerChannelSTE.save_tensors(
             ctx,
@@ -100,6 +104,8 @@ class PerChannelSTE(torch.autograd.Function):
         clip_val: torch.FloatTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
+        axis: int = 0,
+        tensor_shape: torch.Size = None,
     ):
         """
         Compute the scale and zero_point from num_bits and clip values
@@ -111,6 +117,8 @@ class PerChannelSTE(torch.autograd.Function):
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
+            axis (int, optional): Specify which tensor dimension to quantize indiviually.
+                Defaults to 0.
 
         Returns:
             torch.IntTensor, torch.FloatTensor, torch.IntTensor: Quantized parameters
@@ -129,9 +137,24 @@ class PerChannelSTE(torch.autograd.Function):
                 integral_zero_point=True,
                 signed=False,
             )
+        
+        # Broadcast scale, zero_point based on axis
+        scale, zero_point = per_channel_axis(scale, zero_point, tensor_shape, axis)
+
         return n_levels, scale, zero_point
+    
+    # The save_tensors and backward unpacking must be synced
+    @classmethod
+    def save_tensors(cls, ctx, tensors) -> None:
+        """
+        Save computed data to ctx for backward()
 
-
+        Args:
+            ctx (torch.autograd.Function): Forward/Backward context object.
+            tensors (list(torch.Tensor)): List of tensors to save.
+        """
+        ctx.save_for_backward(*tensors)
+        
     @staticmethod
     def backward(ctx, grad_output):
         """
@@ -172,6 +195,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
+        axis: int = 0,
     ):
         """
         General forward method:
@@ -190,6 +214,8 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
+            axis (int, optional): Specify which tensor dimension to quantize indiviually.
+                Defaults to 0.
 
         Returns:
             torch.Tensor: Dequantized or Quantized output tensor.
@@ -207,10 +233,10 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
             qint_h,
             qint_dtype,
         ) = PerChannelSTE_PTnative.calc_qparams(
-            num_bits, clip_valn, clip_val, symmetric, qlevel_lowering
+            num_bits, clip_valn, clip_val, symmetric, qlevel_lowering,
         )
         output = PerChannelSTE_PTnative.linear_quantization(
-            input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
+            input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize, axis
         )
         return output
 
@@ -248,6 +274,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
         qint_l, qint_h, qint_dtype = PerChannelSTE_PTnative.qint_bounds(
             num_bits, zero_point, symmetric, qlevel_lowering
         )
+        # Note: fake_quantize_per_channel_affine does not need matching dimensions for scale/zp to tensor
         return n_levels, scale, zero_point, qint_l, qint_h, qint_dtype
 
     @classmethod
@@ -288,6 +315,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
         qint_h: int,
         qint_dtype: torch.dtype,
         dequantize: bool = True,
+        axis: int = 0,
     ) -> torch.Tensor:
         """
         Linear quantization for PTnative STE
@@ -300,6 +328,8 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
             qint_h (int): Quantized integer upper clip value.
             qint_dtype (torch.dtype): Quantized integer dtype.
             dequantize (bool, optional): Specify to return fp or quantized int. Defaults to True.
+            axis (int, optional): Specify which tensor dimension to quantize indiviually.
+                Defaults to 0.
 
         Returns:
             torch.Tensor: PTnative quantized or dequantized tensor.
@@ -310,7 +340,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
                 input_tensor.float(),
                 scale.float(),
                 zero_point,
-                axis=0,
+                axis=axis,
                 quant_min=qint_l,
                 quant_max=qint_h,
             ).to(input_tensor.dtype)
@@ -321,7 +351,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
                     input_tensor.float(),
                     scale.float(),
                     zero_point,
-                    axis=0,
+                    axis=axis,
                     dtype=qint_dtype
                 )
                 .int_repr()
@@ -362,6 +392,7 @@ class PerChannelSTESAWB(PerChannelSTE):
         symmetric: bool = False,
         qlevel_lowering: bool = False,
         use_code: bool = False,
+        axis: int = 0,
     ):
         """
         General forward method:
@@ -387,7 +418,14 @@ class PerChannelSTESAWB(PerChannelSTE):
         """
         clip_valn, clip_val = transform_clips(input_tensor.dtype, clip_valn, clip_val)
         n_levels, scale, zero_point = PerChannelSTESAWB.calc_qparams(
-            input_tensor, num_bits, clip_valn, clip_val, qlevel_lowering, use_code
+            num_bits,
+            clip_valn,
+            clip_val,
+            symmetric,
+            qlevel_lowering,
+            axis,
+            input_tensor.shape,
+            use_code,
         )
         PerChannelSTE.save_tensors(
             ctx,
@@ -408,10 +446,12 @@ class PerChannelSTESAWB(PerChannelSTE):
     def calc_qparams(
         cls,
         num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
+        _clip_valn: torch.FloatTensor,
         clip_val: torch.FloatTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
+        axis: int = 0,
+        tensor_shape: torch.Size = None,
         use_code: bool = False,
     ):
         """
@@ -439,6 +479,9 @@ class PerChannelSTESAWB(PerChannelSTE):
             _, scale, zero_point = symmetric_linear_quantization_params(
                 num_bits, clip_val, qlevel_lowering
             )
+
+            # Broadcast scale, zero_point to tensor shape
+            scale, zero_point = per_channel_axis(scale, zero_point, tensor_shape, axis)
 
             output = n_levels, scale, zero_point
         else:
