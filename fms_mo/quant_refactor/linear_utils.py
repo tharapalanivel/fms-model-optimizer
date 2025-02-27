@@ -330,3 +330,38 @@ def symmetric_linear_quantization_params(
         scale = diff / n_levels
         zero_point = torch.zeros_like(scale)
         return n_levels, scale, zero_point
+    
+def per_channel_axis(
+    scale: torch.FloatTensor,
+    zero_point: torch.IntTensor,
+    tensor_shape: torch.Size,
+    axis: int = 0,
+):
+    """
+    Change scale and zero_point to target axis dimension of input tensor.
+    Axis values: 0 -> Nx1, 1 -> 1xN
+
+    Note: for Transformers, axis = 0 is desired
+
+    Args:
+        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.IntTensor): Quantized int bin mapping to fp 0.0.
+        tensor_shape (torch.Size): Shape of quantized tensor
+
+    Returns:
+        scale, zero_point: 
+    """
+    if axis == 0:
+        scale = scale.unsqueeze(1)
+        zero_point = zero_point.unsqueeze(1)
+    elif axis == 1:
+        scale = scale.unsqueeze(0)
+        zero_point = zero_point.unsqueeze(0)
+    else:
+        raise ValueError("Axis must be 0 or 1")
+    
+    # Check that tensor shape axis is same as scale/zp broadcast
+    assert tensor_shape[axis] == scale.shape[axis]
+    assert tensor_shape[axis] == zero_point.shape[axis]
+    
+    return scale, zero_point
