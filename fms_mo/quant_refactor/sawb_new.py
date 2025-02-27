@@ -39,8 +39,6 @@ clip_val_default = torch.tensor(8.0)
 qscheme_per_tensor = Qscheme(
     unit="perT",
     symmetric=False,
-    Nch=None,
-    Ngrp=None,
     single_sided=False,
     qlevel_lowering=False,
 )
@@ -560,75 +558,75 @@ class SAWBPlus16ZeroSTE_PTnative(PerTensorSTESAWB_PTnative):
 # Placeholder classes for PerCh - need to rework #
 class SAWBPlusZeroPerChSTE_new(PerChannelSTESAWB):
     """
-    per-channel SAWB with zero alignment, can use 15 or 16 bins, i.e. [-7,7] or [-7,8]
+    per-channel SAWB with zero alignment, ca,8n use 15 or 16 bins, i.e. [-7,7] or [-7]
     """
 
-    @staticmethod
-    def forward(
-        ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        _clip_valn: torch.FloatTensor = clip_valn_default,
-        clip_val: torch.FloatTensor = clip_val_default,
-        dequantize: bool = True,
-        _symmetric: bool = False,
-        _qlevel_lowering: bool = False,
-        _use_code: bool = False,
-    ):
-        """
-        Forward function for SAWBPlusZeroPerChSTE
+    # @staticmethod
+    # def forward(
+    #     ctx,
+    #     input_tensor: torch.FloatTensor,
+    #     num_bits: torch.IntTensor,
+    #     _clip_valn: torch.FloatTensor = clip_valn_default,
+    #     clip_val: torch.FloatTensor = clip_val_default,
+    #     dequantize: bool = True,
+    #     _symmetric: bool = False,
+    #     _qlevel_lowering: bool = False,
+    #     _use_code: bool = False,
+    # ):
+    #     """
+    #     Forward function for SAWBPlusZeroPerChSTE
 
-        Args:
-            ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
-            dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
-            symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
-            qlevel_lowering (bool, optional): Specify lowering of quantized levels.
-                Defaults to True.
-            use_code (bool, optional): Specify using SAWB code. Defaults to False.
+    #     Args:
+    #         ctx (torch.autograd.Function): Forward/Backward context object.
+    #         input_tensor (torch.FloatTensor): Tensor to be quantized.
+    #         num_bits (torch.IntTensor): Number of bit for quantization.
+    #         clip_valn (torch.FloatTensor): Lower clip value bound.
+    #         clip_val (torch.FloatTensor): Upper clip value bound.
+    #         dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
+    #         symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
+    #         qlevel_lowering (bool, optional): Specify lowering of quantized levels.
+    #             Defaults to True.
+    #         use_code (bool, optional): Specify using SAWB code. Defaults to False.
 
-        Returns:
-            torch.Tensor: Dequantized or Quantized output tensor.
-        """
-        # assert num_bits in [4, 8], "only implemented for 4bit and 8bit"
+    #     Returns:
+    #         torch.Tensor: Dequantized or Quantized output tensor.
+    #     """
+    #     # assert num_bits in [4, 8], "only implemented for 4bit and 8bit"
 
-        SAWBcode_mapping = {8: 803, 4: 403, 2: 103}
-        num_bits_int = (
-            num_bits.item() if isinstance(num_bits, torch.Tensor) else num_bits
-        )
-        clip_val, _ = sawb_params_code(
-            num_bits_int, SAWBcode_mapping[num_bits_int], input_tensor, perCh=True
-        )
+    #     SAWBcode_mapping = {8: 803, 4: 403, 2: 103}
+    #     num_bits_int = (
+    #         num_bits.item() if isinstance(num_bits, torch.Tensor) else num_bits
+    #     )
+    #     clip_val, _ = sawb_params_code(
+    #         num_bits_int, SAWBcode_mapping[num_bits_int], input_tensor, perCh=True
+    #     )
 
-        _nspace = 2**num_bits - 2  # + objSAWB.use16bins # Ignore 16bins for now
-        int_l = -(2 ** (num_bits - 1)) + 1
-        int_u = -int_l  # + objSAWB.use16bins # Ignore 16bins for now
+    #     _nspace = 2**num_bits - 2  # + objSAWB.use16bins # Ignore 16bins for now
+    #     int_l = -(2 ** (num_bits - 1)) + 1
+    #     int_u = -int_l  # + objSAWB.use16bins # Ignore 16bins for now
 
-        scale = clip_val * 2 / (2**num_bits - 2)
-        # original SAWB assumes odd number of bins when calc clip_val
-        zero_point = torch.zeros_like(scale)  # SAWB always centers around 0 and align 0
+    #     scale = clip_val * 2 / (2**num_bits - 2)
+    #     # original SAWB assumes odd number of bins when calc clip_val
+    #     zero_point = torch.zeros_like(scale)  # SAWB always centers around 0 and align 0
 
-        if dequantize:
-            output = torch.fake_quantize_per_channel_affine(
-                input_tensor.float(),
-                scale.float(),
-                zero_point.float(),
-                axis=0,
-                quant_min=int_l,
-                quant_max=int_u,
-            ).to(
-                clip_val.dtype
-            )  # NOTE return will be a fp32 tensor; function only support float()
-        else:
-            output = torch.quantize_per_channel(
-                input_tensor, scale, zero_point, 0, torch.qint8
-            ).int_repr()
-            # NOTE return will be a torch.int8 tensor
+    #     if dequantize:
+    #         output = torch.fake_quantize_per_channel_affine(
+    #             input_tensor.float(),
+    #             scale.float(),
+    #             zero_point.float(),
+    #             axis=0,
+    #             quant_min=int_l,
+    #             quant_max=int_u,
+    #         ).to(
+    #             clip_val.dtype
+    #         )  # NOTE return will be a fp32 tensor; function only support float()
+    #     else:
+    #         output = torch.quantize_per_channel(
+    #             input_tensor, scale, zero_point, 0, torch.qint8
+    #         ).int_repr()
+    #         # NOTE return will be a torch.int8 tensor
 
-        return output
+    #     return output
 
     @staticmethod
     def backward(ctx, grad_output):
