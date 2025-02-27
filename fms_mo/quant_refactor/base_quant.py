@@ -53,10 +53,12 @@ class Qscheme:
         self,
         unit: str,
         symmetric: bool = True,
-        Nch: int = None,
-        Ngrp: int = None,
         single_sided: bool = False,
         qlevel_lowering: bool = True,
+        Nch: int = None,
+        Ngrp: int = None,
+        NperGrp: int = None,
+        axis: int = None,
     ):
         """
         Init Qscheme
@@ -69,6 +71,8 @@ class Qscheme:
             single_sided (bool, optional): Specify if clip values are positive. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
+            axis (int, optional): Specify which tensor dimension to quantize indiviually.
+                Defaults to 0.
 
         Raises:
             RuntimeError: New PyTorch qscheme found.  Need to update.
@@ -101,17 +105,16 @@ class Qscheme:
                         "perCh was selected without specifying Nch."
                     )
             elif unit == "perGrp":
-                if issubclass(type(Ngrp), int):
+                if issubclass(type(NperGrp), int):
+                    assert NperGrp > 0, "Provided NperGrp is negative"
+                    self.NperGrp = NperGrp
+                elif issubclass(type(Ngrp), int):
                     assert Ngrp > 0, "Provided Ngrp is negative"
                     self.Ngrp = Ngrp
                 else:
                     raise RuntimeError(
-                        "perGrp was selected without specifying Ngrp."
+                        "perGrp was selected without specifying Ngrp or NperGrp."
                     )
-                # perGrp can be across channels, but is not required
-                if issubclass(type(Nch), int):
-                    assert Nch > 0, "Provided Nch is negative"
-                    self.Nch = Nch
 
             self.single_sided = single_sided
             self.qlevel_lowering = qlevel_lowering
@@ -128,12 +131,13 @@ class Qscheme:
         q_uint_str = f"qunit={self.q_unit}"
         symmetric_str = f", symmetric={self.symmetric}"
         Nch_str = f", Nch={self.Nch}" if self.Nch is not None else "",
-        Ngrp_str = f", Ngrp={self.Ngrp}" if self.Ngrp is not None else "",
+        Ngrp_str = f", NperGrp={self.NperGrp}" if self.NperGrp else "",
+        NperGrp_str = f", Ngrp={self.NperGrp}" if self.NperGrp is not None else "",
         single_sided_str = f", single_sided={self.single_sided}"
         qlevel_lowering_str = f", qlevel_lowering={self.qlevel_lowering}"
         return (
-            f"{self.__class__.__name__}({q_uint_str}{symmetric_str}{Nch_str}{Ngrp_str}"
-            f"{single_sided_str}{qlevel_lowering_str})"
+            f"{self.__class__.__name__}({q_uint_str}{symmetric_str}{Nch_str}"
+            f"{Ngrp_str}{NperGrp_str}{single_sided_str}{qlevel_lowering_str})"
         )
 
 
