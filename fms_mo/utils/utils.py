@@ -115,7 +115,9 @@ def mockmatmul(mat1, mat2):
     while cf.f_back and qbmm_mod is None:
         # First frame is QBmm's forward itself, can start searching from previous stack
         cf = cf.f_back
-        if "forward" in cf.f_code.co_name or "_attn" in cf.f_code.co_name:
+        if (
+            "forward" in cf.f_code.co_name or "_attn" in cf.f_code.co_name
+        ) and "self" in cf.f_locals:
             mod_calling_bmm_function = cf.f_locals["self"]
             # If not found -> default to torch.bmm
             qbmm_mod = getattr(

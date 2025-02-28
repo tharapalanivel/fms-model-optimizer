@@ -207,7 +207,6 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         else:
             act_scales = get_act_scales(model, dq_dataloader, qcfg)
         torch.save(act_scales, scale_file)
-
     qmodel_prep(
         model,
         dq_dataloader,
