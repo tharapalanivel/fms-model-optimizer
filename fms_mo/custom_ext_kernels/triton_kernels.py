@@ -323,10 +323,20 @@ def tl_matmul_chunk_truncate(
         return (x & (x - 1)) == 0
 
     min_chunk_size = 32 if a.dtype in DTYPE_8BIT else 16
-    if isPowerofTwo(chunk_size):
-        chunk_size = max(chunk_size, min_chunk_size)
+
+    # because min k (chunk size in this case) for fp16/bf16 is 16, if smaller is needed, we could
+    # insert 0s in between elements, i.e. pad [m,k] -> [m,2k], [k,n]->[k,2n], out=[m,n] unchanged.
+    # Do not support I8 or F8 for now. (as F8/FP24 simulation is treated as BF16 currently)
+    if chunk_size == 8 and a.dtype in [torch.float16, torch.bfloat16]:
+        a_padded = torch.zeros(a.shape[0], a.shape[1]*2, dtype=a.dtype, device=a.device)
+        a_padded[:, ::2] = a
+        a = a_padded
+        b_padded = torch.zeros(b.shape[0]*2, b.shape[1], dtype=b.dtype, device=b.device)
+        b_padded[::2, :] = b
+        b = b_padded
+        chunk_size = 16
     else:
-        chunk_size = min_chunk_size
+        chunk_size = max(chunk_size, min_chunk_size) if isPowerofTwo(chunk_size) else min_chunk_size
 
     if a.dtype in DTYPE_I8:
         acc_dtype = torch.int32
@@ -345,7 +355,7 @@ def tl_matmul_chunk_truncate(
 
     if M < 1024 or N < 1024:
         kernel_config = {
-            "BLOCK_SIZE_M": 128,
+            "BLOCK_SIZE_M": 64,
             "BLOCK_SIZE_K": chunk_size,
             "BLOCK_SIZE_N": 32,
             "GROUP_SIZE_M": 8,
