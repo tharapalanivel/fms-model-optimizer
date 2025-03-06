@@ -94,17 +94,22 @@ def tensor_single_sided(request):
 
 # Symmetric
 qschemes_symmetric_params = []
-for qunit in ["perT"]:  # ['perT','perCh','perGrp']:
+for qunit in ["perT"]:
     for symmetric in [True]:
         for Nch in [None]:
             for Ngrp in [None]:
                 for single_sided in [False]:
-                    for qlevel_lowering in [
-                        True
-                    ]:  # needs to be disabled for some special cases
+                    # needs to be disabled for some special cases
+                    for qlevel_lowering in [True]:
                         qschemes_symmetric_params.append(
                             Qscheme(
-                                qunit, symmetric, Nch, Ngrp, single_sided, qlevel_lowering
+                                unit=qunit,
+                                symmetric=symmetric,
+                                single_sided=single_sided,
+                                qlevel_lowering=qlevel_lowering,
+                                Nch=Nch,
+                                Ngrp=Ngrp,
+                                axis=None,
                             )
                         )
 
@@ -121,11 +126,57 @@ for num_bits in torch.tensor([8, 4]):
                 }
             )
 
-
 @pytest.fixture(scope="session", params=quantizer_symmetric_params)
 def quantizer_symmetric(request):
     """
     Fixture tuple for symmetric quantizer
+
+    Args:
+        request (dict): Dict for quantizer args
+
+    Returns:
+        dict: Tuple for quantizer args
+    """
+    return request.param
+
+# Per channel symmetric params
+# clip_high, Nch will be computed at test level from tensor
+qschemes_symmetric_perCh_params = []
+for qunit in ["perCh"]:
+    for symmetric in [True]:
+        for Ngrp in [False]:
+            for single_sided in [False]:
+                # needs to be disabled for some special cases
+                for qlevel_lowering in [True]:
+                    for axis in [0]:
+                        qschemes_symmetric_perCh_params.append(
+                            Qscheme(
+                                unit=qunit,
+                                symmetric=symmetric,
+                                single_sided=single_sided,
+                                qlevel_lowering=qlevel_lowering,
+                                Nch=1, # temp value
+                                axis=axis,
+                            )
+                        )
+
+quantizer_symmetric_perCh_params = []
+for num_bits in torch.tensor([8, 4]):
+    for scheme in qschemes_symmetric_perCh_params:
+        quantizer_symmetric_perCh_params.append(
+            {
+                "num_bits": num_bits,
+                # "clip_low": -clip_high,
+                # "clip_high": clip_high,
+                "scheme": scheme,
+            }
+        )
+
+
+@pytest.fixture(scope="session", params=quantizer_symmetric_perCh_params)
+def quantizer_symmetric_perCh(request):
+    """
+    Fixture tuple for symmetric quantizer w/ per channel clips
 
     Args:
         request (dict): Dict for quantizer args
@@ -146,7 +197,13 @@ for qunit in ["perT"]:  # ['perT','perCh','perGrp']:
                     for qlevel_lowering in [False]:
                         qschemes_asymmetric_params.append(
                             Qscheme(
-                                qunit, symmetric, Nch, Ngrp, single_sided, qlevel_lowering
+                                unit=qunit,
+                                symmetric=symmetric,
+                                single_sided=single_sided,
+                                qlevel_lowering=qlevel_lowering,
+                                Nch=Nch,
+                                Ngrp=Ngrp,
+                                axis=None,
                             )
                         )
 
@@ -178,6 +235,41 @@ def quantizer_asymmetric(request):
     """
     return request.param
 
+# Create random clip vals for Per Channel ; must be accompanied by the same tensor
+clip_low_perCh = []
+clip_high_perCh = []
+for tensor_size in tensor_sizes:
+    clip_low_row = -torch.rand(tensor_size) - 2.5 # [-3.5, -2.5]
+    clip_high_row = torch.rand(tensor_size) + 2.5 # [2.5, 3.5]
+    clip_low_perCh.append(clip_low_row)
+    clip_high_perCh.append(clip_high_row)
+
+quantizer_asymmetric_perCh_params = []
+for num_bits in torch.tensor([8, 4]):
+    for clip_low in clip_low_perCh:
+        for clip_high in clip_high_perCh:
+            for scheme in qschemes_asymmetric_params:
+                quantizer_asymmetric_params.append(
+                    {
+                        "num_bits": num_bits,
+                        "clip_low": clip_low,
+                        "clip_high": clip_high,
+                        "scheme": scheme,
+                    }
+                )
+
+@pytest.fixture(scope="session", params=quantizer_asymmetric_perCh_params)
+def quantizer_asymmetric_perCh(request):
+    """
+    Fixture tuple for asymmetric quantizer w/ per channel clips
+
+    Args:
+        request (dict): Dict for quantizer args
+
+    Returns:
+        dict: Tuple for quantizer args
+    """
+    return request.param
 
 # Single-Sided
 qschemes_single_sided_params = []
@@ -189,7 +281,13 @@ for qunit in ["perT"]:  # ['perT','perCh','perGrp']:
                     for qlevel_lowering in [False]:
                         qschemes_single_sided_params.append(
                             Qscheme(
-                                qunit, symmetric, Nch, Ngrp, single_sided, qlevel_lowering
+                                unit=qunit,
+                                symmetric=symmetric,
+                                single_sided=single_sided,
+                                qlevel_lowering=qlevel_lowering,
+                                Nch=Nch,
+                                Ngrp=Ngrp,
+                                axis=None,
                             )
                         )
 
@@ -270,6 +368,23 @@ def torch_quantizer_symmetric(quantizer_symmetric):
         qscheme=quantizer_symmetric["scheme"],
     )
 
+@pytest.fixture
+def torch_quantizer_symmetric_perCh(quantizer_symmetric_perCh):
+    """
+    Torch Quantizer w/ symmetric settings for perCh
+
+    Args:
+        quantizer_symmetric (dict): Symmetric quantizer settings
+
+    Returns:
+        torch.nn.Module: TorchQuantizer
+    """
+    return TorchQuantizer(
+        num_bits=quantizer_symmetric_perCh["num_bits"],
+        clip_low=quantizer_symmetric_perCh["clip_low"],
+        clip_high=quantizer_symmetric_perCh["clip_high"],
+        qscheme=quantizer_symmetric_perCh["scheme"],
+    )
 
 @pytest.fixture
 def torch_quantizer_asymmetric(quantizer_asymmetric):
@@ -287,6 +402,24 @@ def torch_quantizer_asymmetric(quantizer_asymmetric):
         clip_low=quantizer_asymmetric["clip_low"],
         clip_high=quantizer_asymmetric["clip_high"],
         qscheme=quantizer_asymmetric["scheme"],
+    )
+
+@pytest.fixture
+def torch_quantizer_asymmetric_perCh(quantizer_asymmetric_perCh):
+    """
+    Torch Quantizer w/ asymmetric settings for perCh
+
+    Args:
+        quantizer_asymmetric (dict): Asymmetric quantizer settings
+
+    Returns:
+        torch.nn.Module: TorchQuantizer
+    """
+    return TorchQuantizer(
+        num_bits=quantizer_asymmetric_perCh["num_bits"],
+        clip_low=quantizer_asymmetric_perCh["clip_low"],
+        clip_high=quantizer_asymmetric_perCh["clip_high"],
+        qscheme=quantizer_asymmetric_perCh["scheme"],
     )
 
 
@@ -474,6 +607,24 @@ def sawb_quantizer_symmetric(quantizer_symmetric):
     """
     return SAWB(
         num_bits=quantizer_symmetric["num_bits"],
+        # init_clip_valn=quantizer_symmetric["clip_low"],
+        # init_clip_val=quantizer_symmetric["clip_high"],
+        # qscheme=quantizer_symmetric["scheme"],
+    )
+
+@pytest.fixture
+def sawb_quantizer_symmetric_perCh(quantizer_symmetric_perCh):
+    """
+    SAWB quantizer w/ symmetric settings
+
+    Args:
+        quantizer_symmetric (dict): Symmetric quantizer settings
+
+    Returns:
+        torch.autograd.Function: SAWB
+    """
+    return SAWB(
+        num_bits=quantizer_symmetric_perCh["num_bits"],
         # init_clip_valn=quantizer_symmetric["clip_low"],
         # init_clip_val=quantizer_symmetric["clip_high"],
         # qscheme=quantizer_symmetric["scheme"],
