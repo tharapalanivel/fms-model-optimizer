@@ -510,9 +510,10 @@ class SAWBPlusZeroPerChSTE(torch.autograd.Function):
 
         if istraining:
             # only recalc clipvals under training mode
+            num_bits_int = num_bits.item() if isinstance(num_bits, torch.Tensor) else num_bits
             SAWBcode_mapping = {8: 803, 4: 403, 2: 103}
             if num_bits in [2, 4, 8]:
-                sawb_code = SAWBcode_mapping[num_bits]
+                sawb_code = SAWBcode_mapping[num_bits_int]
                 clip_val, _ = sawb_params_code(
                     num_bits, sawb_code, input_tensor, perCh=True
                 )
@@ -551,7 +552,7 @@ class SAWBPlusZeroPerChSTE(torch.autograd.Function):
         else:
             output = torch.quantize_per_channel(
                 input_tensor, scale, zero_point, 0, torch.qint8
-            ).int_repr()
+            ).int_repr().clamp(int_l, int_u)
             # NOTE return will be a torch.int8 tensor
 
         return output
