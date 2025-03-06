@@ -238,17 +238,15 @@ def quantizer_error(
         diff = qtensor_fms_mo - qtensor_torch
         abs_diff = abs(diff)
         nonzero_diff_indices = abs_diff > max_norm_tol
-        scale_diff_indices = (
-            abs(abs_diff - scale) < 1e-3
-        )  # float epsilon distance required
+        # float epsilon distance required
+        scale_diff_indices = abs(abs_diff - scale) < 1e-3
         nonscale_nonzero_diff_indices = nonzero_diff_indices.logical_and(
             torch.logical_not(scale_diff_indices)
         )
-        dtype_range = clip_high - clip_low
+        dtype_range = clip_high.max() - clip_low.min()
     else:
-        diff = qtensor_fms_mo.to(torch.int32) - qtensor_torch.to(
-            torch.int32
-        )  # Cast uints to int32 to avoid negative number overflow
+        # Cast uints to int32 to avoid negative number overflow
+        diff = qtensor_fms_mo.to(torch.int32) - qtensor_torch.to(torch.int32)
         abs_diff = abs(diff)
         nonzero_diff_indices = abs_diff > 0
         scale_diff_indices = abs_diff == 1
