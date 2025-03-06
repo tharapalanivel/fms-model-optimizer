@@ -114,7 +114,7 @@ def sawb_params_code(
             # conv W=[ch_o, ch_i, ki, ij], linear W=[ch_o, ch_i], reduce all dim but ch_out
             mu = torch.mean(input_tensor.abs(), dim=reduce_dim)
             std = torch.mean(input_tensor**2, dim=reduce_dim).sqrt()
-            clip_val_vec = torch.tensor(coeff[1] * mu + coeff[0] * std)
+            clip_val_vec = coeff[1] * mu + coeff[0] * std
             return None, clip_val_vec
 
         # per-tensor
