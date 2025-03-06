@@ -79,9 +79,11 @@ class Qscheme:
             RuntimeError: perCh or perGrp was selected without specifying Nch, Ngrp.
             RuntimeError: qscheme is not allowed, or could be a typo.
         """
-        # Init Nch/Ngrp to none incase they won't be set
+        # Init perCh/perGrp vars to none incase they won't be set
         self.Nch = None
         self.Ngrp = None
+        self.NperGrp = None
+        self.axis = None
         if isinstance(unit, torch.qscheme):
             if "per_channel" in str(unit):
                 self.q_unit = "perCh"
@@ -97,12 +99,18 @@ class Qscheme:
             self.q_unit = unit
             self.symmetric = symmetric
             if unit == "perCh":
-                if issubclass(type(Nch), int):
+                if Nch is not None and issubclass(type(Nch), int):
                     assert Nch > 0, "Provided Nch is negative"
                     self.Nch = Nch
                 else:
                     raise RuntimeError(
                         "perCh was selected without specifying Nch."
+                    )
+                if axis is not None and issubclass(type(axis), int):
+                    self.axis = axis
+                else:
+                    raise RuntimeError(
+                        "perCh was selected without specifying channel axis dimension."
                     )
             elif unit == "perGrp":
                 if issubclass(type(NperGrp), int):
@@ -130,9 +138,9 @@ class Qscheme:
         """
         q_uint_str = f"qunit={self.q_unit}"
         symmetric_str = f", symmetric={self.symmetric}"
-        Nch_str = f", Nch={self.Nch}" if self.Nch is not None else "",
-        Ngrp_str = f", NperGrp={self.NperGrp}" if self.NperGrp else "",
-        NperGrp_str = f", Ngrp={self.NperGrp}" if self.NperGrp is not None else "",
+        Nch_str = f", Nch={self.Nch}" if self.Nch is not None else ""
+        Ngrp_str = f", NperGrp={self.Ngrp}" if self.Ngrp is not None else ""
+        NperGrp_str = f", Ngrp={self.NperGrp}" if self.NperGrp is not None else ""
         single_sided_str = f", single_sided={self.single_sided}"
         qlevel_lowering_str = f", qlevel_lowering={self.qlevel_lowering}"
         return (
