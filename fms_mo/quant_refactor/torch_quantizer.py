@@ -73,8 +73,14 @@ class TorchQuantizer(torch.nn.Module):
             num_bits.item() if isinstance(num_bits, torch.Tensor) else num_bits
         )
         # turn clips into tensors (from python float)
-        self.clip_low = torch.Tensor([clip_low])
-        self.clip_high = torch.Tensor([clip_high])
+        self.clip_low = (
+            torch.Tensor([clip_low]) if not isinstance(clip_low, torch.Tensor)
+            else clip_low
+        )
+        self.clip_high = (
+            torch.Tensor([clip_high]) if not isinstance(clip_high, torch.Tensor)
+            else clip_high
+        )
         self.symmetric_zp0 = False
         self.qscheme = qscheme
         self.set_quant_bounds()
@@ -102,11 +108,11 @@ class TorchQuantizer(torch.nn.Module):
         """
         return (
             self.num_bits_int,
-            self.clip_low.item(),
-            self.clip_high.item(),
+            self.clip_low,
+            self.clip_high,
             self.n_levels.item(),
-            self.scale.item(),
-            self.zero_point.item(),
+            self.scale,
+            self.zero_point,
             self.quant_min,
             self.quant_max,
             self.qscheme,
@@ -127,7 +133,7 @@ class TorchQuantizer(torch.nn.Module):
         self.scale = (self.clip_high - self.clip_low) / (self.n_levels)
         # this "ZP" will map the float value we choose (clip_low in this case) to the 0 bin
         self.zero_point = (
-            torch.tensor(0)
+            torch.zeros(self.scale.shape, dtype=torch.int)
             if (self.is_symmetric)
             else torch.round(-self.clip_low / self.scale).to(torch.int)
         )
@@ -138,7 +144,7 @@ class TorchQuantizer(torch.nn.Module):
         """
         Set quantization integer range based on member variables
         """
-        if self.is_symmetric and self.zero_point == 0:
+        if self.is_symmetric and torch.sum(self.zero_point) == 0:
             # Either [-8,7];[-128,127] for non-symmetric or [-7,7];[-127,127] for qlevel_lowering
             self.quant_min, self.quant_max = (
                 -(2 ** (self.num_bits - 1)) + self.symmetric_nlevel,
@@ -264,7 +270,7 @@ class TorchQuantizer(torch.nn.Module):
         if self.is_single_sided:
             signed = False
         else:
-            signed = (self.zero_point == 0).item()
+            signed = (torch.sum(self.zero_point) == 0).item()
         return self.dtype_dict.get(
             (self.num_bits_int, signed)
         )  # NOTE .item() won't work for perCh
@@ -282,24 +288,53 @@ class TorchQuantizer(torch.nn.Module):
         Returns:
             torch.FloatTensor: Quantized or dequantized tensor.
         """
+        
         if self.dequantize:
-            output = torch.fake_quantize_per_tensor_affine(
-                tensor, self.scale, self.zero_point, self.quant_min, self.quant_max
-            )
+            if self.qscheme.Nch: # Per Channel
+                output = torch.fake_quantize_per_channel_affine(
+                    tensor,
+                    self.scale.float(),
+                    self.zero_point.float(),
+                    self.qscheme.axis,
+                    self.quant_min,
+                    self.quant_max,
+                )
+            elif self.qscheme.Ngrp: # Per Group
+                pass
+            else: # Per Tensor
+                output = torch.fake_quantize_per_tensor_affine(
+                    tensor,
+                    self.scale,
+                    self.zero_point,
+                    self.quant_min,
+                    self.quant_max,
+                )
         else:
             dtype = self.get_torch_dtype()
             if dtype:
-                # Clamp to [quant_min, quant_max] in case we are storing int4 into int8/uint8 tensor
-                output = (
-                    torch.quantize_per_tensor(
-                        tensor, self.scale, self.zero_point, dtype
+                if self.qscheme.q_unit == "perCh":
+                    output = torch.quantize_per_channel(
+                        tensor,
+                        self.scale,
+                        self.zero_point,
+                        self.qscheme.axis,
+                        dtype,
                     )
-                    .int_repr()
-                    .clamp(self.quant_min, self.quant_max)
-                )
+                elif self.qscheme.q_unit == "perGrp":
+                    raise RuntimeError("TorchQuantizer forward not implemented for perGrp")
+                else: # Per Tensor
+                    output = torch.quantize_per_tensor(
+                        tensor,
+                        self.scale,
+                        self.zero_point,
+                        dtype,
+                    )
+                # Clamp required if storing int4 into int8 tensor (no PT support for int4)
+                output = output.int_repr().clamp(self.quant_min, self.quant_max)
             else:
                 raise RuntimeError(
                     f"num_bits {self.num_bits} and sign {(self.zero_point==0).item()}"
                     "combination results in unavailable dtype."
                 )
+
         return output
