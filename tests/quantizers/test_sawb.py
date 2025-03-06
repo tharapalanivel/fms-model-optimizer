@@ -18,6 +18,11 @@ Test SAWB quantizers
 
 # Third Party
 from test_quantizer_utils import quantizer_error, set_base_options
+
+from fms_mo.quant.quantizers import SAWB
+from fms_mo.quant_refactor.sawb_new import SAWB_new
+from fms_mo.quant_refactor.torch_quantizer import TorchQuantizer
+
 import pytest
 import torch
 
@@ -193,6 +198,34 @@ def set_other_options_new(
 
         torch_quantizer.set_quant_bounds()
 
+def set_per_channel(
+    tensor: torch.FloatTensor,
+    fms_mo_quantizer: torch.autograd.Function,
+    torch_quantizer: torch.nn.Module,
+    axis: int = 0,
+):
+    """
+    Setup quantizers to use per channel SAWB
+
+    Args:
+        tensor (torch.FloatTensor): Tensor to quantize.
+        fms_mo_quantizer (torch.autograd.Function): FMS quantizer.
+        torch_quantizer (torch.nn.Module): Torch Quantizer 
+        axis (int, optional): Per channel axis dimension. Defaults to 0.
+    """
+    Nch = tensor.shape[axis]
+
+    # Setup quantizer to use SAWBPlusZeroPerChSTE
+    fms_mo_quantizer.clipSTE = True
+    fms_mo_quantizer.align_zero = True
+    fms_mo_quantizer.set_quantizer()
+
+    torch_quantizer.qscheme.q_unit = "perCh"
+    torch_quantizer.qscheme.Nch = Nch
+    torch_quantizer.qscheme.qlevel_lowering = True
+    torch_quantizer.set_sawb_clip_code(tensor, perCh=True) # sets clip vals
+    torch_quantizer.set_quant_bounds()
+
 
 ##############
 # SAWB tests #
@@ -217,7 +250,7 @@ def test_sawb_symmetric(
         other_options (dict): Other Options for quantization.
     """
 
-    # Set base quantizer and PACT2 options ; save nativePT
+    # Set base quantizer and SAWB options ; save nativePT
     native_pt = base_options["nativePT"]
     base_options["nativePT"] = False  # Not supported for SAWB
     set_base_options(sawb_quantizer_symmetric, torch_quantizer_symmetric, base_options)
@@ -277,7 +310,7 @@ def test_sawbnew_symmetric(
         base_options (dict): Base options for quantization.
         other_options (dict): Other Options for quantization.
     """
-    # Set base quantizer and PACT2 options
+    # Set base quantizer and SAWB options
     set_base_options(
         sawbnew_quantizer_symmetric, torch_quantizer_symmetric, base_options
     )
@@ -303,3 +336,54 @@ def test_sawbnew_symmetric(
         tensor, qtensor_fms_mo, qtensor_torch, setup, base_options, other_options
     )
     torch_quantizer_symmetric.qscheme.qlevel_lowering = qlevel_lowering  # reset value
+
+def test_sawb_symmetric_perCh(
+    tensor: torch.FloatTensor,
+    quantizer_symmetric_perCh: dict,
+    base_options: dict,
+    # other_options: dict, # only 1 STE for this case right now
+):
+    """
+    Test SAWB w/ symmetric tensors for per channel
+
+    Args:
+        tensor (torch.FloatTensor): Tensor to quantize.
+        quantizer_symmetric_perCh (dict): Symmetric quantizer settings for per channel.
+        base_options (dict): Base options for quantization.
+        other_options (dict): Other Options for quantization.
+    """
+
+    Nch = tensor.shape[0]
+    clip_val = torch.rand(Nch) + 2.5 # [2.5,3.5]
+
+    # SAWB computes clip_val_vec in forward()
+    sawb_quantizer_symmetric_perCh = SAWB(
+        num_bits = quantizer_symmetric_perCh["num_bits"],
+        perCh = Nch,
+    )
+
+    # Clip val is not optional, but gets overriden in set_per_channel
+    torch_quantizer_symmetric_perCh = TorchQuantizer(
+        num_bits = quantizer_symmetric_perCh["num_bits"],
+        clip_low = -clip_val,
+        clip_high = clip_val,
+        qscheme = quantizer_symmetric_perCh["scheme"]
+    )
+
+    # Set base quantizer and SAWB options ; save nativePT
+    native_pt = base_options["nativePT"]
+    base_options["nativePT"] = False  # Not supported for SAWB
+    set_base_options(sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options)
+    set_per_channel(tensor, sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh)
+
+    # Create quantized tensors from FMS Model Optimizer + torch
+    qtensor_fms_mo = sawb_quantizer_symmetric_perCh(tensor).detach()
+    qtensor_torch = torch_quantizer_symmetric_perCh(tensor).detach()
+
+    setup = torch_quantizer_symmetric_perCh.get_setup()
+
+    # There should be no differences between these two tensors
+    quantizer_error(
+        tensor, qtensor_fms_mo, qtensor_torch, setup, base_options, other_options
+    )
+    base_options["nativePT"] = native_pt  # reset value
