@@ -314,8 +314,6 @@ def tl_matmul_chunk_truncate(
     if cuda_cc[0] >= 9 or cuda_cc == (8, 9):
         allowed_dtypes += DTYPE_F8
     assert a.dtype in allowed_dtypes, "Input dtype is not supported"
-    M, K = a.shape
-    K, N = b.shape
 
     # Allocates output, always accumulate in FP32 (if floats) or INT32 then cast
     def isPowerofTwo(x):
@@ -325,7 +323,7 @@ def tl_matmul_chunk_truncate(
     min_chunk_size = 32 if a.dtype in DTYPE_8BIT else 16
 
     # because min k (chunk size in this case) for fp16/bf16 is 16, if smaller is needed, we could
-    # insert 0s in between elements, i.e. pad [m,k] -> [m,2k], [k,n]->[k,2n], out=[m,n] unchanged.
+    # insert 0s in between elements, i.e. pad [m,k] -> [m,2k], [k,n]->[2k,n], out=[m,n] unchanged.
     # Do not support I8 or F8 for now. (as F8/FP24 simulation is treated as BF16 currently)
     if chunk_size == 8 and a.dtype in [torch.float16, torch.bfloat16]:
         a_padded = torch.zeros(a.shape[0], a.shape[1]*2, dtype=a.dtype, device=a.device)
@@ -338,6 +336,8 @@ def tl_matmul_chunk_truncate(
     else:
         chunk_size = max(chunk_size, min_chunk_size) if isPowerofTwo(chunk_size) else min_chunk_size
 
+    M, K = a.shape
+    K, N = b.shape
     if a.dtype in DTYPE_I8:
         acc_dtype = torch.int32
         mm_kernel = imatmul_kernel
