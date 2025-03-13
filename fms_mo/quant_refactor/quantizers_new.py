@@ -559,7 +559,7 @@ class SAWBPlusZeroPerChSTE(torch.autograd.Function):
         else:
             output = torch.quantize_per_channel(
                 input, scale, zero_point, 0, torch.qint8
-            ).int_repr()
+            ).int_repr().clamp(int_l, int_u)
             # NOTE return will be a torch.int8 tensor
 
         return output
@@ -639,6 +639,13 @@ def sawb_params_code(num_bits, code, out, perCh=False):
             mu = torch.mean(out.abs(), dim=reduce_dim)
             std = torch.mean(out**2, dim=reduce_dim).sqrt()
             clip_val_vec = coeff[1] * mu + coeff[0] * std
+
+            # Overwrite negative clip_vals with abs.max
+            neg_clip_idx = clip_val_vec < 0.0
+            if torch.any(neg_clip_idx):
+                clip_val_max = torch.max(out.abs(), dim=1).values
+                clip_val_vec[neg_clip_idx] = clip_val_max[neg_clip_idx]
+
             return clip_val_vec, None
         else:
             # per-tensor
@@ -647,6 +654,10 @@ def sawb_params_code(num_bits, code, out, perCh=False):
             std = x.mul(x).mean().sqrt()
 
         clip_val = coeff[1] * mu + coeff[0] * std
+
+        # Overwrite negative clip_vals with abs.max
+        if clip_val < 0.0:
+            clip_val = x.abs().max()
 
         if code in [102]:
             nspace = 2**num_bits - 1
@@ -761,6 +772,10 @@ def sawb_params(num_bits, out):
             raise ValueError(f"SAWB not implemented for num_bits={num_bits}")
         coeff = dic_coeff[num_bits]
         clip_val = coeff[1] * mu + coeff[0] * std
+
+        # Overwrite negative clip_vals with abs.max
+        if clip_val < 0.0:
+            clip_val = x.abs().max()
 
         return clip_val
 
