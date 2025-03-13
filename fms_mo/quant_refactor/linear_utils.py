@@ -63,7 +63,7 @@ def qint_bounds(
         [torch.IntTensor, torch.IntTensor, torch.dtype]: qint_bounds and torch.qint_dtype
     """
     # Set quantization bounds and datatype based on zero_point
-    if symmetric and zero_point == 0:
+    if symmetric and torch.sum(zero_point) == 0:
         qlevel_symmetric = torch.tensor(1) if qlevel_lowering else torch.tensor(0)
         qlevel_min, qlevel_max = (
             -(2 ** (num_bits - 1)) + qlevel_symmetric,
