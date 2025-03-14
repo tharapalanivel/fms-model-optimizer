@@ -94,7 +94,7 @@ class SAWB_new(Quantizer):
             with torch.no_grad():
                 self.clip_valn.data *= init_clip_valn
                 self.clip_val.data *= init_clip_val
-
+        
         self.clipSTE = clipSTE
         self.align_zero = align_zero
         self.use16bins = use16bins
@@ -130,12 +130,16 @@ class SAWB_new(Quantizer):
 
         # PTnative quantizers
         if self.use_PT_native_Qfunc:
-            if self.use_extended_range_4bits:
-                self.use_code = True
-                self.quantizer = SAWBPlus16ZeroSTE_PTnative
-            else:
+            if self.perCh:
                 self.use_code = self.qscheme.qlevel_lowering
-                self.quantizer = PerTensorSTESAWB_PTnative
+                # self.quantizer = PerChannelSTESAWB_PTnative
+            else:
+                # if self.use_extended_range_4bits:
+                #     self.use_code = True
+                #     self.quantizer = SAWBPlus16ZeroSTE_PTnative
+                # else:
+                    self.use_code = self.qscheme.qlevel_lowering
+                    self.quantizer = PerTensorSTESAWB_PTnative
 
         else:  # Non-PTnative quantizers
             self.use_code = self.qscheme.qlevel_lowering
@@ -144,8 +148,8 @@ class SAWB_new(Quantizer):
                     self.quantizer = (
                         SAWBPlusZeroPerChSTE_new
                         if self.perCh and self.num_bits in [2, 4, 8]
-                        else SAWBPlus16ZeroSTE_new
-                        if self.extended_ranged and self.num_bits == 4
+                        # else SAWBPlus16ZeroSTE_new
+                        # if self.extended_ranged and self.num_bits == 4
                         else SAWBPlusZeroSTE_new
                     )
                 else:
@@ -212,7 +216,6 @@ class SAWB_new(Quantizer):
 
         if (self.Niter == 0 and self.training) or self.recompute_clips:
             with torch.no_grad():
-                # to avoid unintended bwd ops added to the graph, cause memory leak sometimes
                 self.clip_val.copy_(clip_val_new)
                 self.clip_valn.copy_(clip_valn_new)
 
@@ -374,185 +377,185 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
         return grad_output, None, None, None, None, None, None, None
 
 
-class SAWBPlus16ZeroSTE_new(torch.autograd.Function):
-    """
-    SAWB with zero alignment but use 16 bins instead of 15, i.e. asymmetric and 4 bit only
-    Uses code=403
+# class SAWBPlus16ZeroSTE_new(torch.autograd.Function):
+#     """
+#     SAWB with zero alignment but use 16 bins instead of 15, i.e. asymmetric and 4 bit only
+#     Uses code=403
 
-    Extended Range STE doesn't inherit PerTensorSTE_SAWB - too many changes to functions...
-    """
+#     Extended Range STE doesn't inherit PerTensorSTE_SAWB - too many changes to functions...
+#     """
 
-    @staticmethod
-    def forward(
-        ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        _clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
-        dequantize: bool = True,
-        _symmetric: bool = True,
-        _qlevel_lowering: bool = True,
-        _code: bool = True,
-    ) -> torch.Tensor:
-        """
-        Forward function for SAWBPlus16ZeroSTE
+#     @staticmethod
+#     def forward(
+#         ctx,
+#         input_tensor: torch.FloatTensor,
+#         num_bits: torch.IntTensor,
+#         _clip_valn: torch.FloatTensor,
+#         clip_val: torch.FloatTensor,
+#         dequantize: bool = True,
+#         _symmetric: bool = True,
+#         _qlevel_lowering: bool = True,
+#         _code: bool = True,
+#     ) -> torch.Tensor:
+#         """
+#         Forward function for SAWBPlus16ZeroSTE
 
-        Args:
-            ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
-            dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
-            symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
-            qlevel_lowering (bool, optional): Specify lowering of quantized levels.
-                Defaults to True.
-            use_code (bool, optional): Specify using SAWB code. Defaults to False.
+#         Args:
+#             ctx (torch.autograd.Function): Forward/Backward context object.
+#             input_tensor (torch.FloatTensor): Tensor to be quantized.
+#             num_bits (torch.IntTensor): Number of bit for quantization.
+#             clip_valn (torch.FloatTensor): Lower clip value bound.
+#             clip_val (torch.FloatTensor): Upper clip value bound.
+#             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
+#             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
+#             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
+#                 Defaults to True.
+#             use_code (bool, optional): Specify using SAWB code. Defaults to False.
 
-        Returns:
-            torch.Tensor: Dequantized or Quantized output tensor.
-        """
-        assert num_bits == 4, "only implemented for 4bit"
+#         Returns:
+#             torch.Tensor: Dequantized or Quantized output tensor.
+#         """
+#         assert num_bits == 4, "only implemented for 4bit"
 
-        # Do not take sawb_params_code n_levels definition for extended range
-        _, clip_val = sawb_params_code(input_tensor, num_bits, 403, perCh=False)
-        n_levels = 2**num_bits - 1
+#         # Do not take sawb_params_code n_levels definition for extended range
+#         _, clip_val = sawb_params_code(input_tensor, num_bits, 403, perCh=False)
+#         n_levels = 2**num_bits - 1
 
-        scale = clip_val * (8.0 / 7.0 + 1.0) / n_levels
-        zero_point = torch.tensor(0)
+#         scale = clip_val * (8.0 / 7.0 + 1.0) / n_levels
+#         zero_point = torch.tensor(0)
 
-        if len(clip_val.shape) == 0:
-            clip_val = clip_val.unsqueeze(dim=0)
+#         if len(clip_val.shape) == 0:
+#             clip_val = clip_val.unsqueeze(dim=0)
 
-        output = linear_quantize(input_tensor, scale, zero_point)
-        output = output.clamp(-8, 7)
-        if dequantize:
-            output = linear_dequantize(output, scale, zero_point)
-        else:
-            output = output.to(torch.int8)
-        return output
+#         output = linear_quantize(input_tensor, scale, zero_point)
+#         output = output.clamp(-8, 7)
+#         if dequantize:
+#             output = linear_dequantize(output, scale, zero_point)
+#         else:
+#             output = output.to(torch.int8)
+#         return output
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        """
-        Backward function for SAWB+ 16bin Zero STE
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         """
+#         Backward function for SAWB+ 16bin Zero STE
 
-        Args:
-            ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+#         Args:
+#             ctx (torch.autograd.Function): Context object.
+#             grad_output (torch.FloatTensor): Gradient to clip
 
-        Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
-        """
-        grad_input = grad_output.clone()
-        return grad_input, None, None, None, None, None, None, None
+#         Returns:
+#             [torch.FloatTensor, None,...,None]: Gradients
+#         """
+#         grad_input = grad_output.clone()
+#         return grad_input, None, None, None, None, None, None, None
 
 
-class SAWBPlus16ZeroSTE_PTnative(PerTensorSTESAWB_PTnative):
-    """
-    SAWB with zero alignment but use 16 bins instead of 15, i.e. asymmetric and 4 bit only.
-    Uses PyTorch native kernels.
+# class SAWBPlus16ZeroSTE_PTnative(PerTensorSTESAWB_PTnative):
+#     """
+#     SAWB with zero alignment but use 16 bins instead of 15, i.e. asymmetric and 4 bit only.
+#     Uses PyTorch native kernels.
 
-    Extends:
-        PerTensorSTESAWB_PTnative
-    """
+#     Extends:
+#         PerTensorSTESAWB_PTnative
+#     """
 
-    @staticmethod
-    def forward(
-        ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
-        dequantize: bool = True,
-        symmetric: bool = False,
-        qlevel_lowering: bool = True,
-        use_code: bool = False,
-    ) -> torch.Tensor:
-        """
-        Forward function for SAWBPlus16ZeroSTE_PTnative
+#     @staticmethod
+#     def forward(
+#         ctx,
+#         input_tensor: torch.FloatTensor,
+#         num_bits: torch.IntTensor,
+#         clip_valn: torch.FloatTensor,
+#         clip_val: torch.FloatTensor,
+#         dequantize: bool = True,
+#         symmetric: bool = False,
+#         qlevel_lowering: bool = True,
+#         use_code: bool = False,
+#     ) -> torch.Tensor:
+#         """
+#         Forward function for SAWBPlus16ZeroSTE_PTnative
 
-        Args:
-            ctx (torch.autograd.Function): Forward/Backward context object.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
-            symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
-            qlevel_lowering (bool, optional): Specify lowering of quantized levels.
-                Defaults to True.
-            use_code (bool, optional): Specify using SAWB code. Defaults to False.
+#         Args:
+#             ctx (torch.autograd.Function): Forward/Backward context object.
+#             num_bits (torch.IntTensor): Number of bit for quantization.
+#             clip_valn (torch.FloatTensor): Lower clip value bound.
+#             clip_val (torch.FloatTensor): Upper clip value bound.
+#             input_tensor (torch.FloatTensor): Tensor to be quantized.
+#             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
+#             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
+#             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
+#                 Defaults to True.
+#             use_code (bool, optional): Specify using SAWB code. Defaults to False.
 
-        Returns:
-            torch.Tensor: Dequantized or Quantized output tensor.
-        """
-        (
-            _,
-            _,
-            scale,
-            zero_point,
-            qint_l,
-            qint_h,
-            qint_dtype,
-        ) = SAWBPlus16ZeroSTE_PTnative.calc_qparams(
-            num_bits,
-            clip_valn,
-            clip_val,
-            symmetric,
-            qlevel_lowering,
-            use_code,
-            input_tensor,
-        )
-        output = PerTensorSTESAWB_PTnative.linear_quantization(
-            input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
-        )
-        return output
+#         Returns:
+#             torch.Tensor: Dequantized or Quantized output tensor.
+#         """
+#         (
+#             _,
+#             _,
+#             scale,
+#             zero_point,
+#             qint_l,
+#             qint_h,
+#             qint_dtype,
+#         ) = SAWBPlus16ZeroSTE_PTnative.calc_qparams(
+#             num_bits,
+#             clip_valn,
+#             clip_val,
+#             symmetric,
+#             qlevel_lowering,
+#             use_code,
+#             input_tensor,
+#         )
+#         output = PerTensorSTESAWB_PTnative.linear_quantization(
+#             input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize
+#         )
+#         return output
 
-    @classmethod
-    def calc_qparams(
-        cls,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
-        symmetric: bool = False,
-        qlevel_lowering: bool = False,
-        use_code: bool = False,
-        input_tensor: torch.FloatTensor = None,
-    ) -> Tuple[
-        torch.IntTensor,
-        torch.FloatTensor,
-        torch.FloatTensor,
-        torch.IntTensor,
-        int,
-        int,
-    ]:
-        """
-        Compute the scale and zero_point from num_bits and clip values
+#     @classmethod
+#     def calc_qparams(
+#         cls,
+#         num_bits: torch.IntTensor,
+#         clip_valn: torch.FloatTensor,
+#         clip_val: torch.FloatTensor,
+#         symmetric: bool = False,
+#         qlevel_lowering: bool = False,
+#         use_code: bool = False,
+#         input_tensor: torch.FloatTensor = None,
+#     ) -> Tuple[
+#         torch.IntTensor,
+#         torch.FloatTensor,
+#         torch.FloatTensor,
+#         torch.IntTensor,
+#         int,
+#         int,
+#     ]:
+#         """
+#         Compute the scale and zero_point from num_bits and clip values
 
-        Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value.
-            clip_val (torch.FloatTensor): Upper clip value.
-            symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
-            qlevel_lowering (bool, optional): Specify lowering of quantized levels.
-                Defaults to True.
-            use_code (bool, optional): Specify using SAWB code. Defaults to False.
-            input_tensor (torch.FloatTensor): Tensor to be quantized. Defaults to None.
+#         Args:
+#             num_bits (torch.IntTensor): Number of bit for quantization.
+#             clip_valn (torch.FloatTensor): Lower clip value.
+#             clip_val (torch.FloatTensor): Upper clip value.
+#             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
+#             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
+#                 Defaults to True.
+#             use_code (bool, optional): Specify using SAWB code. Defaults to False.
+#             input_tensor (torch.FloatTensor): Tensor to be quantized. Defaults to None.
 
-        Returns:
-            [torch.IntTensor, torch.FloatTensor, torch.IntTensor
-            torch.IntTensor, torch.IntTensor, torch.IntTensor, torch.dtype]:
-                Quantized parameters for PTnative kernels
-        """
+#         Returns:
+#             [torch.IntTensor, torch.FloatTensor, torch.IntTensor
+#             torch.IntTensor, torch.IntTensor, torch.IntTensor, torch.dtype]:
+#                 Quantized parameters for PTnative kernels
+#         """
 
-        # Do not take sawb_params_code n_levels definition for extended range
-        _, clip_val = sawb_params_code(input_tensor, num_bits, 403, perCh=False)
-        n_levels = 2**num_bits - 1
-        scale = clip_val * (8.0 / 7.0 + 1.0) / n_levels
-        zero_point = torch.tensor(0)
-        qint_l, qint_h, qint_dtype = -8, 7, torch.qint8
-        return n_levels, clip_val, scale, zero_point, qint_l, qint_h, qint_dtype
+#         # Do not take sawb_params_code n_levels definition for extended range
+#         _, clip_val = sawb_params_code(input_tensor, num_bits, 403, perCh=False)
+#         n_levels = 2**num_bits - 1
+#         scale = clip_val * (8.0 / 7.0 + 1.0) / n_levels
+#         zero_point = torch.tensor(0)
+#         qint_l, qint_h, qint_dtype = -8, 7, torch.qint8
+#         return n_levels, clip_val, scale, zero_point, qint_l, qint_h, qint_dtype
 
 
 # Placeholder classes for PerCh - need to rework #

@@ -373,13 +373,13 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
             torch.FloatTensor, None,...,None: STE Gradient
         """
         return grad_output, None, None, None, None, None, None
-    
+
 class PerChannelSTESAWB(PerChannelSTE):
     """
     PerChannelSTE Base for SAWB
 
     Extends:
-        PerChSTE
+        PerChannelSTE
     """
     @staticmethod
     def forward(
