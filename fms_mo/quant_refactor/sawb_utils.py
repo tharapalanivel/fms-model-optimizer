@@ -67,6 +67,10 @@ def sawb_params(
         coeff = dic_coeff[num_bits_int]
         clip_val = coeff[1] * mu + coeff[0] * std
 
+        # Overwrite negative clip_vals with abs.max
+        if clip_val < 0.0:
+            clip_val = x.abs().max()
+
         n_levels = 2**num_bits - 2 if qlevel_lowering else 2**num_bits - 1
 
         return n_levels, clip_val
@@ -109,12 +113,18 @@ def sawb_params_code(
             raise ValueError(f"SAWB not implemented for code={code}")
 
         if perCh:
-            # per-channel
             reduce_dim = list(range(1, len(input_tensor.shape)))
             # conv W=[ch_o, ch_i, ki, ij], linear W=[ch_o, ch_i], reduce all dim but ch_out
             mu = torch.mean(input_tensor.abs(), dim=reduce_dim)
             std = torch.mean(input_tensor**2, dim=reduce_dim).sqrt()
             clip_val_vec = coeff[1] * mu + coeff[0] * std
+            
+            # Overwrite negative clip_vals with abs.max
+            neg_clip_idx = clip_val_vec < 0.0
+            if torch.any(neg_clip_idx):
+                clip_val_max = torch.max(input_tensor.abs(), dim=1).values
+                clip_val_vec[neg_clip_idx] = clip_val_max[neg_clip_idx]
+
             return None, clip_val_vec
 
         # per-tensor
@@ -122,6 +132,10 @@ def sawb_params_code(
         mu = x.abs().mean()
         std = x.mul(x).mean().sqrt()
         clip_val = coeff[1] * mu + coeff[0] * std
+
+        # Overwrite negative clip_vals with abs.max
+        if clip_val < 0.0:
+            clip_val = x.abs().max()
 
         if code in [102]:
             n_levels = 2**num_bits - 1
