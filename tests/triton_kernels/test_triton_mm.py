@@ -26,6 +26,8 @@ if available_packages["triton"]:
     from fms_mo.custom_ext_kernels.triton_kernels import (
         tl_matmul_chunk_truncate as tl_matmul,
     )
+else:
+    raise ImportError("triton python package is not avaialble, please check your installation.")
 
 
 @pytest.mark.parametrize("mkn", [64, 256, 1024, 4096])

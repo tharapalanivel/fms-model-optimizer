@@ -1125,7 +1125,7 @@ class QLinearINT8Deploy(nn.Linear):
                 imatmul_ops_reg,
             )
 
-            if self.use_int_kernel == "triton":
+            if self.use_int_kernel == "triton" and available_packages["triton"]:
                 # will use real imatmul written in triton
                 imm_func = partial(
                     tl_matmul,
