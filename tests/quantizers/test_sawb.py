@@ -425,7 +425,6 @@ def test_sawbnew_symmetric_perCh(
     tensor: torch.FloatTensor,
     quantizer_symmetric_perCh: dict,
     base_options: dict,
-    other_options: dict, # only 1 STE for this case right now
 ):
     """
     Test SAWB_new w/ symmetric tensors for perCh
@@ -458,9 +457,10 @@ def test_sawbnew_symmetric_perCh(
         qscheme = qscheme,
     )
 
-    # Set base quantizer and SAWB options ; save nativePT
-    native_pt = base_options["nativePT"]
-    base_options["nativePT"] = False  # Not supported for SAWB
+    # Create only set of other options for SAWB perCh STEs
+    other_options = {"clipSTE": True, "align_zero": True, "use16bins": False}
+
+    # Set base quantizer and SAWB options
     set_base_options(
         sawbnew_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options
     )
