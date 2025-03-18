@@ -29,7 +29,7 @@ from fms_mo.quant_refactor.per_tensor_ste import (
 )
 from fms_mo.quant_refactor.per_channel_ste import (
     PerChannelSTESAWB,
-    # PerChannelSTESAWB_PTnative,
+    PerChannelSTESAWB_PTnative,
 )
 from fms_mo.quant_refactor.linear_utils import linear_dequantize, linear_quantize
 from fms_mo.quant_refactor.sawb_utils import sawb_params, sawb_params_code
@@ -132,14 +132,10 @@ class SAWB_new(Quantizer):
         if self.use_PT_native_Qfunc:
             if self.perCh:
                 self.use_code = self.qscheme.qlevel_lowering
-                # self.quantizer = PerChannelSTESAWB_PTnative
+                self.quantizer = PerChannelSTESAWB_PTnative
             else:
-                # if self.use_extended_range_4bits:
-                #     self.use_code = True
-                #     self.quantizer = SAWBPlus16ZeroSTE_PTnative
-                # else:
-                    self.use_code = self.qscheme.qlevel_lowering
-                    self.quantizer = PerTensorSTESAWB_PTnative
+                self.use_code = self.qscheme.qlevel_lowering
+                self.quantizer = PerTensorSTESAWB_PTnative
 
         else:  # Non-PTnative quantizers
             self.use_code = self.qscheme.qlevel_lowering
@@ -148,8 +144,6 @@ class SAWB_new(Quantizer):
                     self.quantizer = (
                         SAWBPlusZeroPerChSTE_new
                         if self.perCh and self.num_bits in [2, 4, 8]
-                        # else SAWBPlus16ZeroSTE_new
-                        # if self.extended_ranged and self.num_bits == 4
                         else SAWBPlusZeroSTE_new
                     )
                 else:
@@ -558,78 +552,10 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 #         return n_levels, clip_val, scale, zero_point, qint_l, qint_h, qint_dtype
 
 
-# Placeholder classes for PerCh - need to rework #
 class SAWBPlusZeroPerChSTE_new(PerChannelSTESAWB):
     """
     per-channel SAWB with zero alignment, ca,8n use 15 or 16 bins, i.e. [-7,7] or [-7]
     """
-
-    # @staticmethod
-    # def forward(
-    #     ctx,
-    #     input_tensor: torch.FloatTensor,
-    #     num_bits: torch.IntTensor,
-    #     _clip_valn: torch.FloatTensor = clip_valn_default,
-    #     clip_val: torch.FloatTensor = clip_val_default,
-    #     dequantize: bool = True,
-    #     _symmetric: bool = False,
-    #     _qlevel_lowering: bool = False,
-    #     _use_code: bool = False,
-    # ):
-    #     """
-    #     Forward function for SAWBPlusZeroPerChSTE
-
-    #     Args:
-    #         ctx (torch.autograd.Function): Forward/Backward context object.
-    #         input_tensor (torch.FloatTensor): Tensor to be quantized.
-    #         num_bits (torch.IntTensor): Number of bit for quantization.
-    #         clip_valn (torch.FloatTensor): Lower clip value bound.
-    #         clip_val (torch.FloatTensor): Upper clip value bound.
-    #         dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
-    #         symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
-    #         qlevel_lowering (bool, optional): Specify lowering of quantized levels.
-    #             Defaults to True.
-    #         use_code (bool, optional): Specify using SAWB code. Defaults to False.
-
-    #     Returns:
-    #         torch.Tensor: Dequantized or Quantized output tensor.
-    #     """
-    #     # assert num_bits in [4, 8], "only implemented for 4bit and 8bit"
-
-    #     SAWBcode_mapping = {8: 803, 4: 403, 2: 103}
-    #     num_bits_int = (
-    #         num_bits.item() if isinstance(num_bits, torch.Tensor) else num_bits
-    #     )
-    #     clip_val, _ = sawb_params_code(
-    #         num_bits_int, SAWBcode_mapping[num_bits_int], input_tensor, perCh=True
-    #     )
-
-    #     _nspace = 2**num_bits - 2  # + objSAWB.use16bins # Ignore 16bins for now
-    #     int_l = -(2 ** (num_bits - 1)) + 1
-    #     int_u = -int_l  # + objSAWB.use16bins # Ignore 16bins for now
-
-    #     scale = clip_val * 2 / (2**num_bits - 2)
-    #     # original SAWB assumes odd number of bins when calc clip_val
-    #     zero_point = torch.zeros_like(scale)  # SAWB always centers around 0 and align 0
-
-    #     if dequantize:
-    #         output = torch.fake_quantize_per_channel_affine(
-    #             input_tensor.float(),
-    #             scale.float(),
-    #             zero_point.float(),
-    #             axis=0,
-    #             quant_min=int_l,
-    #             quant_max=int_u,
-    #         ).to(
-    #             clip_val.dtype
-    #         )  # NOTE return will be a fp32 tensor; function only support float()
-    #     else:
-    #         output = torch.quantize_per_channel(
-    #             input_tensor, scale, zero_point, 0, torch.qint8
-    #         ).int_repr()
-    #         # NOTE return will be a torch.int8 tensor
-
-    #     return output
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -645,3 +571,4 @@ class SAWBPlusZeroPerChSTE_new(PerChannelSTESAWB):
         """
         grad_input = grad_output.clone()
         return grad_input, None, None, None, None, None, None, None
+

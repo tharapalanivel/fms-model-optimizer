@@ -28,6 +28,7 @@ from fms_mo.quant_refactor.linear_utils import (
     per_channel_axis,
 )
 
+default_axis = int(0)
 
 class PerChannelSTE(torch.autograd.Function):
     """Base class for customized forward/backward functions that is NOT using PT native func.
@@ -51,7 +52,7 @@ class PerChannelSTE(torch.autograd.Function):
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
-        axis: int = 0,
+        axis: int = default_axis,
     ):
         """
         General forward method:
@@ -104,7 +105,7 @@ class PerChannelSTE(torch.autograd.Function):
         clip_val: torch.FloatTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
-        axis: int = 0,
+        axis: int = default_axis,
         tensor_shape: torch.Size = None,
     ):
         """
@@ -195,7 +196,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
-        axis: int = 0,
+        axis: int = default_axis,
     ):
         """
         General forward method:
@@ -293,7 +294,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
         num_bits_int = (
             num_bits.item() if isinstance(num_bits, torch.Tensor) else num_bits
         )
-        if symmetric and zero_point == 0:
+        if symmetric and torch.sum(zero_point) == 0:
             qlevel_symmetric = 1 if qlevel_lowering else 0
             qint_l, qint_h = (
                 -(2 ** (num_bits_int - 1)) + qlevel_symmetric,
@@ -315,7 +316,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
         qint_h: int,
         qint_dtype: torch.dtype,
         dequantize: bool = True,
-        axis: int = 0,
+        axis: int = default_axis,
     ) -> torch.Tensor:
         """
         Linear quantization for PTnative STE
@@ -392,7 +393,7 @@ class PerChannelSTESAWB(PerChannelSTE):
         symmetric: bool = False,
         qlevel_lowering: bool = False,
         use_code: bool = False,
-        axis: int = 0,
+        axis: int = default_axis,
     ):
         """
         General forward method:
@@ -450,7 +451,7 @@ class PerChannelSTESAWB(PerChannelSTE):
         clip_val: torch.FloatTensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
-        axis: int = 0,
+        axis: int = default_axis,
         tensor_shape: torch.Size = None,
         use_code: bool = False,
     ):
@@ -487,3 +488,153 @@ class PerChannelSTESAWB(PerChannelSTE):
         else:
             raise ValueError("SAWB has non-symmetric Qscheme")
         return output
+    
+class PerChannelSTESAWB_PTnative(PerChannelSTE_PTnative):
+    """Base class for customized forward/backward functions.
+    There's a family of non-learnable quantizers, such as SAWB, MinMax,
+    whose forward can leverage PT native functions and backward is simply STE.
+    We just need to calculate scale in the upper level quantizer class then those quantizers
+    could all be using the same base "STE function"
+
+    math should be consistent with pytorch: https://pytorch.org/docs/stable/quantization.html
+        x_int = round(x/scale + zp)
+        x_dq  = (x_int - zp) * scale
+
+    This type of class will be used by Quantizer.forward(), e.g.
+    """
+
+    @staticmethod
+    def forward(
+        ctx,
+        input_tensor: torch.FloatTensor,
+        num_bits: torch.IntTensor,
+        clip_valn: torch.FloatTensor,
+        clip_val: torch.FloatTensor,
+        dequantize: bool = True,
+        symmetric: bool = False,
+        qlevel_lowering: bool = False,
+        use_code: bool = False,
+        axis: int = default_axis,
+    ):
+        """
+        General forward method:
+            Set clip values to dtype of input_tensor tensor
+            Compute # of quantized levels, scale, and zero point
+            Perform PTnative linear quantization on input_tensor tensor
+            return output
+
+        Args:
+            ctx (torch.autograd.Function): Forward/Backward context object.
+            input_tensor_tensor (torch.FloatTensor): Tensor to be quantized.
+            num_bits (torch.IntTensor): Number of bit for quantization.
+            clip_valn (torch.FloatTensor): Lower clip value bound.
+            clip_val (torch.FloatTensor): Upper clip value bound.
+            dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
+            symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
+            qlevel_lowering (bool, optional): Specify lowering of quantized levels.
+                Defaults to True.
+            axis (int, optional): Specify which tensor dimension to quantize indiviually.
+                Defaults to 0.
+
+        Returns:
+            torch.Tensor: Dequantized or Quantized output tensor.
+        """
+        clip_valn, clip_val = transform_clips(
+            input_tensor.dtype,
+            clip_valn,
+            clip_val,
+        )
+        (
+            _,
+            scale,
+            zero_point,
+            qint_l,
+            qint_h,
+            qint_dtype,
+        ) = PerChannelSTESAWB_PTnative.calc_qparams(
+            num_bits, clip_valn, clip_val, symmetric, qlevel_lowering,
+        )
+        output = PerChannelSTE_PTnative.linear_quantization(
+            input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize, axis
+        )
+        return output
+
+    @classmethod
+    def calc_qparams(
+        cls,
+        num_bits: torch.IntTensor,
+        clip_valn: torch.FloatTensor,
+        clip_val: torch.FloatTensor,
+        symmetric: bool = False,
+        qlevel_lowering: bool = False,
+    ) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor, int, int]:
+        """
+        Compute the scale and zero_point from num_bits and clip values.
+        Also, compute qint bounds for PT clamping.
+
+        Args:
+            num_bits (torch.IntTensor): Number of bit for quantization.
+            clip_valn (torch.FloatTensor): Lower clip value.
+            clip_val (torch.FloatTensor): Upper clip value.
+            symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
+            qlevel_lowering (bool, optional): Specify lowering of quantized levels.
+                Defaults to True.
+
+        Returns:
+            Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor]: Quantized parameters
+        """
+        n_levels = 2**num_bits - 2 if qlevel_lowering else 2**num_bits - 1
+        scale = (clip_val - clip_valn) / n_levels
+        zero_point = (
+            torch.zeros_like(scale)
+            if symmetric
+            else torch.round(-clip_valn / scale).to(torch.int)
+        )
+        qint_l, qint_h, qint_dtype = PerChannelSTESAWB_PTnative.qint_bounds(
+            num_bits, zero_point, symmetric, qlevel_lowering
+        )
+        # Note: fake_quantize_per_channel_affine does not need matching dimensions for scale/zp to tensor
+        return n_levels, scale, zero_point, qint_l, qint_h, qint_dtype
+    
+    @classmethod
+    def qint_bounds(
+        cls,
+        num_bits: torch.IntTensor,
+        zero_point: torch.IntTensor,
+        symmetric: bool = False,
+        qlevel_lowering: bool = True,
+    ) -> Tuple[int, int, torch.dtype]:
+        """
+        qlevel_symmetric: shift qlevel from [-2**(b-1), 2**(b-1)-1] to [-2**(b-1)+1, 2**(b-1)-1]
+        For int8: [-127,127] ; For int4 [-7,7]
+        qint bounds must be ints, not tensors
+        """
+        num_bits_int = (
+            num_bits.item() if isinstance(num_bits, torch.Tensor) else num_bits
+        )
+        if symmetric and torch.sum(zero_point) == 0:
+            qlevel_symmetric = 1 if qlevel_lowering else 0
+            qint_l, qint_h = (
+                -(2 ** (num_bits_int - 1)) + qlevel_symmetric,
+                2 ** (num_bits_int - 1) - 1,
+            )
+            qint_dtype = torch.qint8
+        else:  # single_sided or zero_point != 0
+            qint_l, qint_h = 0, 2**num_bits_int - 1
+            qint_dtype = torch.quint8
+        return qint_l, qint_h, qint_dtype
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        """
+        General STE backward method:
+            Return grad_output + None args to match forward input_tensor
+
+        Args:
+            ctx (torch.autograd.Function): Forward/Backward context object.
+            grad_output (torch.FloatTensor): Gradient tensor
+
+        Returns:
+            torch.FloatTensor, None,...,None: STE Gradient
+        """
+        return grad_output, None, None, None, None, None, None
