@@ -138,7 +138,7 @@ class Qscheme:
         """
         q_uint_str = f"qunit={self.q_unit}"
         symmetric_str = f", symmetric={self.symmetric}"
-        Nch_str = f", Nch={self.Nch}" if self.Nch is not None else ""
+        Nch_str = f", Nch={self.Nch}, axis={self.axis}" if self.Nch is not None else ""
         Ngrp_str = f", NperGrp={self.Ngrp}" if self.Ngrp is not None else ""
         NperGrp_str = f", Ngrp={self.NperGrp}" if self.NperGrp is not None else ""
         single_sided_str = f", single_sided={self.single_sided}"
