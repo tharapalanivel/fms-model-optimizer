@@ -31,7 +31,7 @@ from fms_mo.quant_refactor.per_channel_ste import (
     PerChannelSTESAWB,
     PerChannelSTESAWB_PTnative,
 )
-from fms_mo.quant_refactor.linear_utils import linear_dequantize, linear_quantize
+# from fms_mo.quant_refactor.linear_utils import linear_dequantize, linear_quantize
 from fms_mo.quant_refactor.sawb_utils import sawb_params, sawb_params_code
 
 clip_valn_default = torch.tensor(-8.0)

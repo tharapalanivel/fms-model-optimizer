@@ -369,7 +369,6 @@ def test_sawb_symmetric_perCh(
     tensor: torch.FloatTensor,
     quantizer_symmetric_perCh: dict,
     base_options: dict,
-    other_options: dict, # only 1 STE for this case right now
 ):
     """
     Test SAWB w/ symmetric tensors for per channel
@@ -378,7 +377,6 @@ def test_sawb_symmetric_perCh(
         tensor (torch.FloatTensor): Tensor to quantize.
         quantizer_symmetric_perCh (dict): Symmetric quantizer settings for per channel.
         base_options (dict): Base options for quantization.
-        other_options (dict): Other Options for quantization.
     """
 
     Nch = tensor.shape[0]
@@ -401,11 +399,12 @@ def test_sawb_symmetric_perCh(
     # Set base quantizer and SAWB options ; save nativePT
     native_pt = base_options["nativePT"]
     base_options["nativePT"] = False  # Not supported for SAWB
+
+    # Create only set of other options for SAWB perCh STEs
+    other_options = {"clipSTE": True, "align_zero": True, "use16bins": False}
+
     set_base_options(sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options)
     set_per_channel(tensor, sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh)
-    # set_other_options_new(
-    #     tensor, sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, other_options
-    # )
 
     # Create quantized tensors from FMS Model Optimizer + torch
     qtensor_fms_mo = sawb_quantizer_symmetric_perCh(tensor).detach()
