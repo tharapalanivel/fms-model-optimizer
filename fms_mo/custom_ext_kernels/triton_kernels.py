@@ -376,10 +376,10 @@ def matmul_kernel_DABC(
         else:
             accumulator_inner = tl.dot(a, b, accumulator, input_precision="ieee")
         # tl.dot() default is using TF32 approximation, not good enough for LSB truncation exp
-        # NOTE: tl.dot(a, b, c) should use one single CUDA mma instruction to handle "c = a*b+c". If
-        #       this mma instruction uses "reduced-precision" under the hood, not only a*b will
-        #       be accumulated in that precision, c most likely will be cast to that "lower"
-        #       precision first, hence, will lose some precision!
+        # NOTE: tl.dot(a, b, c) should correspond to a CUDA mma instruction, typically "c = a*b+c".
+        #       If this mma instruction uses "reduced-precision" under the hood, not only a*b will
+        #       be accumulated in that precision, there's a chance c will be cast to that "lower"
+        #       precision as well, hence, could lose some precision!
 
         ## ------ add chunky LSB rounding/masking --------
         if chunk_trun_bits > 0:
