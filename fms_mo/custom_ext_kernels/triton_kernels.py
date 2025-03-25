@@ -420,6 +420,7 @@ def round_and_trun(x, round_bit, trun_mask):
 def tl_matmul_chunk_truncate(
     a,
     b,
+    c=None,
     activation="",
     chunk_trun_bits=0,
     chunk_size=16,
