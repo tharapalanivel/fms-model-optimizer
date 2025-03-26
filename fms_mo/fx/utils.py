@@ -360,7 +360,7 @@ def get_org_mod_name_of_fx_node(
                         org_name = v[: -len(suffix)]
                     break
 
-        if org_name is None:
+        if org_name.startswith("Unknown:"):
             org_name = lname_to_org_name(n_fx_org_mod_name)
 
     return org_name
