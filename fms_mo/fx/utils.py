@@ -343,6 +343,8 @@ def get_org_mod_name_of_fx_node(
         str: corresponding name on original graph
     """
     org_name = f"Unknown:{node.name}"
+    if lut_fx2org == None:
+        lut_fx2org = {}
     if "nn_module_stack" in node.meta:
         n_fx_mod_name = list(node.meta["nn_module_stack"].keys())[-1]
         n_fx_org_mod_name = list(node.meta["nn_module_stack"].values())[-1][0]
