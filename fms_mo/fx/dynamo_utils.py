@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 def run_fwd_once(model, sample_inp):
+    """Convenient function to run model once using correct input unpack."""
     with torch.no_grad():
         if isinstance(sample_inp, dict) or all(
             hasattr(sample_inp, k) for k in ("keys", "values", "items")
@@ -252,7 +253,7 @@ def dfs_gm(
 def find_conv_on_shortcut_gm(
     gm: torch.fx.GraphModule,
     lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None,
-    lut_name_to_mod={},
+    lut_name_to_mod=None,
 ):
     """Identify Conv on shortcut using FX GM DFS
     It's (almost) specific for ResNet-like CNNs, will return a list of module names (as used in the
@@ -276,6 +277,9 @@ def find_conv_on_shortcut_gm(
 
     5. count levels of each branch, decide which one is the shortcut
     """
+
+    if lut_name_to_mod is None:
+        lut_name_to_mod = {}
 
     # 1. Find "add" nodes, including inplace add as some may use "out+=shortcut"
     nodes_add = dfs_gm(gm, ["add"], return_nodes=True)
