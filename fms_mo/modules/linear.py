@@ -1929,3 +1929,88 @@ class LinearFPxAcc(torch.nn.Linear):
             f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
             f"trun_bits={self.trun_bits}"
         )
+
+if available_packages["mx"]:
+    import mx # defaults to import all classes
+
+    mx_specs_default = {
+        "w_elem_format": "fp8_e4m3",
+        "a_elem_format": "fp8_e4m3",
+        "block_size": 32,
+        "bfloat": 16,
+        "custom_cuda": True,
+        # For quantization-aware finetuning, do backward pass in FP32
+        "quantize_backprop": False,
+    }
+
+    class QLinearMX(mx.Linear):
+
+        @classmethod
+        def from_fms_mo(cls, fms_mo_qlinear, **kwargs):
+            """
+            Converts a QLinear module to QLinearMX.
+
+            Args:
+                cls: The class of the QLinearMX to be created.
+                fms_mo_qlinear: The QLinear module to be converted.
+                kwargs: Additional keyword arguments.
+
+            Returns:
+                A QLinearMX object initialized with the weights and biases from the
+                    QLinear module.
+            """
+            mx_supported_formats = {
+                "mx_fp8_e5m2", "mx_fp8_e4m3",
+                "mx_fp4_e2m1", "mx_fp4",
+                "mx_int8", "mx_int4",
+                "mx_fp16", "mx_float16",
+                "mx_bf16", "mx_bfloat16",
+            }
+            assert (
+                fms_mo_qlinear.qa_mode in mx_supported_formats
+                and fms_mo_qlinear.qw_mode in mx_supported_formats
+            ), "Please check MX quantization mode settings!"
+            a_elem_format = fms_mo_qlinear.qa_mode.removeprefix("mx_")
+            w_elem_format = fms_mo_qlinear.qw_mode.removeprefix("mx_")
+            
+            block_size = kwargs.pop("block_size")
+            mx_supported_block_sizes = {8, 16, 32, 64, 128}
+            assert (
+                block_size in mx_supported_block_sizes
+            ), "Please check MX block size setting!"
+
+            target_device = kwargs.get(
+                "target_device", next(fms_mo_qlinear.parameters()).device
+            )
+            use_ptq = fms_mo_qlinear
+
+            mx_specs = {
+                "a_elem_format": a_elem_format,
+                "w_elem_format": w_elem_format,
+                "block_size": block_size,
+                "bfloat": 16,
+                "custom_cuda": True,
+                # For quantization-aware finetuning, do backward pass in FP32
+                "quantize_backprop": False,
+            }
+
+
+
+            # Create mx.Linear class from QLinear
+            qlinear_mx = cls(
+                in_features=fms_mo_qlinear.in_features,
+                out_features=fms_mo_qlinear.out_features,
+                bias=isinstance(
+                    fms_mo_qlinear.bias, torch.Tensor
+                ),
+                mx_specs=fms_mo_qlinear.qcfg["mx_specs"],
+                name=None,
+            )
+            
+
+        def extra_repr(self) -> str:
+            return (
+                f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
+                f"mx_spec={self.mx_spec}"
+            )
+
