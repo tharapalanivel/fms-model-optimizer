@@ -499,10 +499,10 @@ def tl_matmul_chunk_truncate(
         mm_kernel = imatmul_kernel
     else:
         acc_dtype = torch.float32
-        mm_kernel = matmul_kernel if c == None else matmul_kernel_DABC
+        mm_kernel = matmul_kernel if c is None else matmul_kernel_DABC
         assert chunk_trun_bits < 23, "FP32 accumulator only has 23 mantissa bits"
 
-    if c == None:
+    if c is None:
         c_org_dtype = a.dtype
         c = torch.zeros((M, N), device=a.device, dtype=acc_dtype)
     else:
