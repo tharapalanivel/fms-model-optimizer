@@ -1825,8 +1825,8 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
             x_scale = x.abs().amax(dim=reduce_dim) / ctx.fp8_e4m3_max
             w_scale = weight.abs().amax(dim=reduce_dim) / ctx.fp8_e4m3_max
 
-            x = (x/x_scale).to(torch.float8_e4m3fn).to(org_dtype)*x_scale
-            weight = (weight/w_scale).to(torch.float8_e4m3fn).to(org_dtype)*w_scale
+            x = (x / x_scale).to(torch.float8_e4m3fn).to(org_dtype) * x_scale
+            weight = (weight / w_scale).to(torch.float8_e4m3fn).to(org_dtype) * w_scale
 
         # triton kernel assumes 2D inputs and cast the return to input.dtype
         output = tl_matmul(
@@ -1858,13 +1858,14 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
             reduce_dim = None if ctx.fp8_dyn == "per_tensor" else 1
             x_scale = x.abs().amax(dim=reduce_dim) / ctx.fp8_e5m2_max
             w_scale = weight.abs().amax(dim=reduce_dim) / ctx.fp8_e5m2_max
-            grad_out_scale = grad_output_2D.abs().amax(dim=None) / ctx.fp8_e5m2_max  # always perT
+            # always assume perT in this case
+            grad_out_scale = grad_output_2D.abs().amax(dim=None) / ctx.fp8_e5m2_max
 
-            x = (x/x_scale).to(torch.float8_e5m2).to(dtype_input)*x_scale
-            weight = (weight/w_scale).to(torch.float8_e5m2).to(weight.dtype)*w_scale
-            grad_output_2D = (grad_output_2D/grad_out_scale).to(torch.float8_e5m2
-                                                                ).to(grad_output.dtype
-                                                                     )*grad_out_scale
+            x = (x / x_scale).to(torch.float8_e5m2).to(dtype_input) * x_scale
+            weight = (weight / w_scale).to(torch.float8_e5m2).to(weight.dtype) * w_scale
+            grad_output_2D = (grad_output_2D / grad_out_scale).to(torch.float8_e5m2).to(
+                grad_output.dtype
+            ) * grad_out_scale
 
         # Compute grad_weight, shape = [out, in]
         # NOTE: this triton kernel requires A matrix to be contiguous
@@ -1933,7 +1934,8 @@ class LinearFPxAcc(torch.nn.Linear):
         lin24acc.weight = nnlin.weight
         lin24acc.trun_bits = trun_bits
         lin24acc.chunk_size = kwargs.get("chunk_size", False)
-        lin24acc.fp8_dyn = kwargs.get("dynamic_fp8", False)  #["per_tensor", "per_token"]
+        lin24acc.fp8_dyn = kwargs.get("dynamic_fp8", False)
+        # available options are ["per_tensor", "per_token"]
 
         if nnlin.bias is not None:
             lin24acc.bias = nnlin.bias
@@ -1941,8 +1943,14 @@ class LinearFPxAcc(torch.nn.Linear):
 
     def forward(self, inputs):
         # This Linear Class will cast to BF16 before matmul and return FP32
-        return LinearFuncFPxFwdBwd.apply(inputs, self.weight, self.bias, self.trun_bits, 
-                                         self.chunk_size, self.fp8_dyn)
+        return LinearFuncFPxFwdBwd.apply(
+            inputs,
+            self.weight,
+            self.bias,
+            self.trun_bits,
+            self.chunk_size,
+            self.fp8_dyn,
+        )
 
     def extra_repr(self) -> str:
         """

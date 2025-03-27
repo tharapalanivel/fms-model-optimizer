@@ -266,7 +266,6 @@ def imatmul_kernel(
         else:
             accumulator = accumulator_inner
 
-
         a_ptrs += BLOCK_SIZE_K * stride_ak
         b_ptrs += BLOCK_SIZE_K * stride_bk
     if ACTIVATION == "leaky_relu":
@@ -279,7 +278,6 @@ def imatmul_kernel(
     c_ptrs = c_ptr + stride_cm * offs_cm[:, None] + stride_cn * offs_cn[None, :]
     c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
     tl.store(c_ptrs, c, mask=c_mask)
-
 
 
 @triton.jit
@@ -311,11 +309,11 @@ def matmul_kernel_DABC(
     ACTIVATION: tl.constexpr,
 ):
     """Kernel for computing the matmul D = A x B + C that include LSB truncation.
-    A has shape (M, K), B has shape (K, N) and C/D has shape (M, N). 
+    A has shape (M, K), B has shape (K, N) and C/D has shape (M, N).
     NOTE:
         C should be consistent with accumulator dtype, e.g. fp8xfp8 -> fp32.
         *D ptr is supposed to be the same as C ptr, no need to provide D as arg
-        **we can be used C to verify unintended truncation by CUDA as well. 
+        **we can be used C to verify unintended truncation by CUDA as well.
     Args:
         chunk_trun_bits (int): number of LSB to truncate/round. [0 to 23]
     """
@@ -353,9 +351,8 @@ def matmul_kernel_DABC(
     # -----------------------------------------------------------
     # Iterate to compute a block of the C matrix.
     # We accumulate into a `[BLOCK_SIZE_M, BLOCK_SIZE_N]` block
-    # of fp32 values for higher accuracy.
-    # accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
-    accumulator = tl.load(c_ptrs, mask=c_mask, other=0.0)  # should have been cast to fp32 already
+    # of fp32 values for higher accuracy, i.e. C should have been cast to fp32 already
+    accumulator = tl.load(c_ptrs, mask=c_mask, other=0.0)
     ## ------ prepare LSB rounding/truncation masks -------
     # NOTE mask will be applied on accumulator, which is alway FP32, so we may truncate up to 23b
     # e.g., 20b -> trun_mask = 0xFFF00000, round_bit = 0x00080000
@@ -477,15 +474,23 @@ def tl_matmul_chunk_truncate(
     # insert 0s in between elements, i.e. pad [m,k] -> [m,2k], [k,n]->[2k,n], out=[m,n] unchanged.
     # Do not support I8 or F8 for now. (as F8/FP24 simulation is treated as BF16 currently)
     if chunk_size == 8 and a.dtype in [torch.float16, torch.bfloat16]:
-        a_padded = torch.zeros(a.shape[0], a.shape[1]*2, dtype=a.dtype, device=a.device)
+        a_padded = torch.zeros(
+            a.shape[0], a.shape[1] * 2, dtype=a.dtype, device=a.device
+        )
         a_padded[:, ::2] = a
         a = a_padded
-        b_padded = torch.zeros(b.shape[0]*2, b.shape[1], dtype=b.dtype, device=b.device)
+        b_padded = torch.zeros(
+            b.shape[0] * 2, b.shape[1], dtype=b.dtype, device=b.device
+        )
         b_padded[::2, :] = b
         b = b_padded
         chunk_size = 16
     else:
-        chunk_size = max(chunk_size, min_chunk_size) if isPowerofTwo(chunk_size) else min_chunk_size
+        chunk_size = (
+            max(chunk_size, min_chunk_size)
+            if isPowerofTwo(chunk_size)
+            else min_chunk_size
+        )
 
     M, K = a.shape
     K, N = b.shape
@@ -504,8 +509,8 @@ def tl_matmul_chunk_truncate(
         # if C is in fp16, accumulate in fp32 no matter what, decide whether to cast back later
         c_org_dtype = c.dtype
         c = c.to(acc_dtype)
-        assert c.shape[0]==M and c.shape[1]==N, "C shape is inconsistent with A B."
-        assert acc_dtype==torch.float32, "INT truncation experiment is not yet supported."
+        assert c.shape[0] == M and c.shape[1] == N, "C shape is inconsistent with A B."
+        assert acc_dtype == torch.float32, "INT truncation is not yet supported."
 
     # 1D launch kernel where each block gets its own program.
     def grid(META):
