@@ -27,6 +27,7 @@ import torch
 
 # Local
 from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
+from fms_mo.utils.import_utils import available_packages
 
 # import numpy as np # only used in experimental func
 
@@ -152,18 +153,25 @@ def qconfig_init(recipe: str = None, args: Any = None):
     qcfg = {}
     # 1. create a dict with default values
     qcfg["mapping"] = {
-        nn.Conv2d: {"from": nn.Conv2d, "to": QConv2d, "otherwise": QConv2d},
-        nn.ConvTranspose2d: {
-            "from": nn.ConvTranspose2d,
-            "to": QConvTranspose2d,
-            "otherwise": QConvTranspose2d,
-        },
-        nn.Linear: {"from": nn.Linear, "to": QLinear, "otherwise": QLinear},
-        nn.LSTM: {"from": nn.LSTM, "to": QLSTM, "otherwise": QLSTM},
+        nn.Linear: QLinear,
+        nn.Conv2d: QConv2d,
+        nn.ConvTranspose2d: QConvTranspose2d,
+        nn.LSTM: QLSTM,
     }
-    # TODO: This could be further simplified. e.g. mapping["from class"] = "to class"
-    #       "otherwise" is rarely used, and redundant "from" in the output dict
+    
+    # Check if mapping must change for MX library
+    if available_packages["mx"]:
+        import mx
+        qcfg["mx_specs"] = mx.get_mx_specs(args)
 
+        if qcfg["mx_specs"] is not None:
+            qcfg["mapping"][nn.Linear] = mx.Linear
+
+    elif hasattr(args, "a_elem_format") or hasattr(args, "w_elem_format"):
+        logger.info(
+            "mx_specs variables provided in job args, but MX library is not installed"
+        )
+    
     qcfg["nbits_w"] = 32
     qcfg["nbits_a"] = 32
     qcfg["qa_mode"] = "pact+"
@@ -389,14 +397,10 @@ def get_unwanted_defaults():
         (
             "mapping",
             {
-                nn.Conv2d: {"from": nn.Conv2d, "to": QConv2d, "otherwise": QConv2d},
-                nn.ConvTranspose2d: {
-                    "from": nn.ConvTranspose2d,
-                    "to": QConvTranspose2d,
-                    "otherwise": QConvTranspose2d,
-                },
-                nn.Linear: {"from": nn.Linear, "to": QLinear, "otherwise": QLinear},
-                nn.LSTM: {"from": nn.LSTM, "to": QLSTM, "otherwise": QLSTM},
+                nn.Conv2d: QConv2d,
+                nn.ConvTranspose2d: QConvTranspose2d,
+                nn.Linear: QLinear,
+                nn.LSTM: QLSTM,
             },
         ),
         ("checkQerr_frequency", False),
