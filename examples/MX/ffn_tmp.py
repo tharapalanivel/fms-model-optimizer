@@ -138,6 +138,15 @@ if __name__ == "__main__":
     # Local
     from fms_mo import qconfig_init, qmodel_prep
 
+    mx_specs = MxSpecs()
+
+    mx_specs["scale_bits"] = 8
+    # mx_specs["w_elem_format"] = "fp4_e2m1"
+    # mx_specs["a_elem_format"] = "fp4_e2m1"
+    mx_specs["block_size"] = 32
+    mx_specs["bfloat"] = 16
+    mx_specs["custom_cuda"] = False
+
     x = np.random.randn(16, 128)
     x = torch.tensor(x, dtype=torch.float32, device="cuda")
 
@@ -152,38 +161,105 @@ if __name__ == "__main__":
     qcfg = qconfig_init()
     qcfg["nbits_a"] = 8
     qcfg["nbits_w"] = 8
+    # Test 1. normal qmodel_prep will replace Linear with our QLinear
     model = qmodel_prep(mlp, x, qcfg)
     with torch.no_grad():
-        out8 = model(x)
+        fms_int8 = model(x)
+    print(model)
+
+    # --- fms-mo starts here
+    qcfg["nbits_a"] = 4
+    qcfg["nbits_w"] = 4
+    # Test 1. normal qmodel_prep will replace Linear with our QLinear
+    mlp = ResidualMLP(128)
+    model = qmodel_prep(mlp, x, qcfg)
+    with torch.no_grad():
+        fms_int4 = model(x)
     print(model)
 
     # --- Test 2. now change mapping to MX
     # NOTE this is what will happen under the hood when we update qmodel_prep() in the near future
     #       it's just an explicit test for now
-    mx_specs = MxSpecs()
-    mx_specs["scale_bits"] = 8
-    mx_specs["w_elem_format"] = "fp4_e2m1"
-    mx_specs["a_elem_format"] = "fp4_e2m1"
-    mx_specs["block_size"] = 32
-    mx_specs["bfloat"] = 16
-    mx_specs["custom_cuda"] = True
-    qcfg["mx_specs"] = mx_specs
+    mx_specs["a_elem_format"] = "int8"
+    mx_specs["w_elem_format"] = "int8"
+    qcfg["mx_specs"] = mx_specs.data # Only transfer the dict inside mx_specs
     mlp = ResidualMLP(128)  # fresh model
     MXLinear = partial(LinearMX, mx_specs=qcfg["mx_specs"])
     qcfg["mapping"] = {
-        torch.nn.Linear: {
-            "from": torch.nn.Linear,
-            "to": MXLinear,
-            "otherwise": MXLinear,
-        },
+        torch.nn.Linear: MXLinear,
     }
     model = qmodel_prep(mlp, x, qcfg)
     with torch.no_grad():
-        out4 = model(x)
+        mx_int8 = model(x)
     print(model)
 
-    # --- final output
+    mx_specs["a_elem_format"] = "int4"
+    mx_specs["w_elem_format"] = "int4"
+    qcfg["mx_specs"] = mx_specs.data # Only transfer the dict inside mx_specs
+    mlp = ResidualMLP(128)  # fresh model
+    MXLinear = partial(LinearMX, mx_specs=qcfg["mx_specs"])
+    model = qmodel_prep(mlp, x, qcfg)
+    with torch.no_grad():
+        mx_int4 = model(x)
+    print(model)
+
+    mx_specs["a_elem_format"] = "fp8_e4m3"
+    mx_specs["w_elem_format"] = "fp8_e4m3"
+    qcfg["mx_specs"] = mx_specs.data # Only transfer the dict inside mx_specs
+    mlp = ResidualMLP(128)  # fresh model
+    MXLinear = partial(LinearMX, mx_specs=qcfg["mx_specs"])
+    model = qmodel_prep(mlp, x, qcfg)
+    with torch.no_grad():
+        mx_fp8_e4m3 = model(x)
+    print(model)
+
+    mx_specs["a_elem_format"] = "fp8_e5m2"
+    mx_specs["w_elem_format"] = "fp8_e5m2"
+    qcfg["mx_specs"] = mx_specs.data # Only transfer the dict inside mx_specs
+    mlp = ResidualMLP(128)  # fresh model
+    MXLinear = partial(LinearMX, mx_specs=qcfg["mx_specs"])
+    model = qmodel_prep(mlp, x, qcfg)
+    with torch.no_grad():
+        mx_fp8_e5m2 = model(x)
+    print(model)
+
+    mx_specs["a_elem_format"] = "fp4_e2m1"
+    mx_specs["w_elem_format"] = "fp4_e2m1"
+    qcfg["mx_specs"] = mx_specs.data # Only transfer the dict inside mx_specs
+    mlp = ResidualMLP(128)  # fresh model
+    MXLinear = partial(LinearMX, mx_specs=qcfg["mx_specs"])
+    model = qmodel_prep(mlp, x, qcfg)
+    with torch.no_grad():
+        mx_fp4_e2m1 = model(x)
+    print(model)
+
+    l2_fms_int8 = torch.norm(out-fms_int8)
+    l2_fms_int4 = torch.norm(out-fms_int4)
+
+    l2_mx_int8 = torch.norm(out-mx_int8)
+    l2_mx_int4 = torch.norm(out-mx_int4)
+    l2_mx_fp8_e4m3 = torch.norm(out-mx_fp8_e4m3)
+    l2_mx_fp8_e5m2 = torch.norm(out-mx_fp8_e5m2)
+    l2_mx_fp4_e2m1 = torch.norm(out-mx_fp4_e2m1)
+
     print(f"ref output", out)
-    print(f"int8 output", out8)
-    print(f"mxfp4 output", out4)
+
+    print(f"fms_int8 output", fms_int8)
+    print(f"fms_int4 output", fms_int4)
+
+    print(f"mx_int8 output", mx_int8)
+    print(f"mx_int4 output", mx_int4)
+    print(f"mx_fp8_m4e3 output", mx_fp8_e4m3)
+    print(f"mx_fp8_m5e2 output", mx_fp8_e5m2)
+    print(f"mx_fp4_m2e1 output", mx_fp4_e2m1)
+
+    print(f"L2 norm for fms_int8 =", l2_fms_int8)
+    print(f"L2 norm for fms_int4 =", l2_fms_int4)
+
+    print(f"L2 norm for mx_int8 =", l2_mx_int8)
+    print(f"L2 norm for mx_int4 =", l2_mx_int4)
+    print(f"L2 norm for mx_fp8_m4e3 =", l2_mx_fp8_e4m3)
+    print(f"L2 norm for mx_fp8_m5e2 =", l2_mx_fp8_e5m2)
+    print(f"L2 norm for mx_fp4_m2e1 =", l2_mx_fp4_e2m1)
+
     print("DONE!")
