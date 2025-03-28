@@ -950,22 +950,10 @@ required_pair_params = [
     (
         "mapping",
         {
-            torch.nn.Conv2d: {
-                "from": torch.nn.Conv2d,
-                "to": QConv2d,
-                "otherwise": QConv2d,
-            },
-            torch.nn.ConvTranspose2d: {
-                "from": torch.nn.ConvTranspose2d,
-                "to": QConvTranspose2d,
-                "otherwise": QConvTranspose2d,
-            },
-            torch.nn.Linear: {
-                "from": torch.nn.Linear,
-                "to": QLinear,
-                "otherwise": QLinear,
-            },
-            torch.nn.LSTM: {"from": torch.nn.LSTM, "to": QLSTM, "otherwise": QLSTM},
+            torch.nn.Conv2d: QConv2d,
+            torch.nn.ConvTranspose2d: QConvTranspose2d,
+            torch.nn.Linear: QLinear,
+            torch.nn.LSTM: QLSTM,
         },
     ),
     ("checkQerr_frequency", False),
