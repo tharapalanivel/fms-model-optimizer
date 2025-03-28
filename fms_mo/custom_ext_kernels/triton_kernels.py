@@ -473,8 +473,12 @@ def tl_matmul_chunk_truncate(
     # because min k (chunk size in this case) for fp16/bf16 is 16, if smaller is needed, we could
     # insert 0s in between elements, e.g. pad [m,k] -> [m,2k], [k,n]->[2k,n], out=[m,n] unchanged.
     # Do not support INT8 for now.
-    if chunk_size == 8 and a.dtype in [torch.float8_e4m3fn, torch.float16, torch.bfloat16]:
-        exp_ratio = min_chunk_size//chunk_size
+    if chunk_size == 8 and a.dtype in [
+        torch.float8_e4m3fn,
+        torch.float16,
+        torch.bfloat16,
+    ]:
+        exp_ratio = min_chunk_size // chunk_size
         a_padded = torch.zeros(
             a.shape[0], a.shape[1] * exp_ratio, dtype=a.dtype, device=a.device
         )
