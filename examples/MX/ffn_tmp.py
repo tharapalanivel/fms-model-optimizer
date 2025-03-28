@@ -138,38 +138,35 @@ if __name__ == "__main__":
     # Local
     from fms_mo import qconfig_init, qmodel_prep
 
-    mx_specs = MxSpecs()
-
-    mx_specs["scale_bits"] = 8
-    mx_specs["w_elem_format"] = "fp4_e2m1"
-    mx_specs["a_elem_format"] = "fp4_e2m1"
-    mx_specs["block_size"] = 32
-    mx_specs["bfloat"] = 16
-    mx_specs["custom_cuda"] = True
-
     x = np.random.randn(16, 128)
     x = torch.tensor(x, dtype=torch.float32, device="cuda")
 
-    # Test 0. Run MLP as is
+    # --- Test 0. Run MLP as is
     mlp = ResidualMLP(128)
     # mlp.to("cuda")
     with torch.no_grad():
         out = mlp(x)
     print(mlp)
 
-    # --- fms-mo starts here
+    # --- Test 1. fms-mo qmodel_prep, replace Linear with our QLinear
     qcfg = qconfig_init()
     qcfg["nbits_a"] = 8
     qcfg["nbits_w"] = 8
-    # Test 1. normal qmodel_prep will replace Linear with our QLinear
     model = qmodel_prep(mlp, x, qcfg)
     with torch.no_grad():
         out8 = model(x)
     print(model)
 
-    # Test 2. now change mapping
+    # --- Test 2. now change mapping to MX
     # NOTE this is what will happen under the hood when we update qmodel_prep() in the near future
     #       it's just an explicit test for now
+    mx_specs = MxSpecs()
+    mx_specs["scale_bits"] = 8
+    mx_specs["w_elem_format"] = "fp4_e2m1"
+    mx_specs["a_elem_format"] = "fp4_e2m1"
+    mx_specs["block_size"] = 32
+    mx_specs["bfloat"] = 16
+    mx_specs["custom_cuda"] = True
     qcfg["mx_specs"] = mx_specs
     mlp = ResidualMLP(128)  # fresh model
     MXLinear = partial(LinearMX, mx_specs=qcfg["mx_specs"])
@@ -185,6 +182,7 @@ if __name__ == "__main__":
         out4 = model(x)
     print(model)
 
+    # --- final output
     print(f"ref output", out)
     print(f"int8 output", out8)
     print(f"mxfp4 output", out4)
