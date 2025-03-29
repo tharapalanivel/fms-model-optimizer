@@ -158,20 +158,7 @@ def qconfig_init(recipe: str = None, args: Any = None):
         nn.ConvTranspose2d: QConvTranspose2d,
         nn.LSTM: QLSTM,
     }
-    
-    # Check if mapping must change for MX library
-    if available_packages["mx"]:
-        import mx
-        qcfg["mx_specs"] = mx.get_mx_specs(args)
 
-        if qcfg["mx_specs"] is not None:
-            qcfg["mapping"][nn.Linear] = mx.Linear
-
-    elif hasattr(args, "a_elem_format") or hasattr(args, "w_elem_format"):
-        logger.info(
-            "mx_specs variables provided in job args, but MX library is not installed"
-        )
-    
     qcfg["nbits_w"] = 32
     qcfg["nbits_a"] = 32
     qcfg["qa_mode"] = "pact+"
@@ -308,6 +295,41 @@ def qconfig_init(recipe: str = None, args: Any = None):
             " Default or values from json of the same key will be overwritten."
         )
 
+    # 4. Check if mapping must change for MX library
+    # for now, simply use qa_mode or qw_mode to trigger, e.g. "mx_fp4_e2m1" -> "fp4_e2m1"
+    # user may create qcfg without "mx_fpxxx" then manually changes qw_mode/qa_mode to "mx_fpxxx"
+    # => need to check again at the beginning of qmodel_prep(), i.e. in check_config()
+    if (
+        qcfg["qa_mode"].startswith("mx_")
+        or qcfg["qw_mode"].startswith("mx_")
+        or hasattr(args, "a_elem_format")
+        or hasattr(args, "w_elem_format")
+    ):
+        if available_packages["mx"]:
+            # Standard
+            from functools import partial
+
+            # Third Party
+            import mx
+
+            # Local
+            from fms_mo.modules.linear import LinearMX
+
+            qcfg["mx_specs"] = mx.get_mx_specs(args)
+
+            qcfg["mx_specs"]["scale_bits"] = 8
+            qcfg["mx_specs"]["w_elem_format"] = qcfg["qw_mode"].replace("mx_", "")
+            qcfg["mx_specs"]["a_elem_format"] = qcfg["qa_mode"].replace("mx_", "")
+            qcfg["mx_specs"]["block_size"] = 32
+            qcfg["mx_specs"]["bfloat"] = 16
+            qcfg["mx_specs"]["custom_cuda"] = True
+
+            qcfg["mapping"] = {nn.Linear: partial(LinearMX, mx_specs=qcfg["mx_specs"])}
+
+        else:
+            logger.info(
+                "mx_specs variables provided in job args, but MX library is not installed"
+            )
     return qcfg
 
 
@@ -596,6 +618,17 @@ def check_config(config, model_dtype=None):
         "fp8_e5m2_scale_perCh",
         "fp8_e5m2_sat_perToken",
         "fp8_e5m2_scale_perToken",
+        # mx related
+        "mx_fp8_e5m2",
+        "mx_fp8_e4m3",
+        "mx_fp4_e2m1",
+        "mx_fp4",
+        "mx_int8",
+        "mx_int4",
+        "mx_fp16",
+        "mx_float16",
+        "mx_bf16",
+        "mx_bfloat16",
     ]
     qw_mode_settings = [
         "sawb",
@@ -632,6 +665,17 @@ def check_config(config, model_dtype=None):
         "fp8_e5m2_scale_perCh",
         "fp8_e5m2_sat_perToken",
         "fp8_e5m2_scale_perToken",
+        # mx related
+        "mx_fp8_e5m2",
+        "mx_fp8_e4m3",
+        "mx_fp4_e2m1",
+        "mx_fp4",
+        "mx_int8",
+        "mx_int4",
+        "mx_fp16",
+        "mx_float16",
+        "mx_bf16",
+        "mx_bfloat16",
     ]
     bmm_mode_settings = [
         "pact",
@@ -664,6 +708,7 @@ def check_config(config, model_dtype=None):
     ]
 
     # Check each for correct ranges
+    use_mx = False
     for qa_mode_str in qa_modes_str:
         qa_mode = config.get(qa_mode_str, "pact+")
         if not qa_mode in qa_mode_settings:
@@ -671,6 +716,7 @@ def check_config(config, model_dtype=None):
                 f"{qa_mode_str} = {qa_mode} is not set to one of the following: "
                 f"{qa_mode_settings}"
             )
+        use_mx = use_mx or qa_mode.startswith("mx_")
 
     for qw_mode_str in qw_modes_str:
         qw_mode = config.get(qw_mode_str, "sawb+")
@@ -679,6 +725,7 @@ def check_config(config, model_dtype=None):
                 f"{qw_mode_str} = {qw_mode} is not set to one of the following: "
                 f"{qw_mode_settings}"
             )
+        use_mx = use_mx or qw_mode.startswith("mx_")
 
     for bmm_mode_str in bmm_modes_str:
         bmm_mode = config.get(bmm_mode_str, "pactsym+")
@@ -687,6 +734,40 @@ def check_config(config, model_dtype=None):
                 f"{bmm_mode_str} = {bmm_mode} is not set to one of the following: "
                 f"{bmm_mode_settings}"
             )
+
+    if use_mx and "mapping" in config:
+        """ NOTE: 
+        1. If "mapping" has been removed from qcfg, i.e. called by save_config(), don't update
+            anything.
+        2. If "mx_" qa_/qw_mode was assigned through args, the "mx_" prefix would have been removed
+            already => "use_mx" will be False. THE ONLY WAY TO TRIGGER REFRESH of mx_specs AFTER
+            qconfig_init() is to manually set qa_mode or qw_mode to "mx_something"!
+        """
+        if available_packages["mx"]:
+            # Standard
+            from functools import partial
+
+            # Third Party
+            from mx import MxSpecs
+
+            # Local
+            from fms_mo.modules.linear import LinearMX
+
+            if "mx_specs" not in config:
+                config["mx_specs"] = MxSpecs().data
+
+            config["mx_specs"]["w_elem_format"] = config["qw_mode"].replace("mx_", "")
+            config["mx_specs"]["a_elem_format"] = config["qa_mode"].replace("mx_", "")
+            config["mx_specs"]["scale_bits"] = 8
+            config["mx_specs"]["block_size"] = 32
+            config["mx_specs"]["bfloat"] = 16
+            config["mx_specs"]["custom_cuda"] = True
+            config["mapping"] = {
+                nn.Linear: partial(LinearMX, mx_specs=config["mx_specs"])
+            }
+
+        else:
+            logger.info("mx_specs variables provided, but MX library is not installed")
 
     # Check mode calibration and initialization values
     calib_init_settings = ["percentile", "pact", "sawb", "max"]

@@ -1930,8 +1930,13 @@ class LinearFPxAcc(torch.nn.Linear):
             f"trun_bits={self.trun_bits}"
         )
 
+
 if available_packages["mx"]:
-    import mx # defaults to import all classes
+    # Third Party
+    from mx.elemwise_ops import quantize_elemwise_op
+    from mx.linear import linear as mx_linear
+    from mx.specs import apply_mx_specs, mx_assert_test
+    import mx  # defaults to import all classes
 
     mx_specs_default = {
         "w_elem_format": "fp8_e4m3",
@@ -1944,7 +1949,6 @@ if available_packages["mx"]:
     }
 
     class QLinearMX(mx.Linear):
-
         @classmethod
         def from_fms_mo(cls, fms_mo_qlinear, **kwargs):
             """
@@ -1960,11 +1964,16 @@ if available_packages["mx"]:
                     QLinear module.
             """
             mx_supported_formats = {
-                "mx_fp8_e5m2", "mx_fp8_e4m3",
-                "mx_fp4_e2m1", "mx_fp4",
-                "mx_int8", "mx_int4",
-                "mx_fp16", "mx_float16",
-                "mx_bf16", "mx_bfloat16",
+                "mx_fp8_e5m2",
+                "mx_fp8_e4m3",
+                "mx_fp4_e2m1",
+                "mx_fp4",
+                "mx_int8",
+                "mx_int4",
+                "mx_fp16",
+                "mx_float16",
+                "mx_bf16",
+                "mx_bfloat16",
             }
             assert (
                 fms_mo_qlinear.qa_mode in mx_supported_formats
@@ -1972,7 +1981,7 @@ if available_packages["mx"]:
             ), "Please check MX quantization mode settings!"
             a_elem_format = fms_mo_qlinear.qa_mode.removeprefix("mx_")
             w_elem_format = fms_mo_qlinear.qw_mode.removeprefix("mx_")
-            
+
             block_size = kwargs.pop("block_size")
             mx_supported_block_sizes = {8, 16, 32, 64, 128}
             assert (
@@ -1994,19 +2003,14 @@ if available_packages["mx"]:
                 "quantize_backprop": False,
             }
 
-
-
             # Create mx.Linear class from QLinear
             qlinear_mx = cls(
                 in_features=fms_mo_qlinear.in_features,
                 out_features=fms_mo_qlinear.out_features,
-                bias=isinstance(
-                    fms_mo_qlinear.bias, torch.Tensor
-                ),
+                bias=isinstance(fms_mo_qlinear.bias, torch.Tensor),
                 mx_specs=fms_mo_qlinear.qcfg["mx_specs"],
                 name=None,
             )
-            
 
         def extra_repr(self) -> str:
             return (
@@ -2014,3 +2018,95 @@ if available_packages["mx"]:
                 f"mx_spec={self.mx_spec}"
             )
 
+    class LinearMX(torch.nn.Linear):
+        """Modified from mx.linear class. Only amend init() and add extra_repr.
+        1. Add **kwargs to receive extra (unused) params passed from qmodel_prep
+        2. pass device to super.init, i.e. nn.Linear's
+        """
+
+        def __init__(
+            self,
+            in_features,
+            out_features,
+            bias=True,
+            mx_specs=None,
+            name=None,
+            **kwargs,
+        ):
+            mx_assert_test(mx_specs)
+            self.mx_none = mx_specs is None
+
+            self.name = name
+            self.prequantized_weights = False
+            self.mx_specs = apply_mx_specs(mx_specs)
+            super().__init__(
+                in_features, out_features, bias, device=kwargs.get("device", "cuda")
+            )
+
+        def apply_mx_specs(self, mx_specs):
+            mx_assert_test(mx_specs)
+            self.mx_none = mx_specs is None
+            self.mx_specs = apply_mx_specs(mx_specs)
+
+        def append_name(self, postfix):
+            self.name += postfix
+
+        def prequantize_weights(self):
+            # Can't prequantize if not using bfloat weights
+            if self.mx_none:
+                return
+
+            assert (
+                self.mx_specs["round"] == "even"
+            ), "Bfloat round should be 'even' for prequantizing weights."
+            assert (
+                torch.cuda.is_bf16_supported()
+            ), "Current device does not support bfloat16"
+            assert self.mx_specs[
+                "bfloat_subnorms"
+            ], "Bfloat_subnorms should be set to True for prequantizing weights."
+            assert (
+                self.mx_specs["bfloat"] == 16
+            ), "Only Bfloat16 is supported for prequantizing weights."
+
+            with torch.no_grad():
+                self.weight.data = quantize_elemwise_op(
+                    self.weight.data,
+                    mx_specs=self.mx_specs,
+                    round=self.mx_specs["round_weight"],
+                ).to(torch.bfloat16)
+
+                if self.bias is not None:
+                    self.bias.data = quantize_elemwise_op(
+                        self.bias.data,
+                        mx_specs=self.mx_specs,
+                        round=self.mx_specs["round_weight"],
+                    ).to(torch.bfloat16)
+
+            self.prequantized_weights = True
+
+        def forward(self, inputs):
+            if self.mx_none:
+                return super().forward(inputs)
+
+            if self.prequantized_weights:
+                assert (
+                    not self.training
+                ), "Cannot use prequantized weights when training!"
+
+            return mx_linear(
+                input=inputs,
+                weight=self.weight,
+                bias=self.bias,
+                mx_specs=self.mx_specs,
+                prequantized_weights=self.prequantized_weights,
+                name=self.name,
+            )
+
+        def extra_repr(self) -> str:
+            repr_str = (
+                f"in={self.in_features},out={self.out_features},"
+                f"w_fmt={self.mx_specs['w_elem_format']},a_fmt={self.mx_specs['a_elem_format']},"
+                f"blk_size={self.mx_specs['block_size']}"
+            )
+            return repr_str

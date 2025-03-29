@@ -242,8 +242,10 @@ def make_quant_module(module, curr_full_name, qcfg, verbose=False):
         QConv = mapping.get(nn.Conv2d, None)
         if QConv is None:
             if verbose:
-                logger.info(f"Skip quantization of {curr_full_name} - mapping of Conv2d is None")
-            return module_output # None means no swap for this type
+                logger.info(
+                    f"Skip quantization of {curr_full_name} - mapping of Conv2d is None"
+                )
+            return module_output  # None means no swap for this type
 
         base_params.pop(
             "output_padding"
@@ -321,7 +323,7 @@ def make_quant_module(module, curr_full_name, qcfg, verbose=False):
                 logger.info(
                     f"Skip quantization of {curr_full_name} - mapping of ConvTranspose2d is None"
                 )
-            return module_output # None means no swap for this type
+            return module_output  # None means no swap for this type
 
         if base_params["padding_mode"] != "zeros":
             logger.warning(
@@ -382,8 +384,10 @@ def make_quant_module(module, curr_full_name, qcfg, verbose=False):
         QLin = mapping.get(nn.Linear, None)
         if QLin is None:
             if verbose:
-                logger.info(f"Skip quantization of {curr_full_name} - mapping of Linear is None")
-            return module_output # None means no swap for this type
+                logger.info(
+                    f"Skip quantization of {curr_full_name} - mapping of Linear is None"
+                )
+            return module_output  # None means no swap for this type
 
         module_output = QLin(
             **base_params,
@@ -464,9 +468,11 @@ def make_quant_module(module, curr_full_name, qcfg, verbose=False):
         Qlstm = mapping.get(nn.LSTM, None)
         if Qlstm is None:
             if verbose:
-                logger.info(f"Skip quantization of {curr_full_name} - mapping of LSTM is None")
-            return module_output # None means no swap for this type
-        
+                logger.info(
+                    f"Skip quantization of {curr_full_name} - mapping of LSTM is None"
+                )
+            return module_output  # None means no swap for this type
+
         module_output = Qlstm(
             **base_params,
             num_bits_weight=qcfg["nbits_w_lstm"],
