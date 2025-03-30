@@ -296,7 +296,7 @@ def qconfig_init(recipe: str = None, args: Any = None):
         )
 
     # 4. Check if mapping must change for MX library
-    # for now, simply use qa_mode or qw_mode to trigger, e.g. "mx_fp4_e2m1" -> "fp4_e2m1"
+    # For now, simply use qa_mode or qw_mode to trigger, e.g. "mx_fp4_e2m1" -> "fp4_e2m1"
     # user may create qcfg without "mx_fpxxx" then manually changes qw_mode/qa_mode to "mx_fpxxx"
     # => need to check again at the beginning of qmodel_prep(), i.e. in check_config()
     if (
@@ -315,7 +315,11 @@ def qconfig_init(recipe: str = None, args: Any = None):
             # Local
             from fms_mo.modules.linear import LinearMX
 
-            qcfg["mx_specs"] = mx.get_mx_specs(args)
+            mx_specs = mx.get_mx_specs(args)
+            if mx_specs is None:
+                mx_specs = mx.MxSpecs()
+
+            qcfg["mx_specs"] = mx_specs.data
 
             qcfg["mx_specs"]["scale_bits"] = 8
             qcfg["mx_specs"]["w_elem_format"] = qcfg["qw_mode"].replace("mx_", "")
@@ -618,17 +622,6 @@ def check_config(config, model_dtype=None):
         "fp8_e5m2_scale_perCh",
         "fp8_e5m2_sat_perToken",
         "fp8_e5m2_scale_perToken",
-        # mx related
-        "mx_fp8_e5m2",
-        "mx_fp8_e4m3",
-        "mx_fp4_e2m1",
-        "mx_fp4",
-        "mx_int8",
-        "mx_int4",
-        "mx_fp16",
-        "mx_float16",
-        "mx_bf16",
-        "mx_bfloat16",
     ]
     qw_mode_settings = [
         "sawb",
@@ -665,17 +658,6 @@ def check_config(config, model_dtype=None):
         "fp8_e5m2_scale_perCh",
         "fp8_e5m2_sat_perToken",
         "fp8_e5m2_scale_perToken",
-        # mx related
-        "mx_fp8_e5m2",
-        "mx_fp8_e4m3",
-        "mx_fp4_e2m1",
-        "mx_fp4",
-        "mx_int8",
-        "mx_int4",
-        "mx_fp16",
-        "mx_float16",
-        "mx_bf16",
-        "mx_bfloat16",
     ]
     bmm_mode_settings = [
         "pact",
@@ -707,25 +689,41 @@ def check_config(config, model_dtype=None):
         "bmm2_qm2_mode",
     ]
 
+    # mx related modes:
+    mx_modes = [
+        "mx_fp8_e5m2",
+        "mx_fp8_e4m3",
+        "mx_fp4_e2m1",
+        "mx_fp4",
+        "mx_int8",
+        "mx_int4",
+        "mx_fp16",
+        "mx_float16",
+        "mx_bf16",
+        "mx_bfloat16",
+    ]
+
     # Check each for correct ranges
     use_mx = False
     for qa_mode_str in qa_modes_str:
         qa_mode = config.get(qa_mode_str, "pact+")
-        if not qa_mode in qa_mode_settings:
+        if qa_mode in mx_modes:
+            use_mx = True
+        elif not qa_mode in qa_mode_settings:
             raise ValueError(
                 f"{qa_mode_str} = {qa_mode} is not set to one of the following: "
                 f"{qa_mode_settings}"
             )
-        use_mx = use_mx or qa_mode.startswith("mx_")
 
     for qw_mode_str in qw_modes_str:
         qw_mode = config.get(qw_mode_str, "sawb+")
-        if not qw_mode in qw_mode_settings:
+        if qw_mode in mx_modes:
+            use_mx = True
+        elif not qw_mode in qw_mode_settings:
             raise ValueError(
                 f"{qw_mode_str} = {qw_mode} is not set to one of the following: "
                 f"{qw_mode_settings}"
             )
-        use_mx = use_mx or qw_mode.startswith("mx_")
 
     for bmm_mode_str in bmm_modes_str:
         bmm_mode = config.get(bmm_mode_str, "pactsym+")
@@ -736,13 +734,13 @@ def check_config(config, model_dtype=None):
             )
 
     if use_mx and "mapping" in config:
-        """ NOTE: 
-        1. If "mapping" has been removed from qcfg, i.e. called by save_config(), don't update
-            anything.
-        2. If "mx_" qa_/qw_mode was assigned through args, the "mx_" prefix would have been removed
-            already => "use_mx" will be False. THE ONLY WAY TO TRIGGER REFRESH of mx_specs AFTER
-            qconfig_init() is to manually set qa_mode or qw_mode to "mx_something"!
-        """
+        # If "mapping" has been removed from qcfg -> chk_cfg is being called by save_config() at
+        #     the end of qmodel_prep() => don't need to update anything.
+        # NOTE: If "mx_" qa_/qw_mode was used through args, the "mx_" prefix would have been removed
+        #     already in chk_cfg() => "use_mx" flag will be False. Keep in mind that THE ONLY WAY TO
+        #     TRIGGER REFRESH of mx_specs AFTER qconfig_init() is to manually set qa_/qw_mode to
+        #     "mx_something"!
+
         if available_packages["mx"]:
             # Standard
             from functools import partial
@@ -756,6 +754,7 @@ def check_config(config, model_dtype=None):
             if "mx_specs" not in config:
                 config["mx_specs"] = MxSpecs().data
 
+            # TODO: try to preserve other settings user may have specified (other than qa/qw_mode)
             config["mx_specs"]["w_elem_format"] = config["qw_mode"].replace("mx_", "")
             config["mx_specs"]["a_elem_format"] = config["qa_mode"].replace("mx_", "")
             config["mx_specs"]["scale_bits"] = 8

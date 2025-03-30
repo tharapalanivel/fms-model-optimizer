@@ -1936,7 +1936,8 @@ if available_packages["mx"]:
     from mx.elemwise_ops import quantize_elemwise_op
     from mx.linear import linear as mx_linear
     from mx.specs import apply_mx_specs, mx_assert_test
-    import mx  # defaults to import all classes
+
+    # import mx  # defaults to import all classes
 
     mx_specs_default = {
         "w_elem_format": "fp8_e4m3",
@@ -1948,78 +1949,79 @@ if available_packages["mx"]:
         "quantize_backprop": False,
     }
 
-    class QLinearMX(mx.Linear):
-        @classmethod
-        def from_fms_mo(cls, fms_mo_qlinear, **kwargs):
-            """
-            Converts a QLinear module to QLinearMX.
+    # class QLinearMX(mx.Linear):
+    #     """This is just a placeholder. Brandon is still working on it."""
+    #     @classmethod
+    #     def from_fms_mo(cls, fms_mo_qlinear, **kwargs):
+    #         """
+    #         Converts a QLinear module to QLinearMX.
 
-            Args:
-                cls: The class of the QLinearMX to be created.
-                fms_mo_qlinear: The QLinear module to be converted.
-                kwargs: Additional keyword arguments.
+    #         Args:
+    #             cls: The class of the QLinearMX to be created.
+    #             fms_mo_qlinear: The QLinear module to be converted.
+    #             kwargs: Additional keyword arguments.
 
-            Returns:
-                A QLinearMX object initialized with the weights and biases from the
-                    QLinear module.
-            """
-            mx_supported_formats = {
-                "mx_fp8_e5m2",
-                "mx_fp8_e4m3",
-                "mx_fp4_e2m1",
-                "mx_fp4",
-                "mx_int8",
-                "mx_int4",
-                "mx_fp16",
-                "mx_float16",
-                "mx_bf16",
-                "mx_bfloat16",
-            }
-            assert (
-                fms_mo_qlinear.qa_mode in mx_supported_formats
-                and fms_mo_qlinear.qw_mode in mx_supported_formats
-            ), "Please check MX quantization mode settings!"
-            a_elem_format = fms_mo_qlinear.qa_mode.removeprefix("mx_")
-            w_elem_format = fms_mo_qlinear.qw_mode.removeprefix("mx_")
+    #         Returns:
+    #             A QLinearMX object initialized with the weights and biases from the
+    #                 QLinear module.
+    #         """
+    #         mx_supported_formats = {
+    #             "mx_fp8_e5m2",
+    #             "mx_fp8_e4m3",
+    #             "mx_fp4_e2m1",
+    #             "mx_fp4",
+    #             "mx_int8",
+    #             "mx_int4",
+    #             "mx_fp16",
+    #             "mx_float16",
+    #             "mx_bf16",
+    #             "mx_bfloat16",
+    #         }
+    #         assert (
+    #             fms_mo_qlinear.qa_mode in mx_supported_formats
+    #             and fms_mo_qlinear.qw_mode in mx_supported_formats
+    #         ), "Please check MX quantization mode settings!"
+    #         a_elem_format = fms_mo_qlinear.qa_mode.removeprefix("mx_")
+    #         w_elem_format = fms_mo_qlinear.qw_mode.removeprefix("mx_")
 
-            block_size = kwargs.pop("block_size")
-            mx_supported_block_sizes = {8, 16, 32, 64, 128}
-            assert (
-                block_size in mx_supported_block_sizes
-            ), "Please check MX block size setting!"
+    #         block_size = kwargs.pop("block_size")
+    #         mx_supported_block_sizes = {8, 16, 32, 64, 128}
+    #         assert (
+    #             block_size in mx_supported_block_sizes
+    #         ), "Please check MX block size setting!"
 
-            target_device = kwargs.get(
-                "target_device", next(fms_mo_qlinear.parameters()).device
-            )
-            use_ptq = fms_mo_qlinear
+    #         target_device = kwargs.get(
+    #             "target_device", next(fms_mo_qlinear.parameters()).device
+    #         )
+    #         use_ptq = fms_mo_qlinear
 
-            mx_specs = {
-                "a_elem_format": a_elem_format,
-                "w_elem_format": w_elem_format,
-                "block_size": block_size,
-                "bfloat": 16,
-                "custom_cuda": True,
-                # For quantization-aware finetuning, do backward pass in FP32
-                "quantize_backprop": False,
-            }
+    #         mx_specs = {
+    #             "a_elem_format": a_elem_format,
+    #             "w_elem_format": w_elem_format,
+    #             "block_size": block_size,
+    #             "bfloat": 16,
+    #             "custom_cuda": True,
+    #             # For quantization-aware finetuning, do backward pass in FP32
+    #             "quantize_backprop": False,
+    #         }
 
-            # Create mx.Linear class from QLinear
-            qlinear_mx = cls(
-                in_features=fms_mo_qlinear.in_features,
-                out_features=fms_mo_qlinear.out_features,
-                bias=isinstance(fms_mo_qlinear.bias, torch.Tensor),
-                mx_specs=fms_mo_qlinear.qcfg["mx_specs"],
-                name=None,
-            )
+    #         # Create mx.Linear class from QLinear
+    #         qlinear_mx = cls(
+    #             in_features=fms_mo_qlinear.in_features,
+    #             out_features=fms_mo_qlinear.out_features,
+    #             bias=isinstance(fms_mo_qlinear.bias, torch.Tensor),
+    #             mx_specs=fms_mo_qlinear.qcfg["mx_specs"],
+    #             name=None,
+    #         )
 
-        def extra_repr(self) -> str:
-            return (
-                f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
-                f"mx_spec={self.mx_spec}"
-            )
+    #     def extra_repr(self) -> str:
+    #         return (
+    #             f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
+    #             f"mx_spec={self.mx_spec}"
+    #         )
 
     class LinearMX(torch.nn.Linear):
-        """Modified from mx.linear class. Only amend init() and add extra_repr.
+        """Modified from mx.linear class. Only mildly changed init() and add extra_repr.
         1. Add **kwargs to receive extra (unused) params passed from qmodel_prep
         2. pass device to super.init, i.e. nn.Linear's
         """
@@ -2044,14 +2046,17 @@ if available_packages["mx"]:
             )
 
         def apply_mx_specs(self, mx_specs):
+            """Unchanged."""
             mx_assert_test(mx_specs)
             self.mx_none = mx_specs is None
             self.mx_specs = apply_mx_specs(mx_specs)
 
         def append_name(self, postfix):
+            """Unchanged."""
             self.name += postfix
 
         def prequantize_weights(self):
+            """Unchanged."""
             # Can't prequantize if not using bfloat weights
             if self.mx_none:
                 return
@@ -2086,6 +2091,7 @@ if available_packages["mx"]:
             self.prequantized_weights = True
 
         def forward(self, inputs):
+            """Unchanged."""
             if self.mx_none:
                 return super().forward(inputs)
 
