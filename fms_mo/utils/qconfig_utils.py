@@ -310,10 +310,12 @@ def qconfig_init(recipe: str = None, args: Any = None):
             from functools import partial
 
             # Third Party
+            # pylint: disable = import-error
             import mx
 
             # Local
-            from fms_mo.modules.linear import LinearMX
+            from fms_mo.modules.bmm import QBmmMX
+            from fms_mo.modules.linear import QLinearMX
 
             mx_specs = mx.get_mx_specs(args)
             if mx_specs is None:
@@ -328,7 +330,10 @@ def qconfig_init(recipe: str = None, args: Any = None):
             qcfg["mx_specs"]["bfloat"] = 16
             qcfg["mx_specs"]["custom_cuda"] = True
 
-            qcfg["mapping"] = {nn.Linear: partial(LinearMX, mx_specs=qcfg["mx_specs"])}
+            qcfg["mapping"] = {
+                nn.Linear: partial(QLinearMX, mx_specs=qcfg["mx_specs"]),
+                torch.matmul: partial(QBmmMX, mx_specs=qcfg["mx_specs"]),
+            }
 
         else:
             logger.info(
@@ -725,13 +730,21 @@ def check_config(config, model_dtype=None):
                 f"{qw_mode_settings}"
             )
 
+    bmm_mode_consistency = 0  # all or none when using mx
     for bmm_mode_str in bmm_modes_str:
         bmm_mode = config.get(bmm_mode_str, "pactsym+")
-        if not bmm_mode in bmm_mode_settings:
+        bmm_mode_consistency += bmm_mode.startswith("mx_")
+        if bmm_mode in mx_modes:
+            use_mx = True
+            # mx_specs doesn't have 4 individual bmmX_qmY_modes, it re-uses w and a fmt instead.
+            # We will keep them in qcfg (with "mx_" prefix NOT removed).
+        elif not bmm_mode in bmm_mode_settings:
             raise ValueError(
                 f"{bmm_mode_str} = {bmm_mode} is not set to one of the following: "
                 f"{bmm_mode_settings}"
             )
+    if bmm_mode_consistency != 0 and bmm_mode_consistency != len(bmm_modes_str):
+        raise ValueError("bmmX_qmY_modes inconsistent! Should be all mx or no mx.")
 
     if use_mx and "mapping" in config:
         # If "mapping" has been removed from qcfg -> chk_cfg is being called by save_config() at
@@ -746,10 +759,12 @@ def check_config(config, model_dtype=None):
             from functools import partial
 
             # Third Party
+            # pylint: disable = import-error
             from mx import MxSpecs
 
             # Local
-            from fms_mo.modules.linear import LinearMX
+            from fms_mo.modules.bmm import QBmmMX
+            from fms_mo.modules.linear import QLinearMX
 
             if "mx_specs" not in config:
                 config["mx_specs"] = MxSpecs().data
@@ -762,7 +777,10 @@ def check_config(config, model_dtype=None):
             config["mx_specs"]["bfloat"] = 16
             config["mx_specs"]["custom_cuda"] = True
             config["mapping"] = {
-                nn.Linear: partial(LinearMX, mx_specs=config["mx_specs"])
+                nn.Linear: partial(QLinearMX, mx_specs=config["mx_specs"]),
+                torch.matmul: partial(QBmmMX, mx_specs=config["mx_specs"]),
+                # NOTE: here torch.matmul "mapping" simply represents matmul and bmm, not literally
+                # "replacing" torch.matmul Op, actual replacing will be handled by context manager
             }
 
         else:

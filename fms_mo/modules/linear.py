@@ -1933,6 +1933,7 @@ class LinearFPxAcc(torch.nn.Linear):
 
 if available_packages["mx"]:
     # Third Party
+    # pylint: disable = import-error
     from mx.elemwise_ops import quantize_elemwise_op
     from mx.linear import linear as mx_linear
     from mx.specs import apply_mx_specs, mx_assert_test
@@ -2020,7 +2021,7 @@ if available_packages["mx"]:
     #             f"mx_spec={self.mx_spec}"
     #         )
 
-    class LinearMX(torch.nn.Linear):
+    class QLinearMX(torch.nn.Linear):
         """Modified from mx.linear class. Only mildly changed init() and add extra_repr.
         1. Add **kwargs to receive extra (unused) params passed from qmodel_prep
         2. pass device to super.init, i.e. nn.Linear's
