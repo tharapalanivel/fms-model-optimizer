@@ -484,6 +484,11 @@ if available_packages["mx"]:
             self.mx_none = mx_specs is None
 
             self.mx_specs = apply_mx_specs(mx_specs)
+            # always init super as 32b, to avoid QBmm trying to get_w_quantizer of non-exist "mx_xx"
+            # quantizers. Actual bits is still controlled by MX (based on qm1_ and qm2_mode)
+            kwargs["num_bits_m1"] = 32
+            kwargs["num_bits_m2"] = 32
+            kwargs["nbits_kvcache"] = 32
             super().__init__(**kwargs)
 
             self.qm1_mode = self.qm1_mode.replace("mx_", "")
@@ -509,8 +514,8 @@ if available_packages["mx"]:
 
         def __repr__(self) -> str:
             repr_str = (
-                f"{self.__class__.__name__},m1={self.qm1_mode},m2={self.qm2_mode},"
-                f"blk_size={self.mx_specs['block_size']}"
+                f"{self.__class__.__name__}(m1={self.qm1_mode},m2={self.qm2_mode},"
+                f"blk_size={self.mx_specs['block_size']})"
             )
             return repr_str
 
