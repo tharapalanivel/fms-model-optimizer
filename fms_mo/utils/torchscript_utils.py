@@ -1543,7 +1543,7 @@ def model_analyzer_ts(
         # ['QBmm'] is determined by nbits_bmm[1,2], if using QBertSelfAttn instead of func swapping,
         #  it could still be True
         # ['which2patch'] == 'off' will forcefully turn off this searching and QBmm attaching
-        QBmm = quant_config["mapping"][torch.matmul]
+        QBmm = quant_config["mapping"]["matmul_or_bmm"]
 
         find_single_sided_bmm(reconstructed_graph)
         # After search, flag "isActOutUnidir" and "isActOutBounded" will be available

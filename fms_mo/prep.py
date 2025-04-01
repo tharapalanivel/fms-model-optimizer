@@ -189,7 +189,7 @@ def make_quant_module(module, curr_full_name, qcfg, verbose=False):
         nn.Module: quantized module
     """
     mapping = qcfg.get("mapping")
-    mappable_classes = [cls for cls in mapping.keys() if "built-in" not in str(cls)]
+    mappable_classes = [cls for cls in mapping.keys() if not isinstance(cls, str)]
     # if mapping is not defined, qmodel_prep should raise alarm before entering QAnyNet4
     qdw = qcfg.get("qdw", False)
     nbits_a = qcfg.get("nbits_a", 32)
@@ -679,7 +679,7 @@ def qmodel_prep(
 
         qskip_layer_name, QsinglesidedConvs = [], []
         mappable_classes = [
-            cls for cls in qcfg["mapping"].keys() if "built-in" not in str(cls)
+            cls for cls in qcfg["mapping"].keys() if not isinstance(cls, str)
         ]
         mappable_layers = [
             n

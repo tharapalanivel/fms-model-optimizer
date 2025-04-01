@@ -45,3 +45,4 @@ fms_mo.log
 data*_train/
 data*_test/
 act_scales/
+examples/

@@ -26,7 +26,7 @@ from torch import nn
 import torch
 
 # Local
-from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
+from fms_mo.modules import QLSTM, QBmm, QConv2d, QConvTranspose2d, QLinear
 from fms_mo.utils.import_utils import available_packages
 
 # import numpy as np # only used in experimental func
@@ -157,6 +157,7 @@ def qconfig_init(recipe: str = None, args: Any = None):
         nn.Conv2d: QConv2d,
         nn.ConvTranspose2d: QConvTranspose2d,
         nn.LSTM: QLSTM,
+        "matmul_or_bmm": QBmm,
     }
 
     qcfg["nbits_w"] = 32
@@ -330,10 +331,13 @@ def qconfig_init(recipe: str = None, args: Any = None):
             qcfg["mx_specs"]["bfloat"] = 16
             qcfg["mx_specs"]["custom_cuda"] = True
 
-            qcfg["mapping"] = {
-                nn.Linear: partial(QLinearMX, mx_specs=qcfg["mx_specs"]),
-                torch.matmul: partial(QBmmMX, mx_specs=qcfg["mx_specs"]),
-            }
+            qcfg["mapping"][nn.Linear] = partial(QLinearMX, mx_specs=qcfg["mx_specs"])
+            mode_strs = [f"bmm{i}_qm{j}_mode" for i in [1, 2] for j in [1, 2]]
+            bmm_consistency = [qcfg[ms].startswith("mx_") for ms in mode_strs]
+            if all(bmm_consistency):
+                qcfg["mapping"]["matmul_or_bmm"] = partial(
+                    QBmmMX, mx_specs=qcfg["mx_specs"]
+                )
 
         else:
             logger.info(
@@ -776,12 +780,14 @@ def check_config(config, model_dtype=None):
             config["mx_specs"]["block_size"] = 32
             config["mx_specs"]["bfloat"] = 16
             config["mx_specs"]["custom_cuda"] = True
-            config["mapping"] = {
-                nn.Linear: partial(QLinearMX, mx_specs=config["mx_specs"]),
-                torch.matmul: partial(QBmmMX, mx_specs=config["mx_specs"]),
-                # NOTE: here torch.matmul "mapping" simply represents matmul and bmm, not literally
-                # "replacing" torch.matmul Op, actual replacing will be handled by context manager
-            }
+
+            config["mapping"][nn.Linear] = partial(
+                QLinearMX, mx_specs=config["mx_specs"]
+            )
+            if bmm_mode_consistency > 0:  # meaning all bmm_modes are "mx_" prefixed
+                config["mapping"]["matmul_or_bmm"] = partial(
+                    QBmmMX, mx_specs=config["mx_specs"]
+                )
 
         else:
             logger.info("mx_specs variables provided, but MX library is not installed")
