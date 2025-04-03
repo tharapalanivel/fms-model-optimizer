@@ -32,6 +32,14 @@ from fms_mo.fx.utils import (
 
 logger = logging.getLogger(__name__)
 
+# From PyTorch 2.5+, graphModule received in dynamo custom backend will be Aten IR instead of FX IR,
+# i.e. no "call_module" nodes, all parameter tensors become "placeholder" nodes, and etc...
+# This following flag will make dynamo behaves like PyTorch 2.4. Only use it when model_analyzer()
+# really stop working and hard to recover.
+# Ref: https://pytorch.org/tutorials/recipes/regional_compilation.html
+
+# torch._dynamo.config.inline_inbuilt_nn_modules = False
+
 
 def run_fwd_once(model, sample_inp):
     """Convenient function to run model once using correct input unpack."""
@@ -836,14 +844,16 @@ def find_and_prep_bmm_gm(gm, lut_fx_mod_name_to_org: Optional[Dict[str, str]] = 
         return_dict["which2patch_contextmanager"] = "torch.matmul"
         LUT2sort = all_matmuls
     else:
-        warn_msg = None
         if Nbmm_found > 0 and Nmatmul_found > 0:
-            warn_msg = "Both bmm and matmul are found. Not sure which to patch."
-        elif Nbmm_found == 0 and Nmatmul_found == 0 and len(all_sdpas) > 0:
-            warn_msg = "No bmm and matmul are found. Likely SDPA is enabled."
+            raise RuntimeError(
+                "Both bmm and matmul are found. Not sure which to patch."
+            )
+        if Nbmm_found == 0 and Nmatmul_found == 0 and len(all_sdpas) > 0:
+            logger.warning(
+                "No bmm and matmul are found. Likely SDPA is enabled. "
+                "Will patch nothing!"
+            )
 
-        if warn_msg:
-            logger.warning(f"{warn_msg} Will patch nothing.")
         return return_dict
 
     LUTmodname2linenum = {}  # see Note 4
@@ -1085,6 +1095,25 @@ def model_analyzer(
                 "which2patch_contextmanager"
             ]
             qcfg["bmm_prep"]["layers_with_bmm"].update(temp_dict["layers_with_bmm"])
+            # make sure there are ONLY 2 bmm per layer (self_attention). some models may use
+            # additional bmm/matmuls. Raise warning if that's the case.
+            num_layers = len(temp_dict["layers_with_bmm"])
+            num_bmms = 0
+            seen_line_num = []
+            for line_nums in temp_dict["layers_with_bmm"].values():
+                num_bmms += len(line_nums)
+                for line_num in line_nums:
+                    if line_num not in seen_line_num:
+                        seen_line_num.append(line_num)
+            qcfg["bmm_prep"]["bmm_only_in_self_attn"] = True
+            if num_bmms != num_layers * 2 or len(seen_line_num) != 2:
+                qcfg["bmm_prep"]["bmm_only_in_self_attn"] = False
+                logger.warning(
+                    "This model uses additional matmul/bmm other than those in self-attention. "
+                    "If you plan to quantize self-attention, please note that the additional bmms "
+                    "may also be quantized!"
+                    f"{temp_dict['layers_with_bmm']}\n"
+                )
 
         # Check 7: QKV
         temp_dict = find_qkvsync_candidates_gm(
