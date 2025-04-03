@@ -26,7 +26,8 @@ import transformers
 # fms_mo imports
 from fms_mo import qmodel_prep
 from fms_mo.prep import has_quantized_module
-from tests.models.test_model_utils import delete_config, qmodule_error
+from fms_mo.utils.utils import patch_torch_bmm
+from tests.models.test_model_utils import count_qmodules, delete_config, qmodule_error
 
 ################
 # Qmodel tests #
@@ -257,3 +258,38 @@ def test_bert_dynamo(
     delete_config()
     qmodel_prep(model_bert, input_bert, config_int8, use_dynamo=True)
     qmodule_error(model_bert, 1, 72)
+
+
+def test_bert_dynamo_wi_qbmm(
+    model_bert_eager: transformers.models.bert.modeling_bert.BertModel,
+    input_bert: torch.FloatTensor,
+    config_int8: dict,
+):
+    """
+    Perform int8 quantization on BERT w/ Dynamo tracer and QBmm modules
+
+    Args:
+        model_bert (transformers.models.bert.modeling_bert.BertModel): BERT model + weights
+        input_bert (torch.FloatTensor): Tokenized input for BERT
+        config (dict): Recipe Config w/ int8 settings
+    """
+    delete_config()
+    config_int8["nbits_bmm1"] = 8
+    config_int8["nbits_bmm2"] = 8
+    qmodel_prep(model_bert_eager, input_bert, config_int8, use_dynamo=True)
+
+    # check 1: make sure QBmm are added, i.e. 72 QLinear + 24 QBmm
+    qmodule_error(model_bert_eager, 1, 96)
+
+    # check 2: make sure context manager can reach QBmm
+    _, fms_qmodules = count_qmodules(model_bert_eager)
+    with torch.no_grad(), patch_torch_bmm(config_int8):
+        model_bert_eager(**input_bert)
+    qbmms = [m for n, m in fms_qmodules if "QBmm" in n]
+
+    assert all(
+        m.num_module_called == 1 for m in qbmms
+    ), "Some QBmm was not called properly."
+    assert all(
+        m.num_module_called == 1 for _, m in fms_qmodules
+    ), "Some module was not called properly."
