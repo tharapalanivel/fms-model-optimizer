@@ -449,6 +449,8 @@ def model_size_Wb(mod, unit="MB"):
     """
     mem_use = 0
     Nint8 = 0
+    Nfp16 = 0
+    Nbf16 = 0
     Nfp32 = 0
     for n, m in mod.named_modules():
         w = getattr(m, "weight", None)
@@ -468,10 +470,14 @@ def model_size_Wb(mod, unit="MB"):
                 mem_use += m.bias.numel() * m.bias.element_size()
             if w.dtype == torch.float32:
                 Nfp32 += 1
+            elif w.dtype == torch.float16:
+                Nfp16 += 1
+            elif w.dtype == torch.bfloat16:
+                Nbf16 += 1
             else:
-                logger.info(f"Parameter {n} should be fp32 but is {w.dtype}")
+                logger.warning(f"Detected parameter {n} of data type {w.dtype}.")
     logger.info(
-        f"[check model size] Found {Nint8} INT8 and {Nfp32} "
+        f"[check model size] Found {Nint8} INT8, {Nfp16} FP16, {Nbf16} BF16, and {Nfp32} "
         "FP32 W/b tensors in this model."
     )
 
