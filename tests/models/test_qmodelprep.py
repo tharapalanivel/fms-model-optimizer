@@ -266,7 +266,16 @@ def test_bert_dynamo_wi_qbmm(
     config_int8: dict,
 ):
     """
-    Perform int8 quantization on BERT w/ Dynamo tracer and QBmm modules
+    Perform int8 quantization on BERT w/ Dynamo tracer and QBmm modules. QBmms will be run in place
+    of torch.matmul/torch.bmm automatically, if everything is set up correctly. See the 3 checks
+    below for more details.
+    NOTE:
+        1. QBmm modules will be added after qmodel_prep(), see check 1.
+        2. The self-attention forward() will still call torch.matmul as written in the original
+            python code, i.e. if we check QLinear.num_called and QBmm.num_called, they will be 1 and
+            0, respectively, meaning QBmms were attached but not called.
+        3. By using patch_torch_bmm() context manager, QBmm modules will be triggered and those
+            torch.matmul (usually 2 per attn module) calls will be redirect to QBmm's forward.
 
     Args:
         model_bert (transformers.models.bert.modeling_bert.BertModel): BERT model + weights
@@ -281,15 +290,29 @@ def test_bert_dynamo_wi_qbmm(
     # check 1: make sure QBmm are added, i.e. 72 QLinear + 24 QBmm
     qmodule_error(model_bert_eager, 1, 96)
 
-    # check 2: make sure context manager can reach QBmm
     _, fms_qmodules = count_qmodules(model_bert_eager)
+    qbmms = []
+    other_qmodules = []
+    for n, m in fms_qmodules:
+        if "QBmm" in n:
+            qbmms.append(m)
+        else:
+            other_qmodules.append(m)
+
+    # check 2: model call without our "patch" context manager, will not reach QBmm
+    with torch.no_grad():
+        model_bert_eager(**input_bert)
+    assert all(
+        m.num_module_called == 0 for m in qbmms
+    ), "Some QBmm was called when they shouldn't be."
+
+    # check 3: model call with context manager, will reach QBmm
     with torch.no_grad(), patch_torch_bmm(config_int8):
         model_bert_eager(**input_bert)
-    qbmms = [m for n, m in fms_qmodules if "QBmm" in n]
-
     assert all(
         m.num_module_called == 1 for m in qbmms
     ), "Some QBmm was not called properly."
+
     assert all(
-        m.num_module_called == 1 for _, m in fms_qmodules
-    ), "Some module was not called properly."
+        m.num_module_called == 2 for m in other_qmodules
+    ), "Modules other than QBmm were not called properly."
