@@ -33,6 +33,28 @@ from fms_mo.fx.utils import (
 logger = logging.getLogger(__name__)
 
 
+def run_fwd_once(model, sample_inp):
+    """Convenient function to run model once using correct input unpack."""
+    with torch.no_grad():
+        if isinstance(sample_inp, dict) or all(
+            hasattr(sample_inp, k) for k in ("keys", "values", "items")
+        ):
+            out = model(**sample_inp)
+        elif isinstance(sample_inp, tuple):
+            out = model(*sample_inp)
+        elif isinstance(sample_inp, torch.Tensor):
+            out = model(sample_inp)
+        else:
+            try:
+                #   assume user provided input is ready-to-run...
+                out = model(sample_inp)
+            except RuntimeError:
+                logger.info(
+                    f"Unknown data structure for example_input.{type(sample_inp)} Please check."
+                )
+    return out
+
+
 def dfs_gm(
     gm,
     targetOp=None,
@@ -229,7 +251,9 @@ def dfs_gm(
 
 
 def find_conv_on_shortcut_gm(
-    gm: torch.fx.GraphModule, lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None
+    gm: torch.fx.GraphModule,
+    lut_fx_mod_name_to_org: Optional[Dict[str, str]] = None,
+    lut_name_to_mod=None,
 ):
     """Identify Conv on shortcut using FX GM DFS
     It's (almost) specific for ResNet-like CNNs, will return a list of module names (as used in the
@@ -253,6 +277,9 @@ def find_conv_on_shortcut_gm(
 
     5. count levels of each branch, decide which one is the shortcut
     """
+
+    if lut_name_to_mod is None:
+        lut_name_to_mod = {}
 
     # 1. Find "add" nodes, including inplace add as some may use "out+=shortcut"
     nodes_add = dfs_gm(gm, ["add"], return_nodes=True)
@@ -337,9 +364,13 @@ def find_conv_on_shortcut_gm(
                 if n_conv_i.op == "call_module":
                     conv_mod = gm.get_submodule(n_conv_i.target)
                 else:
-                    conv_mod = get_org_mod_name_of_fx_node(
+                    # in case aten IR is being used
+                    conv_mod_name = get_org_mod_name_of_fx_node(
                         n_conv_i, lut_fx2org=lut_fx_mod_name_to_org
                     )
+                    conv_mod = lut_name_to_mod.get(conv_mod_name, None)
+                    if not isinstance(conv_mod, torch.nn.Conv2d):
+                        continue
                 if conv_mod.out_channels > conv_mod.in_channels:  # see Note 2
                     qconv_candidate.append(
                         get_org_mod_name_of_fx_node(
@@ -1003,8 +1034,17 @@ def model_analyzer(
             for _, m in gm_fx.named_modules()
             if isinstance(m, torch.nn.Conv2d) or issubclass(type(m), torch.nn.Conv2d)
         ]
-        if len(all_conv) > 0:
-            skip_candidates += find_conv_on_shortcut_gm(gm_fx, lut_fx_mod_name_to_org)
+        # if gm is using aten IR, only ops can be seen, no modules.
+        conv_ops = dfs_gm(
+            gm_fx,
+            targetOp=[torch.nn.Conv2d, torch.nn.functional.conv2d],
+            return_nodes=True,
+        )
+        lut_name_to_mod = {n: m for m, n in qcfg["LUTmodule_name"].items()}
+        if len(all_conv) > 0 or len(conv_ops) > 0:
+            skip_candidates += find_conv_on_shortcut_gm(
+                gm_fx, lut_fx_mod_name_to_org, lut_name_to_mod
+            )
 
         # Check 2. first/last, see Note 2 and 3, NOTE that transformers are handled differently
         if qcfg["N_backend_called"] > 1:
@@ -1064,6 +1104,7 @@ def model_analyzer(
     from functools import partial
 
     # Third Party
+    from torchvision.models import VisionTransformer
     from transformers import PreTrainedModel
 
     if issubclass(type(model), torch.nn.Module):
@@ -1075,7 +1116,7 @@ def model_analyzer(
         model_to_be_traced = model
         model_param_size = 999
 
-    is_transformers = issubclass(type(model), PreTrainedModel)
+    is_transformers = issubclass(type(model), (PreTrainedModel, VisionTransformer))
     if model_param_size > 1:
         # Standard
         import sys
@@ -1111,35 +1152,25 @@ def model_analyzer(
                 h_hooks.append(m.register_forward_hook(call_seq_hook))
 
         with torch.no_grad():
-            model(**sample_inp)
+            run_fwd_once(model, sample_inp)
 
         for h in h_hooks:
             h.remove()
 
         # only add last layer
         qcfg["qskip_layer_name"] += [qcfg["mod_call_seq"][-1]]
+        # unless it's a ViT, skip first Conv as well
+        if issubclass(type(model), VisionTransformer) and isinstance(
+            model.get_submodule(qcfg["mod_call_seq"][0]), torch.nn.Conv2d
+        ):
+            qcfg["qskip_layer_name"] += [qcfg["mod_call_seq"][0]]
 
     with torch.no_grad():
         model_opt = torch.compile(
             model_to_be_traced,
             backend=cus_bknd,
         )
-        if isinstance(sample_inp, dict) or all(
-            hasattr(sample_inp, k) for k in ("keys", "values", "items")
-        ):
-            model_opt(**sample_inp)
-        elif isinstance(sample_inp, tuple):
-            model_opt(*sample_inp)
-        elif isinstance(sample_inp, torch.Tensor):
-            model_opt(sample_inp)
-        else:
-            try:
-                #   assume user provided input is ready-to-run...
-                model_opt(sample_inp)
-            except RuntimeError:
-                logger.info(
-                    f"Unknown data structure for example_input.{type(sample_inp)} Please check."
-                )
+        run_fwd_once(model_opt, sample_inp)
 
         del model_opt
 
