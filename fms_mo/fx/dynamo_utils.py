@@ -1242,6 +1242,32 @@ def model_analyzer(
                 )
                 setattr(mod_bmm_happened, f"QBmm{ln}", newQBmm)
 
+        # add auto QBmm check to last layer if any QBmms in model (only for transformers)
+        def qbmm_auto_check(_mod, *_args, **_kwargs):
+            """Automatic QBmm check. This hook will be attached to the last module and check once
+            only at the end of first forward() call. Throw a "warning" if a model has QBmm attached
+            but not called (as it could be intentional.)
+            """
+            num_called_qbmms = []
+            for lay, line_nums in qcfg["bmm_prep"]["layers_with_bmm"].items():
+                for ln in line_nums:
+                    qbmm_i = model.get_submodule(f"{lay}.QBmm{ln}")
+                    num_called_qbmms.append(qbmm_i.num_module_called == 1)
+
+            if not all(num_called_qbmms):
+                err_msg = (
+                    "QBmms were attached but not called during forward()."
+                    "Possibly patch_torch_bmm() context manager is missing."
+                )
+                if qcfg["force_stop_if_qbmm_auto_check_failed"]:
+                    raise RuntimeError(err_msg)
+                logger.warning(err_msg)
+
+            qcfg["hook_qbmm_auto_check"].remove()
+
+        last_mod = model.get_submodule(qcfg["mod_call_seq"][-1])
+        qcfg["hook_qbmm_auto_check"] = last_mod.register_forward_hook(qbmm_auto_check)
+
     # c) identify RPN/FPN
     # TODO this hack only works for torchvision models. will use find_rpn_fpn_gm()
 

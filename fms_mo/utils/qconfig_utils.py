@@ -198,6 +198,7 @@ def qconfig_init(recipe: str = None, args: Any = None):
     qcfg["which2patch_contextmanager"] = (
         None  # an internal var that should not be set by user
     )
+    qcfg["force_stop_if_qbmm_auto_check_failed"] = False
 
     # LSTM related, if any of these is not None, then last layer (FC) will not be skipped.
     qcfg["nbits_w_lstm"] = None

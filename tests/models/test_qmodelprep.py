@@ -300,6 +300,8 @@ def test_bert_dynamo_wi_qbmm(
             other_qmodules.append(m)
 
     # check 2: model call without our "patch" context manager, will not reach QBmm
+    #           we have an auto check in place, but it will only log warning, unless this flag
+    #           qcfg["force_stop_if_qbmm_auto_check_failed"] = True
     with torch.no_grad():
         model_bert_eager(**input_bert)
     assert all(
