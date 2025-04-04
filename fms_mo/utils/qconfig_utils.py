@@ -373,6 +373,7 @@ def remove_unwanted_from_config(config):
         "LUTmodule_name",
         "qkvsync_my_1st_sibling",
         "graph_in_out",
+        "hook_qbmm_auto_check",
     ]
     len_before = len(config)
     dump = {k: config.pop(k) for k in unwanted_items if k in config}
