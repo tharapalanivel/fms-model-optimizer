@@ -1092,3 +1092,16 @@ def model_bert():
         transformers.models.bert.modeling_bert.BertModel: BERT model
     """
     return BertModel.from_pretrained("google-bert/bert-base-uncased", torchscript=True)
+
+
+@pytest.fixture(scope="function")
+def model_bert_eager():
+    """
+    Get a BERT model
+
+    Returns:
+        transformers.models.bert.modeling_bert.BertModel: BERT model
+    """
+    return BertModel.from_pretrained(
+        "google-bert/bert-base-uncased", torchscript=True, attn_implementation="eager"
+    )
