@@ -97,41 +97,16 @@ def _add_defaults_and_concat(
         )
 
 
-# registration of new adapter steps for each architecture
-serialization.register_adapter_step("llama", "int8_qparams_aiu", _int8_qparams_aiu)
-serialization.register_adapter_step(
-    "gpt_bigcode", "int8_qparams_aiu", _int8_qparams_aiu
-)
-serialization.register_adapter_step("roberta", "int8_qparams_aiu", _int8_qparams_aiu)
-serialization.register_adapter_step(
-    "roberta_question_answering",
-    "int8_qparams_aiu",
-    _int8_qparams_aiu,
-)
-
-# registration of multi-step adapter for each architecture
-serialization.register_adapter(
-    "llama",
-    "fms_mo",
-    [
-        "hf_to_fms_names",
-        "hf_to_fms_rope",
-        "weight_fusion",
-        "int8_qparams_aiu",
-    ],
-)
-serialization.register_adapter(
-    "gpt_bigcode", "fms_mo", ["hf_to_fms_names", "weight_fusion", "int8_qparams_aiu"]
-)
-serialization.register_adapter(
-    "roberta", "fms_mo", ["hf_to_fms_names", "weight_fusion", "int8_qparams_aiu"]
-)
-serialization.register_adapter(
-    "roberta_question_answering",
-    "fms_mo",
-    [
-        "hf_to_fms_names",
-        "weight_fusion",
-        "int8_qparams_aiu",
-    ],
-)
+# registration of new adapter step and adapter for each architecture
+for arch in ["llama", "gpt_bigcode", "granite", "roberta", "roberta_question_answering"]:
+    serialization.register_adapter_step(arch, "int8_qparams_aiu", _int8_qparams_aiu)
+    if arch in ["llama", "granite"]:
+        steps_to_register = [
+            "hf_to_fms_names",
+            "hf_to_fms_rope",
+            "weight_fusion",
+            "int8_qparams_aiu",
+        ]
+    else:
+        steps_to_register = ["hf_to_fms_names", "weight_fusion", "int8_qparams_aiu"]
+    serialization.register_adapter(arch, "fms_mo", steps_to_register)
