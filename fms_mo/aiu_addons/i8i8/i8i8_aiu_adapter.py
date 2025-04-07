@@ -98,7 +98,13 @@ def _add_defaults_and_concat(
 
 
 # registration of new adapter step and adapter for each architecture
-for arch in ["llama", "gpt_bigcode", "granite", "roberta", "roberta_question_answering"]:
+for arch in [
+    "llama",
+    "gpt_bigcode",
+    "granite",
+    "roberta",
+    "roberta_question_answering",
+]:
     serialization.register_adapter_step(arch, "int8_qparams_aiu", _int8_qparams_aiu)
     if arch in ["llama", "granite"]:
         steps_to_register = [

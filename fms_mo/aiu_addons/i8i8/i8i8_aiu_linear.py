@@ -87,9 +87,7 @@ class W8A8LinearAIU(torch.nn.Module):
 
         self.has_bias = bias
         bias_size = out_features if self.has_bias else 1
-        self.register_buffer(
-            "bias", torch.zeros((bias_size), dtype=torch.float16)
-        )
+        self.register_buffer("bias", torch.zeros((bias_size), dtype=torch.float16))
 
         if config.weight_per_channel:
             w_clip_size = out_features
