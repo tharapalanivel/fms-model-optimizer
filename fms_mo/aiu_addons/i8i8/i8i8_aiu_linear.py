@@ -84,10 +84,10 @@ class W8A8LinearAIU(torch.nn.Module):
             "weight",
             torch.zeros(out_features, in_features, dtype=torch.int8),
         )
-        if bias:
-            self.register_buffer(
-                "bias", torch.zeros((out_features), dtype=torch.float16)
-            )
+
+        self.has_bias = bias
+        bias_size = out_features if self.has_bias else 1
+        self.register_buffer("bias", torch.zeros((bias_size), dtype=torch.float16))
 
         if config.weight_per_channel:
             w_clip_size = out_features
@@ -192,7 +192,7 @@ class W8A8LinearAIU(torch.nn.Module):
         return (
             f"{self.__class__.__name__}"
             f"(in={self.in_features}, out={self.out_features}, "
-            f"bias={self.bias is not None}, wq={self.weight_quant_type}, "
+            f"bias={self.has_bias}, wq={self.weight_quant_type}, "
             f"aq={self.activ_quant_type}, smoothq={self.smoothquant}, "
             f"op={self.aiu_op})"
         )
