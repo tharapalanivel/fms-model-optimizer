@@ -190,7 +190,10 @@ class W8A8LinearAIU(torch.nn.Module):
 
     def re_register_qdata(self) -> None:
         """Remove existing self.qdata tensor and register it again as a buffer.
-        This method is used during TP, after a module has been """
+        This method is used during TP, after other quantization metadata have been
+        updated.
+        """
+
         del self.qdata
         self.register_buffer(
             "qdata",
@@ -205,7 +208,6 @@ class W8A8LinearAIU(torch.nn.Module):
                 )
             ),
         )
-
 
     def __repr__(self) -> str:
         return (
@@ -241,7 +243,7 @@ def get_int8_aiu_linear(
     # Preprocess linear_config if its linear_type field is a callable
     # (which would not initialize correctly the dataclass parameters).
     # We don't want to alter the original linear_config though.
-    linear_config_for_dataclass: Optional[dict[Union[str, Callable], Any]] = None
+    linear_config_for_dataclass = None
     if callable(linear_config["linear_type"]):
         linear_config_for_dataclass = update_from_partial(linear_config)
         linear_config_for_dataclass["linear_type"] = linear_type
@@ -279,8 +281,7 @@ def is_w_clip_per_channel(
 def is_smoothquant_enabled(
     smoothquant_scale: torch.Tensor,
 ) -> bool:
-    """Determine whether smoothquant is enabled on a module.
-    """
+    """Determine whether smoothquant is enabled on a module."""
 
     if smoothquant_scale.dim() != 1:
         raise ValueError(
@@ -339,8 +340,7 @@ def shard_int8_aiu_linear(
         # check for every linear module if smoothquant is enabled
         if is_smoothquant_enabled(module_info.linear_module.smoothquant_scale):
             smoothquant_linear_param = LinearParameterShardingInfo(
-                0,
-                ShardType.SHARD if module_info.sharding_dim == 1 else ShardType.CLONE
+                0, ShardType.SHARD if module_info.sharding_dim == 1 else ShardType.CLONE
             )
         else:
             smoothquant_linear_param = LinearParameterShardingInfo(0, ShardType.CLONE)
