@@ -41,26 +41,18 @@ def register_aiu_i8i8_op():
     if hasattr(torch.ops, "fms_mo") and hasattr(torch.ops.fms_mo, "i8i8_aiu"):
         logger.warning("AIU op has already been registered")
         return
-
     op_namespace_id = "fms_mo::i8i8_aiu"
-    torch.library.define(
-        op_namespace_id,
-        "(Tensor x, Tensor weight, Tensor bias, Tensor qdata, "
-        "str weight_quant_type, str activ_quant_type, "
-        "bool smoothquant) "
-        "-> Tensor",
-    )
 
-    @torch.library.impl(op_namespace_id, "default")
+    @torch.library.custom_op(op_namespace_id, mutates_args=())
     def i8i8_aiu(
-        x,
-        weight,
-        bias,
-        qdata,
-        weight_quant_type,
-        activ_quant_type,
-        smoothquant,
-    ):
+        x: torch.Tensor,
+        weight: torch.Tensor,
+        bias: torch.Tensor,
+        qdata: torch.Tensor,
+        weight_quant_type: str,
+        activ_quant_type: str,
+        smoothquant: bool,
+    ) -> torch.Tensor:
         """Implement addmm of X and W.
         Support various quantization options for weights and activations.
 
@@ -86,16 +78,8 @@ def register_aiu_i8i8_op():
 
         return F.linear(x_dq.to(dtype), w_dq.to(dtype), bias.to(dtype))
 
-    @torch.library.impl_abstract(op_namespace_id)
-    def i8i8_aiu_abstract(
-        x,
-        weight,
-        bias,
-        qdata,
-        weight_quant_type,
-        activ_quant_type,
-        smoothquant,
-    ):
+    @torch.library.register_fake(op_namespace_id)
+    def _(x, weight, bias, qdata, weight_quant_type, activ_quant_type, smoothquant):
         """OP template of I/O sizes"""
 
         outshape = x.size()[:-1] + (weight.size(0),)

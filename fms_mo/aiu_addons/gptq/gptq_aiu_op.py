@@ -36,17 +36,27 @@ def register_aiu_gptq_op():
     ):
         logger.warning("AIU op has already been registered")
         return
-
     op_namespace_id = "gptq_gemm::i4f16_fxinputs_aiu"
-    torch.library.define(
-        op_namespace_id,
-        "(Tensor x, Tensor qw, Tensor qzeros, Tensor scales, Tensor g_idx) -> Tensor",
-    )
 
     # Add implementations for the operator
-    @torch.library.impl(op_namespace_id, "default")
-    def i4f16_fxinputs_aiu(x, qw, qzeros, scales, g_idx):
-        # on AIU, GPTQ qw is [out_feat, in_feat]
+    @torch.library.custom_op(op_namespace_id, mutates_args=())
+    def i4f16_fxinputs_aiu(
+        x: torch.Tensor,
+        qw: torch.Tensor,
+        qzeros: torch.Tensor,
+        scales: torch.Tensor,
+        g_idx: torch.Tensor,
+    ) -> torch.Tensor:
+        """Implement fake processing of GPTQ W4A16 matmul. The purpose is to create a
+        node on the computational graph to be captured during compiling for AIU.
+
+        Instead of computing the weight decompression and matmul, this function returns
+        a zero tensor with the expected shape.
+
+        NOTE: on AIU, GPTQ qw is [out_feat, in_feat], while AutoGPTQ saves the quantized
+        weights as [in_feat, out_feat]
+        """
+
         outshape = x.shape[:-1] + (qw.shape[0],)
         x = x.view(-1, x.shape[-1])
         output = torch.zeros(
@@ -56,8 +66,10 @@ def register_aiu_gptq_op():
         )
         return output.view(outshape)
 
-    @torch.library.impl_abstract(op_namespace_id)
-    def i4f16_fxinputs_aiu_abstract(x, qw, qzeros, scales, g_idx):
+    @torch.library.register_fake(op_namespace_id)
+    def _(x, qw, qzeros, scales, g_idx):
+        """OP template of I/O sizes"""
+
         outshape = x.shape[:-1] + (qw.shape[0],)
         return torch.empty(
             outshape,
