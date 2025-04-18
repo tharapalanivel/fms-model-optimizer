@@ -66,7 +66,7 @@ def register_aiu_i8i8_op():
         logger.warning("AIU op has already been registered")
         return
     op_namespace_id = "fms_mo::i8i8_aiu"
-    if torch_version <= Version("2.4"):
+    if torch_version < Version("2.4"):
         torch.library.define(
             op_namespace_id,
             "(Tensor x, Tensor weight, Tensor bias, Tensor qdata, "

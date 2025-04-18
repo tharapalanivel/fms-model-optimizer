@@ -17,12 +17,36 @@
 import logging
 
 # Third Party
+from packaging.version import Version
 import torch
 
 # pylint: disable=unused-argument
 # gptq op must be registered with specific I/O, even if not in use by the op function
 
 logger = logging.getLogger(__name__)
+torch_version = Version(torch.__version__.split("+", maxsplit=1)[0])
+
+
+def implement_op_decorator(pt_ver, op_namespace_id):
+    """Version-dependent decorator for custom op implementation."""
+
+    def decorator(func):
+        if pt_ver < Version("2.4"):
+            return torch.library.impl(op_namespace_id, "default")(func)
+        return torch.library.custom_op(op_namespace_id, mutates_args=())(func)
+
+    return decorator
+
+
+def register_op_decorator(pt_ver, op_namespace_id):
+    """Version-dependent decorator for custom op registration."""
+
+    def decorator(func):
+        if pt_ver <= Version("2.4"):
+            return torch.library.impl_abstract(op_namespace_id)(func)
+        return torch.library.register_fake(op_namespace_id)(func)
+
+    return decorator
 
 
 def register_aiu_gptq_op():
@@ -37,9 +61,15 @@ def register_aiu_gptq_op():
         logger.warning("AIU op has already been registered")
         return
     op_namespace_id = "gptq_gemm::i4f16_fxinputs_aiu"
+    if torch_version <= Version("2.4"):
+        torch.library.define(
+            op_namespace_id,
+            "(Tensor x, Tensor qw, Tensor qzeros, "
+            "Tensor scales, Tensor g_idx) -> Tensor",
+        )
 
     # Add implementations for the operator
-    @torch.library.custom_op(op_namespace_id, mutates_args=())
+    @implement_op_decorator(torch_version, op_namespace_id)
     def i4f16_fxinputs_aiu(
         x: torch.Tensor,
         qw: torch.Tensor,
@@ -66,7 +96,7 @@ def register_aiu_gptq_op():
         )
         return output.view(outshape)
 
-    @torch.library.register_fake(op_namespace_id)
+    @register_op_decorator(torch_version, op_namespace_id)
     def _(x, qw, qzeros, scales, g_idx):
         """OP template of I/O sizes"""
 
