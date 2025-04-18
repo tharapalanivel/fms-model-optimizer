@@ -36,7 +36,7 @@ def implement_op_decorator(pt_ver, op_namespace_id):
     """Version-dependent decorator for custom op implementation."""
 
     def decorator(func):
-        if pt_ver <= Version("2.4"):
+        if pt_ver < Version("2.4"):
             return torch.library.impl(op_namespace_id, "default")(func)
         return torch.library.custom_op(op_namespace_id, mutates_args=())(func)
 
@@ -47,7 +47,7 @@ def register_op_decorator(pt_ver, op_namespace_id):
     """Version-dependent decorator for custom op registration."""
 
     def decorator(func):
-        if pt_ver <= Version("2.4"):
+        if pt_ver < Version("2.4"):
             return torch.library.impl_abstract(op_namespace_id)(func)
         return torch.library.register_fake(op_namespace_id)(func)
 

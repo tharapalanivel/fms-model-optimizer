@@ -42,7 +42,7 @@ def register_op_decorator(pt_ver, op_namespace_id):
     """Version-dependent decorator for custom op registration."""
 
     def decorator(func):
-        if pt_ver <= Version("2.4"):
+        if pt_ver < Version("2.4"):
             return torch.library.impl_abstract(op_namespace_id)(func)
         return torch.library.register_fake(op_namespace_id)(func)
 
@@ -61,7 +61,7 @@ def register_aiu_gptq_op():
         logger.warning("AIU op has already been registered")
         return
     op_namespace_id = "gptq_gemm::i4f16_fxinputs_aiu"
-    if torch_version <= Version("2.4"):
+    if torch_version < Version("2.4"):
         torch.library.define(
             op_namespace_id,
             "(Tensor x, Tensor qw, Tensor qzeros, "
