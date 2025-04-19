@@ -20,6 +20,8 @@ import json
 import logging
 import os
 import warnings
+import pkg_resources
+import sys
 
 # Third Party
 from torch import nn
@@ -33,74 +35,125 @@ from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
 
 logger = logging.getLogger(__name__)
 
+def get_pkg_info(other_pkgs:list = None):
+    """
+    Get the package name and version of important packages currently in use.
+
+    Args:
+        other_pkgs (list): List of other packages to include
+
+    Returns:
+        dict: pkg,version pairs
+    """
+    # Get shortened python version - only obtainable from sys.version
+    pkgs = {"python": ".".join(map(str, sys.version_info[:3]))}
+    if other_pkgs is None:
+        other_pkgs = []
+
+    # Get installed packages name:version
+    pkgs.update( {
+        pkg: pkg_resources.get_distribution(pkg).version for pkg in [
+            "fms-model-optimizer",
+            "torch",
+            "transformers",
+            "triton",
+        ] + other_pkgs
+    })
+
+    return pkgs
+
 
 def config_defaults():
     """Create defaults for qconfig"""
-    cfg_defaults = [
+    cfg_defaults = {
+        # Environment
+        "pkg_versions": get_pkg_info(),
+
         # nbits vars
-        ("nbits_a", 32),
-        ("nbits_w", 32),
-        ("nbits_a_alt", None),
-        ("nbits_w_alt", None),
-        ("nbits_a_qkv", None),
-        ("nbits_w_qkv", None),
-        ("nbits_bmm1", None),
-        ("nbits_bmm2", None),
-        ("nbits_kvcache", None),
+        "nbits_a": 32,
+        "nbits_w": 32,
+        "nbits_a_alt": None,
+        "nbits_w_alt": None,
+        "nbits_a_qkv": None,
+        "nbits_w_qkv": None,
+        "nbits_bmm1": None,
+        "nbits_bmm2": None,
+        "nbits_kvcache": None,
+        "nbits_w_lstm": None,
+        "nbits_i_lstm": None,
+        "nbits_h_lstm": None,
+
         # qmodes vars
-        ("qa_mode", "pact"),
-        ("qw_mode", "sawb"),
-        ("qa_qkv_mode", "pact"),
-        ("qw_qkv_mode", "sawb"),
-        ("bmm1_qm1_mode", "pact"),
-        ("bmm1_qm2_mode", "pact"),
-        ("bmm2_qm1_mode", "pact"),
-        ("bmm1_qm2_mode", "pact"),
+        "qa_mode": "pact+",
+        "qw_mode": "sawb+",
+        "qa_qkv_mode": "pact",
+        "qw_qkv_mode": "sawb",
+        "bmm1_qm1_mode": "pact",
+        "bmm1_qm2_mode": "pact",
+        "bmm2_qm1_mode": "pact",
+        "bmm2_qm2_mode": "pact",
+        "qa_mode_lstm": "pact+",
+
         # mode_calib vars
-        ("qa_mode_calib", "percentile"),
-        ("qw_mode_calib", "percentile"),
+        "qa_mode_calib": "percentile",
+        "qw_mode_calib": "percentile",
         # init_method vars
-        ("a_init_method", "percentile"),
-        ("w_init_method", "sawb"),
+        "a_init_method": "percentile",
+        "w_init_method": "sawb",
         # qmodel_calibration
-        ("qmodel_calibration", 0),
-        ("qmodel_calibration_new", 0),
+        "qmodel_calibration": 0,
+        "qmodel_calibration_new": 0,
         # Boolean vars
-        ("qshortcutconv", False),
-        ("q1stlastconv", False),
-        ("qdw", False),
-        ("qskipfpn", False),
-        ("qkvsync", False),
-        ("extend_act_range", False),
-        ("plotsvg", False),
+        "qshortcutconv": False,
+        "q1stlastconv": False,
+        "qdw": False,
+        "qskipfpn": False,
+        "qkvsync": False,
+        "extend_act_range": False,
+        "plotsvg": False,
         # Iterable vars
-        ("qskip_layer_name", []),
-        ("qspecial_layers", {}),
-        ("qsinglesided_name", []),
-        ("clip_val_asst_percentile", [0.1, 99.9]),
-        (
-            "params2optim",
+        "qlayer_name_pattern": [],
+        "qskip_layer_name": [],
+        "qspecial_layers": {},
+        "qsinglesided_name": [],
+        "clip_val_asst_percentile": (0.1, 99.9),
+        "params2optim":
             {
                 "W": [[] for _ in range(torch.cuda.device_count())],
                 "cvs": [[] for _ in range(torch.cuda.device_count())],
             },
-        ),
         # PTQ vars
-        ("ptq_nbatch", 100),
-        ("ptq_batchsize", 12),
-        ("ptq_nouterloop", 20000),
-        ("ptq_ninnerloop", 1),
-        ("ptq_coslr", ""),
-        ("ptq_lrw", 1e-05),
-        ("ptq_lrcv_a", 0.001),
-        ("ptq_lrcv_w", 0.001),
-        ("ptq_freezecvs", False),
-        ("ptq_qdrop", False),
-        ("ptq_loss_func", "mse"),
-        ("firstptqmodule", []),
+        "ptq_nbatch": 100,
+        "ptq_batchsize": 12,
+        "ptq_nouterloop": 20000,
+        "ptq_ninnerloop": 1,
+        "ptq_coslr": "",
+        "ptq_lrw": 1e-05,
+        "ptq_lrcv_a": 0.001,
+        "ptq_lrcv_w": 0.001,
+        "ptq_freezecvs": False,
+        "ptq_qdrop": False,
+        "ptq_loss_func": "mse",
+        "firstptqmodule": [],
+        "temp_disable_quantizers": False,
+        "temp_disable_PTQ": False,
+        "temp_disable_calib": False,
+        "org_batch_size": {},
+        "ptqmod_to_be_optimized": [],
         # Other vars
-        ("which2patch_contextmanager", None),
-    ]
+        "which2patch_contextmanager": None,
+        "force_stop_if_qbmm_auto_check_failed": False,
+        "world_size": max(1, torch.cuda.device_count()),
+        "global_rank": 0,
+        "batch_size": 2,
+        # items could be obsoleted
+        "output_attentions": False,
+        "bias_corr": False,
+        "qwav2vec": False,
+        "qvit": False,
+        "numparamsfromloadertomodel": 1,
+        "gradclip": 0.0,
+    }
 
     return cfg_defaults
 
@@ -163,6 +216,8 @@ def qconfig_init(recipe: str = None, args: Any = None):
     }
     # TODO: This could be further simplified. e.g. mapping["from class"] = "to class"
     #       "otherwise" is rarely used, and redundant "from" in the output dict
+
+    qcfg["pkg_versions"] = get_pkg_info()
 
     qcfg["nbits_w"] = 32
     qcfg["nbits_a"] = 32
@@ -359,7 +414,7 @@ def serialize_config(config):
     return config, dump
 
 
-def remove_unwanted_from_config(config):
+def remove_unwanted_from_config(config, minimal:bool=False):
     """Remove deprecated items or things cannot be saved as text (json)"""
     unwanted_items = [
         "sweep_cv_percentile",
@@ -375,6 +430,17 @@ def remove_unwanted_from_config(config):
         "graph_in_out",
         "hook_qbmm_auto_check",
     ]
+
+    # If minimal qcfg to be saved, remove any variable that is equal to a default
+    if minimal:
+        default_config = config_defaults()
+        for key, val in config.items():
+            if key in default_config and default_config.get(key) == val:
+                unwanted_items.append(key)
+
+        # Do not remove back pkg_versions
+        unwanted_items.remove("pkg_versions")
+
     len_before = len(config)
     dump = {k: config.pop(k) for k in unwanted_items if k in config}
     assert (
@@ -423,12 +489,12 @@ def add_wanted_defaults_to_config(config):
     if a wanted item is not in the config, add it w/ default value
     """
     wanted_items = config_defaults()
-    for wanted_name, wanted_default_val in wanted_items:
+    for wanted_name, wanted_default_val in wanted_items.items():
         if wanted_name not in config:
             config[wanted_name] = wanted_default_val
 
 
-def qconfig_save(qcfg, fname="qcfg.json"):
+def qconfig_save(qcfg, minimal=False, fname="qcfg.json"):
     """
     Try to save qcfg into a JSON file (or use .pt format if something really can't be text-only).
     For example, qcfg['mapping'] has some classes as keys and values, json won't work. We will try
@@ -436,10 +502,11 @@ def qconfig_save(qcfg, fname="qcfg.json"):
     """
 
     # Remove deprecated/unwanted key,vals in config
-    temp_qcfg, removed_items = remove_unwanted_from_config(qcfg)
+    temp_qcfg, removed_items = remove_unwanted_from_config(qcfg, minimal)
 
     # Add back wanted defaults for any missing vars
-    add_wanted_defaults_to_config(temp_qcfg)
+    if not minimal:
+        add_wanted_defaults_to_config(temp_qcfg)
 
     # Clean config of any unwanted key,vals not found in unwanted list
     temp_qcfg, removed_items2 = serialize_config(temp_qcfg)
@@ -721,31 +788,36 @@ def check_config(config, model_dtype=None):
         if not isinstance(boolean_var, bool):
             raise ValueError(f"{boolean_var_str} = {boolean_var} is not a boolean")
 
+    default_config = config_defaults()
+
     # Check int values
-    integer_vars_str_default = [
-        ("qmodel_calibration", 0),
-        ("qmodel_calibration_new", 0),
-        ("ptq_nbatch", 100),
-        ("ptq_batchsize", 12),
-        ("ptq_nouterloop", 20000),
-        ("ptq_ninnerloop", 1),
+    integer_vars_str = [
+        "qmodel_calibration",
+        "qmodel_calibration_new",
+        "ptq_nbatch",
+        "ptq_batchsize",
+        "ptq_nouterloop",
+        "ptq_ninnerloop",
     ]
-    for integer_var_str, integer_var_default in integer_vars_str_default:
+
+    for integer_var_str in integer_vars_str:
+        integer_var_default = default_config.get(integer_var_str)
         integer_var = config.get(integer_var_str, integer_var_default)
         # Check if integer was given as float (1.0 when it should be 1)
         if isinstance(integer_var, float) and integer_var.is_integer():
-            config[integer_var] = int(integer_var)
-            fp_var = int(integer_var)
+            config[integer_var_str] = int(integer_var)
+            integer_var = int(integer_var)
         if not isinstance(integer_var, int):
             raise ValueError(f"{integer_var_str} = {integer_var} is not an integer")
 
     # Check fp values
-    fp_vars_str_default = [
-        ("ptq_lrw", 1e-5),
-        ("ptq_lrcv_w", 0.001),
-        ("ptq_lrcv_a", 0.001),
+    fp_vars_str = [
+        "ptq_lrw",
+        "ptq_lrcv_w",
+        "ptq_lrcv_a",
     ]
-    for fp_var_str, fp_var_default in fp_vars_str_default:
+    for fp_var_str in fp_vars_str:
+        fp_var_default = default_config.get(fp_var_str)
         fp_var = config.get(fp_var_str, fp_var_default)
         # Check if float was given as an int (e.g. 1 when it should be 1.0)
         # NOTE: True/False qualifies as int.
@@ -756,16 +828,17 @@ def check_config(config, model_dtype=None):
             raise ValueError(f"{fp_var_str} = {fp_var} is not a floating-point number")
 
     # Check iterable values
-    iterable_vars_str_default = [
-        ("qskip_layer_name", ["pooler.dense"]),
-        ("qspecial_layers", {}),
-        ("qsinglesided_name", []),
-        ("ptqmod_to_be_optimized", []),
-        ("firstptqmodule", []),
-        ("params2optim", {"W": [[]], "cvs": [[]]}),
-        ("clip_val_asst_percentile", [0.1, 99.9]),
+    iterable_vars_str = [
+        "qskip_layer_name",
+        "qspecial_layers",
+        "qsinglesided_name",
+        "ptqmod_to_be_optimized",
+        "firstptqmodule",
+        "params2optim",
+        "clip_val_asst_percentile",
     ]
-    for iterable_var_str, iterable_var_default in iterable_vars_str_default:
+    for iterable_var_str in iterable_vars_str:
+        iterable_var_default = default_config.get(iterable_var_str)
         iterable_var = config.get(iterable_var_str, iterable_var_default)
         if not hasattr(iterable_var, "__iter__"):
             raise ValueError(
@@ -775,9 +848,11 @@ def check_config(config, model_dtype=None):
     # Other values that require special settings
 
     # clip_val_asst is the percentile to use for calibration. TODO: consider renaming
-    clip_val_asst_percentile = config[
-        "clip_val_asst_percentile"
-    ]  # already given default in iterable_var
+    clip_val_asst_percentile_default = default_config.get("clip_val_asst_percentile")
+    clip_val_asst_percentile = config.get(
+        "clip_val_asst_percentile",
+        clip_val_asst_percentile_default
+    )
     if len(clip_val_asst_percentile) != 2:
         raise ValueError(
             f"clip_val_asst_percentile = {clip_val_asst_percentile} is not length 2"
