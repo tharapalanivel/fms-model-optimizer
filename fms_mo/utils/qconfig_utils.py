@@ -414,7 +414,7 @@ def serialize_config(config):
     return config, dump
 
 
-def remove_unwanted_from_config(config, minimal:bool=False):
+def remove_unwanted_from_config(config, minimal:bool=True):
     """Remove deprecated items or things cannot be saved as text (json)"""
     unwanted_items = [
         "sweep_cv_percentile",
