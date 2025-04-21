@@ -923,7 +923,7 @@ def bad_pair(request):
 
 wanted_pair_params = [
     ("nbits_a", 32),
-    ("qw_mode", "sawb"),
+    ("qw_mode", "sawb+"),
     ("extend_act_range", False),
     ("qspecial_layers", {}),
 ]
