@@ -528,7 +528,7 @@ def add_wanted_defaults_to_config(config, minimal: bool = True):
     if a wanted item is not in the config, add it w/ default value
     """
     if not minimal:
-        config.update( config_defaults() )
+        config.update(config_defaults())
 
 
 def qconfig_save(
