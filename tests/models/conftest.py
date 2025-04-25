@@ -655,12 +655,12 @@ def model_half(request):
 ###################################
 sample_input_fp32_params = [
     torch.randn(1, 3, 3, 3),
-    torch.zeros(1, 3, 3, 3),
+    torch.randn(1, 3, 3, 3)*.001,
     torch.ones(1, 3, 3, 3),
 ]
 sample_input_fp16_params = [
     torch.randn(1, 3, 3, 3).half(),
-    torch.zeros(1, 3, 3, 3).half(),
+    (torch.randn(1, 3, 3, 3)*.001).half(),
     torch.ones(1, 3, 3, 3).half(),
 ]
 
