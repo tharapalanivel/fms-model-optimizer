@@ -798,6 +798,36 @@ def config_fp16(request):
     qconfig["nbits_w"] = 16
     return qconfig
 
+save_list_params = [
+    ["qa_mode", "qw_mode", "nbits_a", "nbits_w", "qskip_layer_name"],
+]
+@pytest.fixture(scope="session", params=save_list_params)
+def save_list(request):
+    """
+    Generate a save list for testing user-requested save config.
+
+    Args:
+        request (list): List of variables to save in a quantized config.
+
+    Returns:
+        list: List of variables to save in a quantized config.
+    """
+    return request.param
+
+bad_recipe_params = ["qat_int7", "pzq_int8"]
+
+@pytest.fixture(scope="session", params=bad_recipe_params)
+def bad_recipe(request):
+    """
+    Get a bad recipe json file name in fms_mo/recipes
+
+    Args:
+        request (str): Bad recipe name in fms_mo/recipes
+
+    Returns:
+        str: Bad recipe name
+    """
+    return request.param
 
 # Create QAT/PTQ int8 config fixture.
 config_params = ["qat_int8", "ptq_int8"]

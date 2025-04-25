@@ -21,7 +21,12 @@ import pytest
 
 # Local
 from fms_mo.utils.qconfig_utils import qconfig_load, qconfig_save
-from tests.models.test_model_utils import delete_config, load_json, save_serialized_json
+from tests.models.test_model_utils import (
+    delete_config,
+    load_json,
+    save_json,
+    save_serialized_json,
+)
 
 #########
 # Tests #
@@ -45,7 +50,7 @@ def test_save_config_warn_bad_pair(
     # Add bad key,val pair and save ; should generate UserWarning(s) for removing bad pair
     config_fp32[key] = val
     with pytest.warns(UserWarning):
-        qconfig_save(config_fp32)
+        qconfig_save(config_fp32, minimal=False)
 
     # Load saved config and assert the key is not saved
     loaded_config = load_json("qcfg.json")  # load json as is - do not modify
@@ -71,7 +76,7 @@ def test_save_config_wanted_pairs(
     # Delete wanted pair from config and save ; should be reset to default
     if key in config_fp32:
         del config_fp32[key]
-    qconfig_save(config_fp32)
+    qconfig_save(config_fp32, minimal=False)
 
     # Load saved config and check the wanted pair was reset to default
     loaded_config = load_json()
@@ -79,6 +84,94 @@ def test_save_config_wanted_pairs(
 
     delete_config()
 
+def test_save_config_with_qcfg_save(
+    config_fp32: dict,
+    save_list: list,
+):
+    """
+    Test for checking that the "save_list" functionality works from within a quantized config
+
+    Args:
+        config_fp32 (dict): Config for fp32 quantization
+        save_list (list): List of variables to save in a quantized config.
+    """
+    delete_config()
+    config_fp32["save"] = save_list
+
+    qconfig_save(config_fp32, minimal=False)
+    
+    loaded_config = load_json()
+
+    # Remove pkg_versions and date before processing
+    del loaded_config["pkg_versions"]
+    del loaded_config["date"]
+
+    assert len(loaded_config) == len(save_list)
+
+    # Now ensure that every value in save_list was properly saved
+    for key in save_list:
+        assert key in loaded_config
+        assert loaded_config.get(key) == config_fp32.get(key)
+
+    delete_config()
+    del config_fp32["save"]
+
+def test_save_config_with_recipe_save(
+    config_fp32: dict,
+    save_list: list,
+):
+    """
+    Test for checking that the "save_list" functionality works from a saved json file
+
+    Args:
+        config_fp32 (dict): Config for fp32 quantization
+        save_list (list): List of variables to save in a quantized config.
+    """
+    # Delete both qcfg and the save.json before starting
+    delete_config()
+    delete_config("save.json")
+
+    # Save new "save.json"
+    save_path = "save_list.json"
+    save_json(save_list, file_path=save_path)
+
+    qconfig_save(config_fp32, recipe="save_list")
+    
+    # Check that saved qcfg matches
+    loaded_config = load_json()
+    
+    # Remove pkg_versions and date before processing
+    del loaded_config["pkg_versions"]
+    del loaded_config["date"]
+
+    assert len(loaded_config) == len(save_list)
+
+    # Now ensure that every value in save_list was properly saved
+    for key in save_list:
+        assert key in loaded_config
+        assert loaded_config.get(key) == config_fp32.get(key)
+
+    delete_config()
+    delete_config("save.json")
+
+def test_save_config_minimal(
+    config_fp32: dict,
+):
+    delete_config()
+
+    qconfig_save(config_fp32, minimal=True)
+
+    # Check that saved qcfg matches
+    loaded_config = load_json()
+
+    # Remove pkg_versions and date before processing
+    del loaded_config["pkg_versions"]
+    del loaded_config["date"]
+
+    # No items should exist - default config should be completely removed
+    assert len(loaded_config) == 0
+
+    delete_config()
 
 def test_load_config_restored_pair(
     config_fp32: dict,
@@ -96,12 +189,15 @@ def test_load_config_restored_pair(
 
     if key in config_fp32:
         del config_fp32[key]
+
     save_serialized_json(
         config_fp32
     )  # Save config as is, no other edits other than to serialize
 
     loaded_config = qconfig_load("qcfg.json")
     assert loaded_config.get(key) == default_val
+
+    delete_config()
 
 
 def test_load_config_required_pair(

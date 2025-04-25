@@ -24,7 +24,7 @@ import transformers
 
 # Local
 # fms_mo imports
-from fms_mo import qmodel_prep
+from fms_mo import qconfig_init, qmodel_prep
 from fms_mo.prep import has_quantized_module
 from fms_mo.utils.utils import patch_torch_bmm
 from tests.models.test_model_utils import count_qmodules, delete_config, qmodule_error
@@ -52,6 +52,18 @@ if torch.cuda.is_available():
         delete_config()
         with pytest.raises(RuntimeError):
             qmodel_prep(model_quantized, sample_input_fp32, config_fp32)
+
+def test_bad_recipe(
+    bad_recipe: str,
+):
+    """
+    Test if giving a bad recipe .json file name results in a ValueError.
+
+    Args:
+        bad_recipe (str): Bad .json file name
+    """
+    with pytest.raises(ValueError):
+        qconfig_init(recipe=bad_recipe)
 
 
 def test_double_qmodel_prep_assert(
