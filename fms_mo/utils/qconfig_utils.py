@@ -38,7 +38,7 @@ from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
 logger = logging.getLogger(__name__)
 
 
-def get_pkg_info(other_pkgs: list = None):
+def get_pkg_info(other_pkgs: list = None) -> dict:
     """
     Get the package name and version of important packages currently in use.
 
@@ -70,7 +70,7 @@ def get_pkg_info(other_pkgs: list = None):
     return pkgs
 
 
-def config_defaults():
+def config_defaults() -> dict:
     """Create defaults for qconfig"""
     cfg_defaults = {
         # nbits vars
@@ -155,12 +155,13 @@ def config_defaults():
         "numparamsfromloadertomodel": 1,
         "gradclip": 0.0,
         "smoothq": False,
+        "keys_to_save": [],
     }
 
     return cfg_defaults
 
 
-def find_recipe_json(recipe: str, subdir: str = None):
+def find_recipe_json(recipe: str, subdir: str = None) -> Path:
     """
     Search for recipe .json file in fms_mo and return the path
 
@@ -174,6 +175,7 @@ def find_recipe_json(recipe: str, subdir: str = None):
     cwd = Path().resolve()
     pkg_root = Path(__file__).parent.parent.resolve()
     file_in_cwd = cwd / recipe
+    file_in_cwd2 = cwd / f"{recipe}.json"
     if subdir:
         file_in_recipes = pkg_root / subdir / "recipes" / recipe
         file_in_recipes2 = pkg_root / subdir / "recipes" / f"{recipe}.json"
@@ -183,6 +185,8 @@ def find_recipe_json(recipe: str, subdir: str = None):
 
     if not recipe.endswith(".json") and file_in_recipes2.exists():
         json_file = file_in_recipes2
+    elif not recipe.endswith(".json") and file_in_cwd2.exists():
+        json_file = file_in_cwd2
     elif file_in_cwd.exists():
         json_file = file_in_cwd
     elif file_in_recipes.exists():
@@ -193,7 +197,7 @@ def find_recipe_json(recipe: str, subdir: str = None):
     return json_file
 
 
-def get_recipe(recipe: str, subdir: str = None):
+def get_recipe(recipe: str, subdir: str = None) -> Any:
     """
     Get a json recipe.
 
@@ -205,7 +209,6 @@ def get_recipe(recipe: str, subdir: str = None):
         Any: Data from a saved .json.
     """
     json_file = find_recipe_json(recipe, subdir)
-
     temp_data = None
     if json_file:
         with open(json_file, "r", encoding="utf-8") as openfile:
@@ -215,7 +218,7 @@ def get_recipe(recipe: str, subdir: str = None):
     return temp_data
 
 
-def qconfig_init(recipe: str = None, args: Any = None):
+def qconfig_init(recipe: str = None, args: Any = None) -> dict:
     """Three possible ways to create qcfg:
     1. create a default qcfg
     2. load from a json
@@ -400,7 +403,7 @@ def qconfig_init(recipe: str = None, args: Any = None):
     return qcfg
 
 
-def has_non_serializable_object(anything):
+def has_non_serializable_object(anything: Any) -> bool:
     """
     Generalized recursive function looking for any non-serializable Python object
     Only types that are JSON serializable are None, primatives, tuples, lists, and dicts.
@@ -432,7 +435,7 @@ def has_non_serializable_object(anything):
     return is_not_serializable
 
 
-def serialize_config(config):
+def serialize_config(config: dict):
     """
     Util function to clean config of any non-serializable key,val pairs
     """
@@ -455,7 +458,7 @@ def serialize_config(config):
     return config, dump
 
 
-def remove_unwanted_from_config(config, minimal: bool = True):
+def remove_unwanted_from_config(config: dict, minimal: bool = True):
     """Remove deprecated items or things cannot be saved as text (json)"""
     unwanted_items = [
         "sweep_cv_percentile",
@@ -488,7 +491,7 @@ def remove_unwanted_from_config(config, minimal: bool = True):
     return config, dump
 
 
-def get_unwanted_defaults():
+def get_unwanted_defaults() -> dict:
     """Add back those unserializable items if needed"""
     unwanted_items = [
         ("sweep_cv_percentile", False),
@@ -515,7 +518,7 @@ def get_unwanted_defaults():
     return unwanted_items
 
 
-def add_required_defaults_to_config(config):
+def add_required_defaults_to_config(config: dict) -> None:
     """Recover "unserializable" items that are previously removed from config"""
     unwanted_items = get_unwanted_defaults()
     for key, default_val in unwanted_items:
@@ -523,7 +526,7 @@ def add_required_defaults_to_config(config):
             config[key] = default_val
 
 
-def add_wanted_defaults_to_config(config, minimal: bool = True):
+def add_wanted_defaults_to_config(config: dict, minimal: bool = True) -> None:
     """Util function to add basic config defaults that are missing into a config
     if a wanted item is not in the config, add it w/ default value
     """
@@ -532,8 +535,11 @@ def add_wanted_defaults_to_config(config, minimal: bool = True):
 
 
 def qconfig_save(
-    qcfg: dict, recipe: str = "save", minimal: bool = True, fname="qcfg.json"
-):
+    qcfg: dict,
+    recipe: str = "keys_to_save",
+    minimal: bool = True,
+    fname="qcfg.json",
+) -> None:
     """
     Try to save qcfg into a JSON file (or use .pt format if something really can't be text-only).
     For example, qcfg['mapping'] has some classes as keys and values, json won't work. We will try
@@ -545,14 +551,13 @@ def qconfig_save(
         minimal (bool, optional): Save a minimal quantized config. Defaults to True.
         fname (str, optional): File name to save quantized config. Defaults to "qcfg.json".
     """
-    recipe_items = []
 
     # First check in qcfg for added save list
-    if recipe in qcfg:
-        recipe_items = qcfg[recipe]
+    # This value is hardcoded to avoid probing qcfg with real keys like "qa_mode"
+    recipe_items = qcfg.get("keys_to_save", [])
 
     # Next, check in fms_mo/recipes and merge them into a unique set (in case they differ)
-    recipe_items_json = get_recipe(recipe + ".json")
+    recipe_items_json = get_recipe(recipe)
     if recipe_items_json:
         recipe_items = list(set(recipe_items + recipe_items_json))
 
@@ -593,7 +598,7 @@ def qconfig_save(
         json.dump(temp_qcfg, outfile, indent=4)
 
 
-def qconfig_load(fname="qcfg.json"):
+def qconfig_load(fname: str = "qcfg.json") -> dict:
     """Read config in json format, work together with qconfig_save"""
     if os.path.isfile(fname):
         with open(fname, "r", encoding="utf-8") as openfile:
@@ -611,7 +616,7 @@ def qconfig_load(fname="qcfg.json"):
     logger.info(f"{fname} doesn't exist. cannot load the qcfg")
 
 
-def check_config(config, model_dtype=None):
+def check_config(config: dict, model_dtype: torch.dtype = None) -> None:
     """
     Check config values are valid before consuming them in qmodel_prep
     The following errors are detected:
