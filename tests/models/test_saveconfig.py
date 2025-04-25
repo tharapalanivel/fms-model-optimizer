@@ -99,7 +99,7 @@ def test_save_config_with_qcfg_save(
     config_fp32["save"] = save_list
 
     qconfig_save(config_fp32, minimal=False)
-    
+
     loaded_config = load_json()
 
     # Remove pkg_versions and date before processing
@@ -136,10 +136,10 @@ def test_save_config_with_recipe_save(
     save_json(save_list, file_path=save_path)
 
     qconfig_save(config_fp32, recipe="save_list")
-    
+
     # Check that saved qcfg matches
     loaded_config = load_json()
-    
+
     # Remove pkg_versions and date before processing
     del loaded_config["pkg_versions"]
     del loaded_config["date"]
@@ -157,6 +157,12 @@ def test_save_config_with_recipe_save(
 def test_save_config_minimal(
     config_fp32: dict,
 ):
+    """
+    Test for checking that the minimal functionality works for saving a quantized config.
+
+    Args:
+        config_fp32 (dict): Config for fp32 quantization
+    """
     delete_config()
 
     qconfig_save(config_fp32, minimal=True)

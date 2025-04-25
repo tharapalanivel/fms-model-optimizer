@@ -194,6 +194,16 @@ def find_recipe_json(recipe: str, subdir: str = None):
 
 
 def get_recipe(recipe: str, subdir: str = None):
+    """
+    Get a json recipe.
+
+    Args:
+        recipe (str): Name of the recipe file.
+        subdir (str, optional): A subdirectory to search from root. Defaults to None.
+
+    Returns:
+        Any: Data from a saved .json.
+    """
     json_file = find_recipe_json(recipe, subdir)
 
     temp_data = None
@@ -366,7 +376,7 @@ def qconfig_init(recipe: str = None, args: Any = None):
         temp_cfg = get_recipe(recipe)
         if temp_cfg:
             qcfg.update(temp_cfg)
-            logger.info(f"Updated config w/ recipe values")
+            logger.info("Updated config w/ recipe values")
         else:
             raise ValueError(f"Config recipe {recipe} was not found.")
 
@@ -518,10 +528,7 @@ def add_wanted_defaults_to_config(config, minimal: bool = True):
     if a wanted item is not in the config, add it w/ default value
     """
     if not minimal:
-        wanted_items = config_defaults()
-        for wanted_name, wanted_default_val in wanted_items.items():
-            if wanted_name not in config:
-                config[wanted_name] = wanted_default_val
+        config.update( config_defaults() )
 
 
 def qconfig_save(
