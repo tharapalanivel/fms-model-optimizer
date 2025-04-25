@@ -798,10 +798,10 @@ def config_fp16(request):
     qconfig["nbits_w"] = 16
     return qconfig
 
-save_list_params = [
+keys_to_save_params = [
     ["qa_mode", "qw_mode", "nbits_a", "nbits_w", "qskip_layer_name"],
 ]
-@pytest.fixture(scope="session", params=save_list_params)
+@pytest.fixture(scope="session", params=keys_to_save_params)
 def save_list(request):
     """
     Generate a save list for testing user-requested save config.

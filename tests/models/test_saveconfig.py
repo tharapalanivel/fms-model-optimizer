@@ -96,7 +96,7 @@ def test_save_config_with_qcfg_save(
         save_list (list): List of variables to save in a quantized config.
     """
     delete_config()
-    config_fp32["save"] = save_list
+    config_fp32["keys_to_save"] = save_list
 
     qconfig_save(config_fp32, minimal=False)
 
@@ -114,7 +114,7 @@ def test_save_config_with_qcfg_save(
         assert loaded_config.get(key) == config_fp32.get(key)
 
     delete_config()
-    del config_fp32["save"]
+    del config_fp32["keys_to_save"]
 
 def test_save_config_with_recipe_save(
     config_fp32: dict,
@@ -129,13 +129,13 @@ def test_save_config_with_recipe_save(
     """
     # Delete both qcfg and the save.json before starting
     delete_config()
-    delete_config("save.json")
+    delete_config("keys_to_save.json")
 
     # Save new "save.json"
-    save_path = "save_list.json"
+    save_path = "keys_to_save.json"
     save_json(save_list, file_path=save_path)
 
-    qconfig_save(config_fp32, recipe="save_list")
+    qconfig_save(config_fp32, recipe="keys_to_save")
 
     # Check that saved qcfg matches
     loaded_config = load_json()
@@ -152,7 +152,7 @@ def test_save_config_with_recipe_save(
         assert loaded_config.get(key) == config_fp32.get(key)
 
     delete_config()
-    delete_config("save.json")
+    delete_config("keys_to_save.json")
 
 def test_save_config_minimal(
     config_fp32: dict,
