@@ -14,17 +14,19 @@
 """Util functions for qconfig."""
 
 # Standard
+from copy import deepcopy
+from datetime import date
 from pathlib import Path
 from typing import Any
 import json
 import logging
 import os
-import warnings
-import pkg_resources
 import sys
+import warnings
 
 # Third Party
 from torch import nn
+import pkg_resources
 import torch
 
 # Local
@@ -35,7 +37,8 @@ from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
 
 logger = logging.getLogger(__name__)
 
-def get_pkg_info(other_pkgs:list = None):
+
+def get_pkg_info(other_pkgs: list = None):
     """
     Get the package name and version of important packages currently in use.
 
@@ -51,14 +54,18 @@ def get_pkg_info(other_pkgs:list = None):
         other_pkgs = []
 
     # Get installed packages name:version
-    pkgs.update( {
-        pkg: pkg_resources.get_distribution(pkg).version for pkg in [
-            "fms-model-optimizer",
-            "torch",
-            "transformers",
-            "triton",
-        ] + other_pkgs
-    })
+    pkgs.update(
+        {
+            pkg: pkg_resources.get_distribution(pkg).version
+            for pkg in [
+                "fms-model-optimizer",
+                "torch",
+                "transformers",
+                "triton",
+            ]
+            + other_pkgs
+        }
+    )
 
     return pkgs
 
@@ -66,9 +73,6 @@ def get_pkg_info(other_pkgs:list = None):
 def config_defaults():
     """Create defaults for qconfig"""
     cfg_defaults = {
-        # Environment
-        "pkg_versions": get_pkg_info(),
-
         # nbits vars
         "nbits_a": 32,
         "nbits_w": 32,
@@ -82,7 +86,6 @@ def config_defaults():
         "nbits_w_lstm": None,
         "nbits_i_lstm": None,
         "nbits_h_lstm": None,
-
         # qmodes vars
         "qa_mode": "pact+",
         "qw_mode": "sawb+",
@@ -93,7 +96,6 @@ def config_defaults():
         "bmm2_qm1_mode": "pact",
         "bmm2_qm2_mode": "pact",
         "qa_mode_lstm": "pact+",
-
         # mode_calib vars
         "qa_mode_calib": "percentile",
         "qw_mode_calib": "percentile",
@@ -117,11 +119,10 @@ def config_defaults():
         "qspecial_layers": {},
         "qsinglesided_name": [],
         "clip_val_asst_percentile": (0.1, 99.9),
-        "params2optim":
-            {
-                "W": [[] for _ in range(torch.cuda.device_count())],
-                "cvs": [[] for _ in range(torch.cuda.device_count())],
-            },
+        "params2optim": {
+            "W": [[] for _ in range(torch.cuda.device_count())],
+            "cvs": [[] for _ in range(torch.cuda.device_count())],
+        },
         # PTQ vars
         "ptq_nbatch": 100,
         "ptq_batchsize": 12,
@@ -153,9 +154,55 @@ def config_defaults():
         "qvit": False,
         "numparamsfromloadertomodel": 1,
         "gradclip": 0.0,
+        "smoothq": False,
     }
 
     return cfg_defaults
+
+
+def find_recipe_json(recipe: str, subdir: str = None):
+    """
+    Search for recipe .json file in fms_mo and return the path
+
+    Args:
+        recipe (str): Recipe file name (can be the "name" or "prefix.json").
+        subdir (str, optional): Alternative subdir path from pkg_root. Defaults to None.
+
+    Returns:
+        Path: Path to recipe .json if found, else None
+    """
+    cwd = Path().resolve()
+    pkg_root = Path(__file__).parent.parent.resolve()
+    file_in_cwd = cwd / recipe
+    if subdir:
+        file_in_recipes = pkg_root / subdir / "recipes" / recipe
+        file_in_recipes2 = pkg_root / subdir / "recipes" / f"{recipe}.json"
+    else:
+        file_in_recipes = pkg_root / "recipes" / recipe
+        file_in_recipes2 = pkg_root / "recipes" / f"{recipe}.json"
+
+    if not recipe.endswith(".json") and file_in_recipes2.exists():
+        json_file = file_in_recipes2
+    elif file_in_cwd.exists():
+        json_file = file_in_cwd
+    elif file_in_recipes.exists():
+        json_file = file_in_recipes
+    else:
+        json_file = None
+
+    return json_file
+
+
+def get_recipe(recipe: str, subdir: str = None):
+    json_file = find_recipe_json(recipe, subdir)
+
+    temp_data = None
+    if json_file:
+        with open(json_file, "r", encoding="utf-8") as openfile:
+            temp_data = json.load(openfile)
+        logger.info(f"Loaded settings from {json_file}.")
+
+    return temp_data
 
 
 def qconfig_init(recipe: str = None, args: Any = None):
@@ -315,29 +362,13 @@ def qconfig_init(recipe: str = None, args: Any = None):
     # 2. load values from json, if specified and exists
     #    this can be used to load a previously saved ckpt as well
     if recipe:
-        cwd = Path().resolve()
-        pkg_root = Path(__file__).parent.parent.resolve()
-        file_in_cwd = cwd / recipe
-        file_in_recipes = pkg_root / "recipes" / recipe
-        file_in_recipes2 = pkg_root / "recipes" / f"{recipe}.json"
-        temp_cfg = None
-
-        if not recipe.endswith(".json") and file_in_recipes2.exists():
-            qcfg_json = file_in_recipes2
-        elif file_in_cwd.exists():
-            qcfg_json = file_in_cwd
-        elif file_in_recipes.exists():
-            qcfg_json = file_in_recipes
-        else:
-            qcfg_json = None
-
-        if qcfg_json:
-            with open(qcfg_json, "r", encoding="utf-8") as openfile:
-                temp_cfg = json.load(openfile)
+        # qcfg recipes should reside in fms_mo/recipes
+        temp_cfg = get_recipe(recipe)
+        if temp_cfg:
             qcfg.update(temp_cfg)
-            logger.info(
-                f"Loaded settings from {qcfg_json} and updated the default values."
-            )
+            logger.info(f"Updated config w/ recipe values")
+        else:
+            raise ValueError(f"Config recipe {recipe} was not found.")
 
     # 3. parse args, if provided
     if hasattr(args, "__dict__"):
@@ -414,7 +445,7 @@ def serialize_config(config):
     return config, dump
 
 
-def remove_unwanted_from_config(config, minimal:bool=True):
+def remove_unwanted_from_config(config, minimal: bool = True):
     """Remove deprecated items or things cannot be saved as text (json)"""
     unwanted_items = [
         "sweep_cv_percentile",
@@ -435,11 +466,9 @@ def remove_unwanted_from_config(config, minimal:bool=True):
     if minimal:
         default_config = config_defaults()
         for key, val in config.items():
+            # If config has a default setting, add to unwanted items
             if key in default_config and default_config.get(key) == val:
                 unwanted_items.append(key)
-
-        # Do not remove back pkg_versions
-        unwanted_items.remove("pkg_versions")
 
     len_before = len(config)
     dump = {k: config.pop(k) for k in unwanted_items if k in config}
@@ -484,32 +513,67 @@ def add_required_defaults_to_config(config):
             config[key] = default_val
 
 
-def add_wanted_defaults_to_config(config):
+def add_wanted_defaults_to_config(config, minimal: bool = True):
     """Util function to add basic config defaults that are missing into a config
     if a wanted item is not in the config, add it w/ default value
     """
-    wanted_items = config_defaults()
-    for wanted_name, wanted_default_val in wanted_items.items():
-        if wanted_name not in config:
-            config[wanted_name] = wanted_default_val
+    if not minimal:
+        wanted_items = config_defaults()
+        for wanted_name, wanted_default_val in wanted_items.items():
+            if wanted_name not in config:
+                config[wanted_name] = wanted_default_val
 
 
-def qconfig_save(qcfg, minimal=False, fname="qcfg.json"):
+def qconfig_save(
+    qcfg: dict, recipe: str = "save", minimal: bool = True, fname="qcfg.json"
+):
     """
     Try to save qcfg into a JSON file (or use .pt format if something really can't be text-only).
     For example, qcfg['mapping'] has some classes as keys and values, json won't work. We will try
     to remove unserializable items first.
+
+    Args:
+        qcfg (dict): Quantized config.
+        recipe (str, optional): String name for a save recipe. Defaults to None.
+        minimal (bool, optional): Save a minimal quantized config. Defaults to True.
+        fname (str, optional): File name to save quantized config. Defaults to "qcfg.json".
     """
+    recipe_items = []
 
-    # Remove deprecated/unwanted key,vals in config
-    temp_qcfg, removed_items = remove_unwanted_from_config(qcfg, minimal)
+    # First check in qcfg for added save list
+    if recipe in qcfg:
+        recipe_items = qcfg[recipe]
 
-    # Add back wanted defaults for any missing vars
-    if not minimal:
-        add_wanted_defaults_to_config(temp_qcfg)
+    # Next, check in fms_mo/recipes and merge them into a unique set (in case they differ)
+    recipe_items_json = get_recipe(recipe + ".json")
+    if recipe_items_json:
+        recipe_items = list(set(recipe_items + recipe_items_json))
 
-    # Clean config of any unwanted key,vals not found in unwanted list
-    temp_qcfg, removed_items2 = serialize_config(temp_qcfg)
+    # If we found recipe items to add, fetch them from qcfg
+    if recipe_items:
+        temp_qcfg = {}
+        for key in recipe_items:
+            if key in qcfg:
+                temp_qcfg[key] = qcfg[key]
+            else:
+                raise ValueError(f"Desired save recipe {key=} not in qcfg!")
+
+    else:
+        # We assume a full qcfg is being saved - trim it!
+        temp_qcfg = deepcopy(qcfg)
+
+        # Remove deprecated/unwanted key,vals in config
+        temp_qcfg, _ = remove_unwanted_from_config(temp_qcfg, minimal)
+
+        # Add back wanted defaults for any missing vars
+        add_wanted_defaults_to_config(temp_qcfg, minimal)
+
+        # Clean config of any unwanted key,vals not found in unwanted list
+        temp_qcfg, _ = serialize_config(temp_qcfg)
+
+    # Add in date and system information for archival
+    temp_qcfg["date"] = date.today().strftime("%Y-%B-%d")
+    temp_qcfg["pkg_versions"] = get_pkg_info()
 
     # Finally, check to ensure all values are valid before saving
     check_config(temp_qcfg)
@@ -521,10 +585,6 @@ def qconfig_save(qcfg, minimal=False, fname="qcfg.json"):
     with open(fname, "w", encoding="utf-8") as outfile:
         json.dump(temp_qcfg, outfile, indent=4)
 
-    # restore original qcfg
-    qcfg.update(removed_items)
-    qcfg.update(removed_items2)
-
 
 def qconfig_load(fname="qcfg.json"):
     """Read config in json format, work together with qconfig_save"""
@@ -533,7 +593,7 @@ def qconfig_load(fname="qcfg.json"):
             config = json.load(openfile)
 
         # Add back wanted defaults for any missing vars
-        add_wanted_defaults_to_config(config)
+        add_wanted_defaults_to_config(config, minimal=False)
         add_required_defaults_to_config(config)
 
         # Ensure config has correct values before continuing
@@ -850,8 +910,7 @@ def check_config(config, model_dtype=None):
     # clip_val_asst is the percentile to use for calibration. TODO: consider renaming
     clip_val_asst_percentile_default = default_config.get("clip_val_asst_percentile")
     clip_val_asst_percentile = config.get(
-        "clip_val_asst_percentile",
-        clip_val_asst_percentile_default
+        "clip_val_asst_percentile", clip_val_asst_percentile_default
     )
     if len(clip_val_asst_percentile) != 2:
         raise ValueError(
