@@ -16,6 +16,7 @@
 # Standard
 from copy import deepcopy
 from datetime import date
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 import json
@@ -26,7 +27,6 @@ import warnings
 
 # Third Party
 from torch import nn
-import pkg_resources
 import torch
 
 # Local
@@ -56,7 +56,7 @@ def get_pkg_info(other_pkgs: list = None) -> dict:
     # Get installed packages name:version
     pkgs.update(
         {
-            pkg: pkg_resources.get_distribution(pkg).version
+            pkg: version(pkg)
             for pkg in [
                 "fms-model-optimizer",
                 "torch",
