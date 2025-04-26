@@ -220,46 +220,43 @@ def get_recipe(recipe: str, subdir: str = None) -> Any:
 
 def qconfig_init(recipe: str = None, args: Any = None) -> dict:
     """Three possible ways to create qcfg:
-    1. create a default qcfg
-    2. load from a json
-    3. parse the args
-    NOTE: Content from higher number, e.g. arg parser, will override thier counterpart from lower
-            numbers, e.g. json.
+        1. create a default qcfg
+        2. load from a json
+        3. parse the args
+        NOTE: Content from higher number, e.g. arg parser, will override thier counterpart from
+            lower numbers, e.g. json.
 
     Args:
-    recipe: str. Recipe filename (json) that contains settings, if specified and exists. Will search
-            cwd and fms_mo/recipes folder. ok to omit '.json' extension.
-    args: argparser object that may contain relavant parameters.
+        recipe: str. Recipe filename (json) that contains settings, if specified and exists.
+            Will search cwd and fms_mo/recipes folder. ok to omit '.json' extension.
+        args: argparser object that may contain relevant parameters.
 
-    Important items in the config dictionary:
-    nbits_[w|a]_alt: "_alt" stands for "alternative" -> the default prec for those "skipped" layers
-                        e.g. usually the 1st/last layers are "skipped" and will NOT be swapped to
-                        QLinear. But, if "nbits_x_alt = 8", they will.
-    qmodel_calibration[_new]: set to non-zero will trigger calibration. "_new" means calibration
-                                will happen during the first N calls of fwd path, better for long
-                                training or fine-tuning that you don't mind losing the first N iters
-
-    qlayer_name_pattern: allows partial or regex name matching, the layers satisfy the criteria will
-                        be skipped. NOTE: tracing will be bypassed entirely if this arg is used
-    qskip_layer_name: user can specify exact name to skip
-    qspecial_layers: special case handling. user can specify any quant params for any given layer,
-                     e.g. {'1st.conv':{'nbits_w':8,'qw_mode':'pact+sym'}, '2nd.layers':{...} }
-
-    extend_act_range: symmetric act quantizers (maxsym, pactsym+, ...) to use full range, e.g.,
-                      [-128, 127] instead [-127,127], TODO: should default to True?
-
-    ptq_nbatch: total number of batches of data that will be fetched from loader for PTQ tuning
-    ptq_batchsize: data used in PTQ tuning usually is fetched from loader directly, i.e. batchsize
-                    is the unchanged from dataloader.batch_size. although it could be different if
-                    needed, e.g. PTQ may allow larger bs due to only partial model tuning. But fine-
-                    grain shuffling will be needed in that case.
-    ptq_nouterloop: number of optimization "steps" in the PTQ outer loop. 1 outer loop uses 1 cached
-                    data batch. when Nouter >= Nbatch, data will be re-used
-    ptq_ninnerloop: number of "inner loop" for PTQ optimization. When 1 batch of data is fetched,
-                    run (loss->loss.back->optim.step) this many times before fetching the next batch
-                    NOTE: usually doesn't make big differences, hence, default to 1
-    ptq_coslr: can be "", "W" or "A" or "WA", indicating which (or both) optimizer will use cosLR,
-                otherwise use constantLR as default
+        Important items in the config dictionary:
+        nbits_[w|a]_alt: "_alt" stands for "alternative" -> the default prec for those "skipped"
+            layers e.g. usually the 1st/last layers are "skipped" and will NOT be swapped to
+            QLinear. But, if "nbits_x_alt = 8", they will.
+        qmodel_calibration[_new]: set to non-zero will trigger calibration. "_new" means
+            calibration will happen during the first N calls of fwd path, better for long
+            training or fine-tuning that you don't mind losing the first N iters
+        qlayer_name_pattern: allows partial or regex name matching, the layers satisfy the
+            criteria will be skipped. NOTE: tracing will be bypassed entirely if this arg is used
+        qskip_layer_name: user can specify exact name to skip
+        qspecial_layers: special case handling. user can specify any quant params for any
+            given layer, e.g. {'1st.conv':{'nbits_w':8,'qw_mode':'pact+sym'}, '2nd.layers':{...} }
+        extend_act_range: symmetric act quantizers (maxsym, pactsym+, ...) to use full range, e.g.,
+            [-128, 127] instead [-127,127], TODO: should default to True?
+        ptq_nbatch: total number of batches of data that will be fetched from loader for PTQ tuning
+        ptq_batchsize: data used in PTQ tuning usually is fetched from loader directly,
+            i.e. batchsize is the unchanged from dataloader.batch_size. although it could be
+            different if needed, e.g. PTQ may allow larger bs due to only partial model tuning.
+            But fine-grain shuffling will be needed in that case.
+        ptq_nouterloop: number of optimization "steps" in the PTQ outer loop. 1 outer loop uses
+            1 cached data batch. when Nouter >= Nbatch, data will be re-used
+        ptq_ninnerloop: number of "inner loop" for PTQ optimization. When 1 batch of data is
+            fetched, run (loss->loss.back->optim.step) this many times before fetching the next
+            batch. NOTE: usually doesn't make big differences, hence, default to 1
+        ptq_coslr: can be "", "W" or "A" or "WA", indicating which (or both) optimizer will use
+            cosLR, otherwise use constantLR as default
     """
 
     qcfg = {}
@@ -379,7 +376,7 @@ def qconfig_init(recipe: str = None, args: Any = None) -> dict:
         temp_cfg = get_recipe(recipe)
         if temp_cfg:
             qcfg.update(temp_cfg)
-            logger.info("Updated config w/ recipe values")
+            logger.info("Updated config with recipe values")
         else:
             raise ValueError(f"Config recipe {recipe} was not found.")
 
@@ -406,7 +403,7 @@ def qconfig_init(recipe: str = None, args: Any = None) -> dict:
 def has_non_serializable_object(anything: Any) -> bool:
     """
     Generalized recursive function looking for any non-serializable Python object
-    Only types that are JSON serializable are None, primatives, tuples, lists, and dicts.
+    Only types that are JSON serializable are None, primitives, tuples, lists, and dicts.
     Any other types must be converted into one of the types above.
     """
     if isinstance(anything, (list, tuple)):
@@ -468,7 +465,7 @@ def remove_unwanted_from_config(config: dict, minimal: bool = True):
         "checkQerr_frequency",
         "newlySwappedModules",
         "force_calib_once",
-        # if we keep the follwing LUTs, it will save the entire model
+        # if we keep the following LUTs, it will save the entire model
         "LUTmodule_name",
         "qkvsync_my_1st_sibling",
         "graph_in_out",
