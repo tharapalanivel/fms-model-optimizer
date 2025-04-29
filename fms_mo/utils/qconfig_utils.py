@@ -172,6 +172,9 @@ def find_recipe_json(recipe: str, subdir: str = None) -> Path:
     Returns:
         Path: Path to recipe .json if found, else None
     """
+    if recipe is None:
+        return None
+
     cwd = Path().resolve()
     pkg_root = Path(__file__).parent.parent.resolve()
     file_in_cwd = cwd / recipe
@@ -477,7 +480,7 @@ def remove_unwanted_from_config(config: dict, minimal: bool = True):
         default_config = config_defaults()
         for key, val in config.items():
             # If config has a default setting, add to unwanted items
-            if key in default_config and default_config.get(key) == val:
+            if default_config.get(key) == val:
                 unwanted_items.append(key)
 
     len_before = len(config)
@@ -533,7 +536,7 @@ def add_wanted_defaults_to_config(config: dict, minimal: bool = True) -> None:
 
 def qconfig_save(
     qcfg: dict,
-    recipe: str = "keys_to_save",
+    recipe: str = None,
     minimal: bool = True,
     fname="qcfg.json",
 ) -> None:
@@ -551,21 +554,21 @@ def qconfig_save(
 
     # First check in qcfg for added save list
     # This value is hardcoded to avoid probing qcfg with real keys like "qa_mode"
-    recipe_items = qcfg.get("keys_to_save", [])
+    keys_to_save = qcfg.get("keys_to_save", [])
 
     # Next, check in fms_mo/recipes and merge them into a unique set (in case they differ)
-    recipe_items_json = get_recipe(recipe)
-    if recipe_items_json:
-        recipe_items = list(set(recipe_items + recipe_items_json))
+    keys_to_save_json = get_recipe(recipe)
+    if keys_to_save_json:
+        keys_to_save = list(set(keys_to_save + keys_to_save_json))
 
-    # If we found recipe items to add, fetch them from qcfg
-    if recipe_items:
+    # If we found keys to save, fetch them from qcfg
+    if keys_to_save:
         temp_qcfg = {}
-        for key in recipe_items:
+        for key in keys_to_save:
             if key in qcfg:
                 temp_qcfg[key] = qcfg[key]
             else:
-                raise ValueError(f"Desired save recipe {key=} not in qcfg!")
+                raise ValueError(f"Desired save {key=} not in qcfg!")
 
     else:
         # We assume a full qcfg is being saved - trim it!
