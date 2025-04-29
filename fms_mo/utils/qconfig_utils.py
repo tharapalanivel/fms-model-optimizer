@@ -195,6 +195,7 @@ def qconfig_init(recipe: str = None, args: Any = None, use_mx: bool = False):
     qcfg["which2patch_contextmanager"] = (
         None  # an internal var that should not be set by user
     )
+    qcfg["force_stop_if_qbmm_auto_check_failed"] = False
 
     # LSTM related, if any of these is not None, then last layer (FC) will not be skipped.
     qcfg["nbits_w_lstm"] = None
@@ -572,6 +573,7 @@ def remove_unwanted_from_config(config):
         "LUTmodule_name",
         "qkvsync_my_1st_sibling",
         "graph_in_out",
+        "hook_qbmm_auto_check",
     ]
     len_before = len(config)
     dump = {k: config.pop(k) for k in unwanted_items if k in config}

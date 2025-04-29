@@ -7,7 +7,7 @@ name = "fms-model-optimizer"
 description = "Quantization Techniques"
 readme = "README.md"
 license = {text = "Apache-2.0"}
-requires-python = ">=3.9,<3.12"
+requires-python = ">3.9,<3.13"
 classifiers=[
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: Apache Software License",
@@ -15,18 +15,18 @@ classifiers=[
     "Operating System :: POSIX :: Linux",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 dynamic = ["version"]
 dependencies = [
 "numpy>=1.26.4,<2.3.0",
-"accelerate>=0.20.3,!=0.34,<1.4",
-"transformers>=4.45,<4.49",
+"accelerate>=0.20.3,!=0.34,<1.7",
+"transformers>=4.45,<4.52",
 "torch>=2.2.0,<2.6", 
-"triton>=3.0,<3.2",
+"triton>=3.0,<3.4",
 "tqdm>=4.66.2,<5.0",
 "datasets>=3.0.0,<4.0",
 "ninja>=1.11.1.1,<2.0",

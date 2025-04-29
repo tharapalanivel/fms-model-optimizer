@@ -21,6 +21,7 @@ import operator
 import os
 
 # Third Party
+import pandas as pd
 import torch
 
 # Local
@@ -444,12 +445,13 @@ def model_size_Wb(mod, unit="MB", print_to_file=True, show_details=False):
     Returns:
         float: model size in desired unit
     """
-    # Third Party
-    import pandas as pd
 
     mem_use = 0
-    if unit != "MB":
-        unit = "GB"
+    if unit not in ["MB", "GB"]:
+        logger.warning(
+            f"Unrecognized unit for memory summary: {unit}. Will use MB instead."
+        )
+        unit = "MB"
 
     summary_weights = {"layer": [], "shape": [], f"mem ({unit})": [], "dtype": []}
     for n, m in mod.named_modules():
@@ -480,16 +482,18 @@ def model_size_Wb(mod, unit="MB", print_to_file=True, show_details=False):
             summary_weights["dtype"].append(w_dtype)
 
     df_summary_weights = pd.DataFrame(summary_weights)
-
     logger_or_print = logger.info if print_to_file else print
     logger_or_print("[check model size] Summary of W/b tensors in this model:")
     logger_or_print(
-        pd.pivot_table(
-            df_summary_weights,
-            index="dtype",
-            values=["layer", f"mem ({unit})"],
-            aggfunc={"layer": "count", f"mem ({unit})": "sum"},
-        )
+        "\n%s",
+        str(
+            pd.pivot_table(
+                df_summary_weights,
+                index="dtype",
+                values=["layer", f"mem ({unit})"],
+                aggfunc={"layer": "count", f"mem ({unit})": "sum"},
+            )
+        ),
     )
     if show_details:
         logger_or_print(df_summary_weights.to_markdown())
