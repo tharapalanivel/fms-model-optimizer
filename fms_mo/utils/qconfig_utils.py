@@ -342,7 +342,7 @@ def set_mx_specs(
 
     # Check args for any mx_specs vars
     use_mx_args = args is not None and any(
-        hasattr(args, key) for key,_ in fms_defaults.items()
+        hasattr(args, key) for key, _ in fms_defaults.items()
     )
 
     # Lastly, check for BMM consistency to enable QBmmMX
@@ -403,7 +403,7 @@ def set_mx_specs(
                 if config["qa_mode"].startswith(mx_prefix):
                     mx_specs["a_elem_format"] = config["qa_mode"].replace(mx_prefix, "")
 
-                for mx_var,_ in fms_defaults.items():
+                for mx_var, _ in fms_defaults.items():
                     fms_var = "mx_" + mx_var
                     # Only update if its in config; default values already set
                     if fms_var in config:
@@ -1194,8 +1194,6 @@ def check_config(config, model_dtype=None):
                 raise ValueError("MX mapping for nn.Linear is not QLinearMX")
 
             if mapping["matmul_or_bmm"].func is QBmmMX:
-                raise ValueError(
-                    "MX mapping for matmul_or_bmm is not QBmmMX"
-                )
+                raise ValueError("MX mapping for matmul_or_bmm is not QBmmMX")
 
     # End mx_specs checks

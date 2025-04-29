@@ -312,6 +312,7 @@ def not_which2patch_contextmanager_settings():
     """
     return ["torch.vmm", "torch.natnul", "None"]
 
+
 @pytest.fixture(scope="session")
 def bad_mx_specs_settings():
     """
@@ -330,6 +331,7 @@ def bad_mx_specs_settings():
         ("custom_cuda", "yes"),
     ]
 
+
 @pytest.fixture(scope="session")
 def bad_mx_config_settings():
     """
@@ -347,6 +349,7 @@ def bad_mx_config_settings():
         ("mx_round", "round", "bankers", "bankers"),
         ("mx_custom_cuda", "custom_cuda", "yes", "yes"),
     ]
+
 
 ################################
 # Toy Model Classes + Fixtures #
@@ -463,6 +466,7 @@ class ToyModel4(torch.nn.Module):
         out = self.third_layer(out)
         out = self.fourth_layer(out)
         return out
+
 
 model_fp32_params = [
     ToyModel1(),
@@ -819,11 +823,12 @@ def config_fp32(request):
     qconfig = request.param
     return deepcopy(qconfig)
 
+
 @pytest.fixture(scope="function", params=default_config_params)
 def config_fp32_mx(request):
     """
     Create fp32 qconfig w/ mx_specs vars set in qconfig.
-    
+
     Args:
         request (dict): qconfig_init
 
@@ -856,11 +861,12 @@ def config_fp32_mx(request):
 
     return qconfig
 
+
 @pytest.fixture(scope="function", params=mx_config_params)
 def config_fp32_mx_specs(request):
     """
     Create fp32 qconfig w/ mx_specs.
-    
+
 
     Args:
         request (dict): qconfig_init
@@ -1176,7 +1182,7 @@ def model_bert():
     """
     return BertModel.from_pretrained("google-bert/bert-base-uncased", torchscript=True)
 
-  
+
 @pytest.fixture(scope="function")
 def model_bert_eager():
     """
@@ -1192,10 +1198,12 @@ def model_bert_eager():
 
 # MX reference class for quantization
 if torch.cuda.is_available():
+
     class ResidualMLP(torch.nn.Module):
         """
         Test Linear model for MX library
         """
+
         def __init__(self, hidden_size, device="cuda"):
             super().__init__()
 
@@ -1230,7 +1238,9 @@ if torch.cuda.is_available():
 
             return outputs
 
+
 mx_format_params = ["int8", "int4", "fp8_e4m3", "fp8_e5m2", "fp4_e2m1"]
+
 
 @pytest.fixture(scope="session", params=mx_format_params)
 def mx_format(request):
@@ -1253,6 +1263,7 @@ def input_residualMLP():
     """
     x = np.random.randn(16, 128)
     return torch.tensor(x, dtype=torch.float32, device="cuda")
+
 
 @pytest.fixture(scope="function")
 def model_residualMLP():
