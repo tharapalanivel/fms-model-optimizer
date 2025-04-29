@@ -23,26 +23,17 @@ import os
 
 # Third Party
 from torchvision.io import read_image
-from torchvision.models import (
-    resnet50,
-    ResNet50_Weights,
-    vit_b_16,
-    ViT_B_16_Weights,
-)
-from transformers import (
-    BertModel,
-    BertTokenizer,
-)
+from torchvision.models import ResNet50_Weights, ViT_B_16_Weights, resnet50, vit_b_16
+from transformers import BertModel, BertTokenizer
+import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
-import numpy as np
 
 # Local
 # fms_mo imports
 from fms_mo import qconfig_init
 from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
-from fms_mo.utils.import_utils import available_packages
 from fms_mo.utils.qconfig_utils import get_mx_specs_defaults, set_mx_specs
 
 ########################
@@ -1192,19 +1183,30 @@ if torch.cuda.is_available():
         Test Linear model for MX library
         """
         def __init__(self, hidden_size, device="cuda"):
-            super(ResidualMLP, self).__init__()
+            super().__init__()
 
             self.layernorm = torch.nn.LayerNorm(hidden_size, device=device)
             self.dense_4h = torch.nn.Linear(hidden_size, 4 * hidden_size, device=device)
             self.dense_h = torch.nn.Linear(4 * hidden_size, hidden_size, device=device)
             self.dummy = torch.nn.Linear(hidden_size, hidden_size, device=device)
-            # add a dummy layer because by default we skip 1st/last, if there are only 2 layers, all will be skipped
+            # add a dummy layer because by default we skip 1st/last,
+            # if there are only 2 layers, all will be skipped
 
         def forward(self, inputs):
+            """
+            Forward function for Residual MLP
+
+            Args:
+                inputs (torch.tensor): Input tensor
+
+            Returns:
+                torch.tensor: Output tensor
+            """
             norm_outputs = self.layernorm(inputs)
 
             # MLP
             proj_outputs = self.dense_4h(norm_outputs)
+            # pylint: disable=not-callable
             proj_outputs = F.gelu(proj_outputs)
             mlp_outputs = self.dense_h(proj_outputs)
             mlp_outputs = self.dummy(mlp_outputs)

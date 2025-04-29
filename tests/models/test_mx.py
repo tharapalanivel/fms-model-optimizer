@@ -4,11 +4,10 @@ import torch
 
 # Local
 from fms_mo import qmodel_prep
-from fms_mo.utils.qconfig_utils import check_config, set_mx_specs
-from fms_mo.utils.import_utils import available_packages
-from fms_mo.modules.linear import QLinearMX
 from fms_mo.modules.bmm import QBmmMX
-
+from fms_mo.modules.linear import QLinearMX
+from fms_mo.utils.import_utils import available_packages
+from fms_mo.utils.qconfig_utils import check_config, set_mx_specs
 from tests.models.test_model_utils import delete_config, qmodule_error
 
 mx_qmodules = [
@@ -46,7 +45,7 @@ def test_config_mx_specs_error(
 
         with pytest.raises(ValueError):
             check_config(config_fp32_mx_specs, model_dtype)
-        
+
         # Reset to saved value
         config_fp32_mx_specs["mx_specs"] = mx_specs_temp
 
