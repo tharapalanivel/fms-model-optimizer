@@ -170,7 +170,7 @@ def find_recipe_json(recipe: str, subdir: str = None) -> Path:
         subdir (str, optional): Alternative subdir path from pkg_root. Defaults to None.
 
     Returns:
-        Path: Path to recipe .json if found, else None
+        Path: File Path to .json recipe if found, else None
     """
     if recipe is None:
         return None
