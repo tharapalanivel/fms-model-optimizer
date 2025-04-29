@@ -435,7 +435,7 @@ def has_non_serializable_object(anything: Any) -> bool:
     return is_not_serializable
 
 
-def serialize_config(config: dict):
+def serialize_config(config: dict) -> tuple[dict, dict]:
     """
     Util function to clean config of any non-serializable key,val pairs
     """
@@ -458,7 +458,9 @@ def serialize_config(config: dict):
     return config, dump
 
 
-def remove_unwanted_from_config(config: dict, minimal: bool = True):
+def remove_unwanted_from_config(
+    config: dict, minimal: bool = True
+) -> tuple[dict, dict]:
     """Remove deprecated items or things cannot be saved as text (json)"""
     unwanted_items = [
         "sweep_cv_percentile",
