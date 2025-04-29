@@ -53,17 +53,17 @@ if torch.cuda.is_available():
         with pytest.raises(RuntimeError):
             qmodel_prep(model_quantized, sample_input_fp32, config_fp32)
 
-def test_bad_recipe(
-    bad_recipe: str,
+def test_recipe_not_present(
+    wrong_recipe_name: str,
 ):
     """
     Test if giving a bad recipe .json file name results in a ValueError.
 
     Args:
-        bad_recipe (str): Bad .json file name
+        wrong_recipe_name (str): Wrong .json file name
     """
     with pytest.raises(ValueError):
-        qconfig_init(recipe=bad_recipe)
+        qconfig_init(recipe=wrong_recipe_name)
 
 
 def test_double_qmodel_prep_assert(

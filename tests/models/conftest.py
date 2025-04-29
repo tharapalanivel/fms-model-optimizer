@@ -814,10 +814,10 @@ def save_list(request):
     """
     return request.param
 
-bad_recipe_params = ["qat_int7", "pzq_int8"]
+wrong_recipe_name_params = ["qat_int7", "pzq_int8"]
 
-@pytest.fixture(scope="session", params=bad_recipe_params)
-def bad_recipe(request):
+@pytest.fixture(scope="session", params=wrong_recipe_name_params)
+def wrong_recipe_name(request):
     """
     Get a bad recipe json file name in fms_mo/recipes
 
