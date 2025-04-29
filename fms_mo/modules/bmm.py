@@ -748,11 +748,14 @@ class QBmmINT8Deploy(nn.Module):
         return x.to(m1.dtype)
 
 
+# KEEP THIS AT END OF FILE - classes must be declared
 QBmm_modules = (
     QBmm,
     QMatmulDebug,
     QBmmINT8Deploy,
 )
+if available_packages["mx"]:
+    QBmm_modules += (QBmmMX,)
 
 
 def isinstance_qbmm(module):
