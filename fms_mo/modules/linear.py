@@ -1769,29 +1769,6 @@ except ModuleNotFoundError:
         "QLinearExv1WI4AF16 and QLinearExv2WI4AF16 wrappers will not be available."
     )
 
-QLinear_modules = (
-    QLinear,
-    QLinearFPout,
-    QLinearDebug,
-    QLinearW4A32Debug,
-    QLinearINT8Deploy,
-    QLinearCublasI8I32NT,
-    QLinearCutlassI8I32NT,
-)
-
-
-def isinstance_qlinear(module):
-    """
-    Checks if the given module is one of the available quantized linear classes.
-
-    Args:
-        module (nn.Module): The module to check.
-
-    Returns:
-        bool: True if the module is a quantized linear class, False otherwise.
-    """
-    return isinstance(module, QLinear_modules)
-
 
 class LinearFuncFPxFwdBwd(torch.autograd.Function):
     """Linear function using FP24 accumulation, experimental only.
@@ -2117,3 +2094,30 @@ if available_packages["mx"]:
                 f"blk_size={self.mx_specs['block_size']}"
             )
             return repr_str
+
+
+# KEEP THIS AT END OF FILE - classes must be declared
+QLinear_modules = (
+    QLinear,
+    QLinearFPout,
+    QLinearDebug,
+    QLinearW4A32Debug,
+    QLinearINT8Deploy,
+    QLinearCublasI8I32NT,
+    QLinearCutlassI8I32NT,
+)
+if available_packages["mx"]:
+    QLinear_modules += (QLinearMX,)
+
+
+def isinstance_qlinear(module):
+    """
+    Checks if the given module is one of the available quantized linear classes.
+
+    Args:
+        module (nn.Module): The module to check.
+
+    Returns:
+        bool: True if the module is a quantized linear class, False otherwise.
+    """
+    return isinstance(module, QLinear_modules)
