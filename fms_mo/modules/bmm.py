@@ -754,6 +754,8 @@ QBmm_modules = (
     QMatmulDebug,
     QBmmINT8Deploy,
 )
+if available_packages["mx"]:
+    QBmm_modules += (QBmmMX,)
 
 
 def isinstance_qbmm(module):
