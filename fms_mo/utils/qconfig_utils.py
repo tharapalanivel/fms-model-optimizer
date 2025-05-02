@@ -14,11 +14,15 @@
 """Util functions for qconfig."""
 
 # Standard
+from copy import deepcopy
+from datetime import date
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 import json
 import logging
 import os
+import sys
 import warnings
 
 # Third Party
@@ -34,119 +38,228 @@ from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
 logger = logging.getLogger(__name__)
 
 
-def config_defaults():
+def get_pkg_info(other_pkgs: list = None) -> dict:
+    """
+    Get the package name and version of important packages currently in use.
+
+    Args:
+        other_pkgs (list): List of other packages to include
+
+    Returns:
+        dict: pkg,version pairs
+    """
+    # Get shortened python version - only obtainable from sys.version
+    pkgs = {"python": ".".join(map(str, sys.version_info[:3]))}
+    if other_pkgs is None:
+        other_pkgs = []
+
+    # Get installed packages name:version
+    pkgs.update(
+        {
+            pkg: version(pkg)
+            for pkg in [
+                "fms-model-optimizer",
+                "torch",
+                "transformers",
+                "triton",
+            ]
+            + other_pkgs
+        }
+    )
+
+    return pkgs
+
+
+def config_defaults() -> dict:
     """Create defaults for qconfig"""
-    cfg_defaults = [
+    cfg_defaults = {
         # nbits vars
-        ("nbits_a", 32),
-        ("nbits_w", 32),
-        ("nbits_a_alt", None),
-        ("nbits_w_alt", None),
-        ("nbits_a_qkv", None),
-        ("nbits_w_qkv", None),
-        ("nbits_bmm1", None),
-        ("nbits_bmm2", None),
-        ("nbits_kvcache", None),
+        "nbits_a": 32,
+        "nbits_w": 32,
+        "nbits_a_alt": None,
+        "nbits_w_alt": None,
+        "nbits_a_qkv": None,
+        "nbits_w_qkv": None,
+        "nbits_bmm1": None,
+        "nbits_bmm2": None,
+        "nbits_kvcache": None,
+        "nbits_w_lstm": None,
+        "nbits_i_lstm": None,
+        "nbits_h_lstm": None,
         # qmodes vars
-        ("qa_mode", "pact"),
-        ("qw_mode", "sawb"),
-        ("qa_qkv_mode", "pact"),
-        ("qw_qkv_mode", "sawb"),
-        ("bmm1_qm1_mode", "pact"),
-        ("bmm1_qm2_mode", "pact"),
-        ("bmm2_qm1_mode", "pact"),
-        ("bmm1_qm2_mode", "pact"),
+        "qa_mode": "pact+",
+        "qw_mode": "sawb+",
+        "qa_qkv_mode": "pact",
+        "qw_qkv_mode": "sawb",
+        "bmm1_qm1_mode": "pact",
+        "bmm1_qm2_mode": "pact",
+        "bmm2_qm1_mode": "pact",
+        "bmm2_qm2_mode": "pact",
+        "qa_mode_lstm": "pact+",
         # mode_calib vars
-        ("qa_mode_calib", "percentile"),
-        ("qw_mode_calib", "percentile"),
+        "qa_mode_calib": "percentile",
+        "qw_mode_calib": "percentile",
         # init_method vars
-        ("a_init_method", "percentile"),
-        ("w_init_method", "sawb"),
+        "a_init_method": "percentile",
+        "w_init_method": "sawb",
         # qmodel_calibration
-        ("qmodel_calibration", 0),
-        ("qmodel_calibration_new", 0),
+        "qmodel_calibration": 0,
+        "qmodel_calibration_new": 0,
         # Boolean vars
-        ("qshortcutconv", False),
-        ("q1stlastconv", False),
-        ("qdw", False),
-        ("qskipfpn", False),
-        ("qkvsync", False),
-        ("extend_act_range", False),
-        ("plotsvg", False),
+        "qshortcutconv": False,
+        "q1stlastconv": False,
+        "qdw": False,
+        "qskipfpn": False,
+        "qkvsync": False,
+        "extend_act_range": False,
+        "plotsvg": False,
         # Iterable vars
-        ("qskip_layer_name", []),
-        ("qspecial_layers", {}),
-        ("qsinglesided_name", []),
-        ("clip_val_asst_percentile", [0.1, 99.9]),
-        (
-            "params2optim",
-            {
-                "W": [[] for _ in range(torch.cuda.device_count())],
-                "cvs": [[] for _ in range(torch.cuda.device_count())],
-            },
-        ),
+        "qlayer_name_pattern": [],
+        "qskip_layer_name": [],
+        "qspecial_layers": {},
+        "qsinglesided_name": [],
+        "clip_val_asst_percentile": (0.1, 99.9),
+        "params2optim": {
+            "W": [[] for _ in range(torch.cuda.device_count())],
+            "cvs": [[] for _ in range(torch.cuda.device_count())],
+        },
         # PTQ vars
-        ("ptq_nbatch", 100),
-        ("ptq_batchsize", 12),
-        ("ptq_nouterloop", 20000),
-        ("ptq_ninnerloop", 1),
-        ("ptq_coslr", ""),
-        ("ptq_lrw", 1e-05),
-        ("ptq_lrcv_a", 0.001),
-        ("ptq_lrcv_w", 0.001),
-        ("ptq_freezecvs", False),
-        ("ptq_qdrop", False),
-        ("ptq_loss_func", "mse"),
-        ("firstptqmodule", []),
+        "ptq_nbatch": 100,
+        "ptq_batchsize": 12,
+        "ptq_nouterloop": 20000,
+        "ptq_ninnerloop": 1,
+        "ptq_coslr": "",
+        "ptq_lrw": 1e-05,
+        "ptq_lrcv_a": 0.001,
+        "ptq_lrcv_w": 0.001,
+        "ptq_freezecvs": False,
+        "ptq_qdrop": False,
+        "ptq_loss_func": "mse",
+        "firstptqmodule": [],
+        "temp_disable_quantizers": False,
+        "temp_disable_PTQ": False,
+        "temp_disable_calib": False,
+        "org_batch_size": {},
+        "ptqmod_to_be_optimized": [],
         # Other vars
-        ("which2patch_contextmanager", None),
-    ]
+        "which2patch_contextmanager": None,
+        "force_stop_if_qbmm_auto_check_failed": False,
+        "world_size": max(1, torch.cuda.device_count()),
+        "global_rank": 0,
+        "batch_size": 2,
+        # items could be obsoleted
+        "output_attentions": False,
+        "bias_corr": False,
+        "qwav2vec": False,
+        "qvit": False,
+        "numparamsfromloadertomodel": 1,
+        "gradclip": 0.0,
+        "smoothq": False,
+        "keys_to_save": [],
+    }
 
     return cfg_defaults
 
 
-def qconfig_init(recipe: str = None, args: Any = None):
-    """Three possible ways to create qcfg:
-    1. create a default qcfg
-    2. load from a json
-    3. parse the args
-    NOTE: Content from higher number, e.g. arg parser, will override thier counterpart from lower
-            numbers, e.g. json.
+def find_recipe_json(recipe: str, subdir: str = None) -> Path:
+    """
+    Search for recipe .json file in fms_mo and return the path
 
     Args:
-    recipe: str. Recipe filename (json) that contains settings, if specified and exists. Will search
-            cwd and fms_mo/recipes folder. ok to omit '.json' extension.
-    args: argparser object that may contain relavant parameters.
+        recipe (str): Recipe file name (can be the "name" or "prefix.json").
+        subdir (str, optional): Alternative subdir path from pkg_root. Defaults to None.
 
-    Important items in the config dictionary:
-    nbits_[w|a]_alt: "_alt" stands for "alternative" -> the default prec for those "skipped" layers
-                        e.g. usually the 1st/last layers are "skipped" and will NOT be swapped to
-                        QLinear. But, if "nbits_x_alt = 8", they will.
-    qmodel_calibration[_new]: set to non-zero will trigger calibration. "_new" means calibration
-                                will happen during the first N calls of fwd path, better for long
-                                training or fine-tuning that you don't mind losing the first N iters
+    Returns:
+        Path: File Path to .json recipe if found, else None
+    """
+    if recipe is None:
+        return None
 
-    qlayer_name_pattern: allows partial or regex name matching, the layers satisfy the criteria will
-                        be skipped. NOTE: tracing will be bypassed entirely if this arg is used
-    qskip_layer_name: user can specify exact name to skip
-    qspecial_layers: special case handling. user can specify any quant params for any given layer,
-                     e.g. {'1st.conv':{'nbits_w':8,'qw_mode':'pact+sym'}, '2nd.layers':{...} }
+    cwd = Path().resolve()
+    pkg_root = Path(__file__).parent.parent.resolve()
+    file_in_cwd = cwd / recipe
+    file_in_cwd2 = cwd / f"{recipe}.json"
+    if subdir:
+        file_in_recipes = pkg_root / subdir / "recipes" / recipe
+        file_in_recipes2 = pkg_root / subdir / "recipes" / f"{recipe}.json"
+    else:
+        file_in_recipes = pkg_root / "recipes" / recipe
+        file_in_recipes2 = pkg_root / "recipes" / f"{recipe}.json"
 
-    extend_act_range: symmetric act quantizers (maxsym, pactsym+, ...) to use full range, e.g.,
-                      [-128, 127] instead [-127,127], TODO: should default to True?
+    if not recipe.endswith(".json") and file_in_recipes2.exists():
+        json_file = file_in_recipes2
+    elif not recipe.endswith(".json") and file_in_cwd2.exists():
+        json_file = file_in_cwd2
+    elif file_in_cwd.exists():
+        json_file = file_in_cwd
+    elif file_in_recipes.exists():
+        json_file = file_in_recipes
+    else:
+        json_file = None
 
-    ptq_nbatch: total number of batches of data that will be fetched from loader for PTQ tuning
-    ptq_batchsize: data used in PTQ tuning usually is fetched from loader directly, i.e. batchsize
-                    is the unchanged from dataloader.batch_size. although it could be different if
-                    needed, e.g. PTQ may allow larger bs due to only partial model tuning. But fine-
-                    grain shuffling will be needed in that case.
-    ptq_nouterloop: number of optimization "steps" in the PTQ outer loop. 1 outer loop uses 1 cached
-                    data batch. when Nouter >= Nbatch, data will be re-used
-    ptq_ninnerloop: number of "inner loop" for PTQ optimization. When 1 batch of data is fetched,
-                    run (loss->loss.back->optim.step) this many times before fetching the next batch
-                    NOTE: usually doesn't make big differences, hence, default to 1
-    ptq_coslr: can be "", "W" or "A" or "WA", indicating which (or both) optimizer will use cosLR,
-                otherwise use constantLR as default
+    return json_file
+
+
+def get_recipe(recipe: str, subdir: str = None) -> Any:
+    """
+    Get a json recipe.
+
+    Args:
+        recipe (str): Name of the recipe file.
+        subdir (str, optional): A subdirectory to search from root. Defaults to None.
+
+    Returns:
+        Any: Data from a saved .json.
+    """
+    json_file = find_recipe_json(recipe, subdir)
+    temp_data = None
+    if json_file:
+        with open(json_file, "r", encoding="utf-8") as openfile:
+            temp_data = json.load(openfile)
+        logger.info(f"Loaded settings from {json_file}.")
+
+    return temp_data
+
+
+def qconfig_init(recipe: str = None, args: Any = None) -> dict:
+    """Three possible ways to create qcfg:
+        1. create a default qcfg
+        2. load from a json
+        3. parse the args
+        NOTE: Content from higher number, e.g. arg parser, will override thier counterpart from
+            lower numbers, e.g. json.
+
+    Args:
+        recipe: str. Recipe filename (json) that contains settings, if specified and exists.
+            Will search cwd and fms_mo/recipes folder. ok to omit '.json' extension.
+        args: argparser object that may contain relevant parameters.
+
+        Important items in the config dictionary:
+        nbits_[w|a]_alt: "_alt" stands for "alternative" -> the default prec for those "skipped"
+            layers e.g. usually the 1st/last layers are "skipped" and will NOT be swapped to
+            QLinear. But, if "nbits_x_alt = 8", they will.
+        qmodel_calibration[_new]: set to non-zero will trigger calibration. "_new" means
+            calibration will happen during the first N calls of fwd path, better for long
+            training or fine-tuning that you don't mind losing the first N iters
+        qlayer_name_pattern: allows partial or regex name matching, the layers satisfy the
+            criteria will be skipped. NOTE: tracing will be bypassed entirely if this arg is used
+        qskip_layer_name: user can specify exact name to skip
+        qspecial_layers: special case handling. user can specify any quant params for any
+            given layer, e.g. {'1st.conv':{'nbits_w':8,'qw_mode':'pact+sym'}, '2nd.layers':{...} }
+        extend_act_range: symmetric act quantizers (maxsym, pactsym+, ...) to use full range, e.g.,
+            [-128, 127] instead [-127,127], TODO: should default to True?
+        ptq_nbatch: total number of batches of data that will be fetched from loader for PTQ tuning
+        ptq_batchsize: data used in PTQ tuning usually is fetched from loader directly,
+            i.e. batchsize is the unchanged from dataloader.batch_size. although it could be
+            different if needed, e.g. PTQ may allow larger bs due to only partial model tuning.
+            But fine-grain shuffling will be needed in that case.
+        ptq_nouterloop: number of optimization "steps" in the PTQ outer loop. 1 outer loop uses
+            1 cached data batch. when Nouter >= Nbatch, data will be re-used
+        ptq_ninnerloop: number of "inner loop" for PTQ optimization. When 1 batch of data is
+            fetched, run (loss->loss.back->optim.step) this many times before fetching the next
+            batch. NOTE: usually doesn't make big differences, hence, default to 1
+        ptq_coslr: can be "", "W" or "A" or "WA", indicating which (or both) optimizer will use
+            cosLR, otherwise use constantLR as default
     """
 
     qcfg = {}
@@ -163,6 +276,8 @@ def qconfig_init(recipe: str = None, args: Any = None):
     }
     # TODO: This could be further simplified. e.g. mapping["from class"] = "to class"
     #       "otherwise" is rarely used, and redundant "from" in the output dict
+
+    qcfg["pkg_versions"] = get_pkg_info()
 
     qcfg["nbits_w"] = 32
     qcfg["nbits_a"] = 32
@@ -260,29 +375,13 @@ def qconfig_init(recipe: str = None, args: Any = None):
     # 2. load values from json, if specified and exists
     #    this can be used to load a previously saved ckpt as well
     if recipe:
-        cwd = Path().resolve()
-        pkg_root = Path(__file__).parent.parent.resolve()
-        file_in_cwd = cwd / recipe
-        file_in_recipes = pkg_root / "recipes" / recipe
-        file_in_recipes2 = pkg_root / "recipes" / f"{recipe}.json"
-        temp_cfg = None
-
-        if not recipe.endswith(".json") and file_in_recipes2.exists():
-            qcfg_json = file_in_recipes2
-        elif file_in_cwd.exists():
-            qcfg_json = file_in_cwd
-        elif file_in_recipes.exists():
-            qcfg_json = file_in_recipes
-        else:
-            qcfg_json = None
-
-        if qcfg_json:
-            with open(qcfg_json, "r", encoding="utf-8") as openfile:
-                temp_cfg = json.load(openfile)
+        # qcfg recipes should reside in fms_mo/recipes
+        temp_cfg = get_recipe(recipe)
+        if temp_cfg:
             qcfg.update(temp_cfg)
-            logger.info(
-                f"Loaded settings from {qcfg_json} and updated the default values."
-            )
+            logger.info("Updated config with recipe values")
+        else:
+            raise ValueError(f"Config recipe {recipe} was not found.")
 
     # 3. parse args, if provided
     if hasattr(args, "__dict__"):
@@ -304,10 +403,10 @@ def qconfig_init(recipe: str = None, args: Any = None):
     return qcfg
 
 
-def has_non_serializable_object(anything):
+def has_non_serializable_object(anything: Any) -> bool:
     """
     Generalized recursive function looking for any non-serializable Python object
-    Only types that are JSON serializable are None, primatives, tuples, lists, and dicts.
+    Only types that are JSON serializable are None, primitives, tuples, lists, and dicts.
     Any other types must be converted into one of the types above.
     """
     if isinstance(anything, (list, tuple)):
@@ -336,7 +435,7 @@ def has_non_serializable_object(anything):
     return is_not_serializable
 
 
-def serialize_config(config):
+def serialize_config(config: dict) -> tuple[dict, dict]:
     """
     Util function to clean config of any non-serializable key,val pairs
     """
@@ -359,7 +458,9 @@ def serialize_config(config):
     return config, dump
 
 
-def remove_unwanted_from_config(config):
+def remove_unwanted_from_config(
+    config: dict, minimal: bool = True
+) -> tuple[dict, dict]:
     """Remove deprecated items or things cannot be saved as text (json)"""
     unwanted_items = [
         "sweep_cv_percentile",
@@ -369,12 +470,21 @@ def remove_unwanted_from_config(config):
         "checkQerr_frequency",
         "newlySwappedModules",
         "force_calib_once",
-        # if we keep the follwing LUTs, it will save the entire model
+        # if we keep the following LUTs, it will save the entire model
         "LUTmodule_name",
         "qkvsync_my_1st_sibling",
         "graph_in_out",
         "hook_qbmm_auto_check",
     ]
+
+    # If minimal qcfg to be saved, remove any variable that is equal to a default
+    if minimal:
+        default_config = config_defaults()
+        for key, val in config.items():
+            # If config has a default setting, add to unwanted items
+            if default_config.get(key) == val:
+                unwanted_items.append(key)
+
     len_before = len(config)
     dump = {k: config.pop(k) for k in unwanted_items if k in config}
     assert (
@@ -383,7 +493,7 @@ def remove_unwanted_from_config(config):
     return config, dump
 
 
-def get_unwanted_defaults():
+def get_unwanted_defaults() -> dict:
     """Add back those unserializable items if needed"""
     unwanted_items = [
         ("sweep_cv_percentile", False),
@@ -410,7 +520,7 @@ def get_unwanted_defaults():
     return unwanted_items
 
 
-def add_required_defaults_to_config(config):
+def add_required_defaults_to_config(config: dict) -> None:
     """Recover "unserializable" items that are previously removed from config"""
     unwanted_items = get_unwanted_defaults()
     for key, default_val in unwanted_items:
@@ -418,31 +528,66 @@ def add_required_defaults_to_config(config):
             config[key] = default_val
 
 
-def add_wanted_defaults_to_config(config):
+def add_wanted_defaults_to_config(config: dict, minimal: bool = True) -> None:
     """Util function to add basic config defaults that are missing into a config
     if a wanted item is not in the config, add it w/ default value
     """
-    wanted_items = config_defaults()
-    for wanted_name, wanted_default_val in wanted_items:
-        if wanted_name not in config:
-            config[wanted_name] = wanted_default_val
+    if not minimal:
+        config.update(config_defaults())
 
 
-def qconfig_save(qcfg, fname="qcfg.json"):
+def qconfig_save(
+    qcfg: dict,
+    recipe: str = None,
+    minimal: bool = True,
+    fname="qcfg.json",
+) -> None:
     """
     Try to save qcfg into a JSON file (or use .pt format if something really can't be text-only).
     For example, qcfg['mapping'] has some classes as keys and values, json won't work. We will try
     to remove unserializable items first.
+
+    Args:
+        qcfg (dict): Quantized config.
+        recipe (str, optional): String name for a save recipe. Defaults to None.
+        minimal (bool, optional): Save a minimal quantized config. Defaults to True.
+        fname (str, optional): File name to save quantized config. Defaults to "qcfg.json".
     """
 
-    # Remove deprecated/unwanted key,vals in config
-    temp_qcfg, removed_items = remove_unwanted_from_config(qcfg)
+    # First check in qcfg for added save list
+    # This value is hardcoded to avoid probing qcfg with real keys like "qa_mode"
+    keys_to_save = qcfg.get("keys_to_save", [])
 
-    # Add back wanted defaults for any missing vars
-    add_wanted_defaults_to_config(temp_qcfg)
+    # Next, check in fms_mo/recipes and merge them into a unique set (in case they differ)
+    keys_to_save_json = get_recipe(recipe)
+    if keys_to_save_json:
+        keys_to_save = list(set(keys_to_save + keys_to_save_json))
 
-    # Clean config of any unwanted key,vals not found in unwanted list
-    temp_qcfg, removed_items2 = serialize_config(temp_qcfg)
+    # If we found keys to save, fetch them from qcfg
+    if keys_to_save:
+        temp_qcfg = {}
+        for key in keys_to_save:
+            if key in qcfg:
+                temp_qcfg[key] = qcfg[key]
+            else:
+                raise ValueError(f"Desired save {key=} not in qcfg!")
+
+    else:
+        # We assume a full qcfg is being saved - trim it!
+        temp_qcfg = deepcopy(qcfg)
+
+        # Remove deprecated/unwanted key,vals in config
+        temp_qcfg, _ = remove_unwanted_from_config(temp_qcfg, minimal)
+
+        # Add back wanted defaults for any missing vars
+        add_wanted_defaults_to_config(temp_qcfg, minimal)
+
+        # Clean config of any unwanted key,vals not found in unwanted list
+        temp_qcfg, _ = serialize_config(temp_qcfg)
+
+    # Add in date and system information for archival
+    temp_qcfg["date"] = date.today().strftime("%Y-%B-%d")
+    temp_qcfg["pkg_versions"] = get_pkg_info()
 
     # Finally, check to ensure all values are valid before saving
     check_config(temp_qcfg)
@@ -454,19 +599,15 @@ def qconfig_save(qcfg, fname="qcfg.json"):
     with open(fname, "w", encoding="utf-8") as outfile:
         json.dump(temp_qcfg, outfile, indent=4)
 
-    # restore original qcfg
-    qcfg.update(removed_items)
-    qcfg.update(removed_items2)
 
-
-def qconfig_load(fname="qcfg.json"):
+def qconfig_load(fname: str = "qcfg.json") -> dict:
     """Read config in json format, work together with qconfig_save"""
     if os.path.isfile(fname):
         with open(fname, "r", encoding="utf-8") as openfile:
             config = json.load(openfile)
 
         # Add back wanted defaults for any missing vars
-        add_wanted_defaults_to_config(config)
+        add_wanted_defaults_to_config(config, minimal=False)
         add_required_defaults_to_config(config)
 
         # Ensure config has correct values before continuing
@@ -477,7 +618,7 @@ def qconfig_load(fname="qcfg.json"):
     logger.info(f"{fname} doesn't exist. cannot load the qcfg")
 
 
-def check_config(config, model_dtype=None):
+def check_config(config: dict, model_dtype: torch.dtype = None) -> None:
     """
     Check config values are valid before consuming them in qmodel_prep
     The following errors are detected:
@@ -721,31 +862,36 @@ def check_config(config, model_dtype=None):
         if not isinstance(boolean_var, bool):
             raise ValueError(f"{boolean_var_str} = {boolean_var} is not a boolean")
 
+    default_config = config_defaults()
+
     # Check int values
-    integer_vars_str_default = [
-        ("qmodel_calibration", 0),
-        ("qmodel_calibration_new", 0),
-        ("ptq_nbatch", 100),
-        ("ptq_batchsize", 12),
-        ("ptq_nouterloop", 20000),
-        ("ptq_ninnerloop", 1),
+    integer_vars_str = [
+        "qmodel_calibration",
+        "qmodel_calibration_new",
+        "ptq_nbatch",
+        "ptq_batchsize",
+        "ptq_nouterloop",
+        "ptq_ninnerloop",
     ]
-    for integer_var_str, integer_var_default in integer_vars_str_default:
+
+    for integer_var_str in integer_vars_str:
+        integer_var_default = default_config.get(integer_var_str)
         integer_var = config.get(integer_var_str, integer_var_default)
         # Check if integer was given as float (1.0 when it should be 1)
         if isinstance(integer_var, float) and integer_var.is_integer():
-            config[integer_var] = int(integer_var)
-            fp_var = int(integer_var)
+            config[integer_var_str] = int(integer_var)
+            integer_var = int(integer_var)
         if not isinstance(integer_var, int):
             raise ValueError(f"{integer_var_str} = {integer_var} is not an integer")
 
     # Check fp values
-    fp_vars_str_default = [
-        ("ptq_lrw", 1e-5),
-        ("ptq_lrcv_w", 0.001),
-        ("ptq_lrcv_a", 0.001),
+    fp_vars_str = [
+        "ptq_lrw",
+        "ptq_lrcv_w",
+        "ptq_lrcv_a",
     ]
-    for fp_var_str, fp_var_default in fp_vars_str_default:
+    for fp_var_str in fp_vars_str:
+        fp_var_default = default_config.get(fp_var_str)
         fp_var = config.get(fp_var_str, fp_var_default)
         # Check if float was given as an int (e.g. 1 when it should be 1.0)
         # NOTE: True/False qualifies as int.
@@ -756,16 +902,17 @@ def check_config(config, model_dtype=None):
             raise ValueError(f"{fp_var_str} = {fp_var} is not a floating-point number")
 
     # Check iterable values
-    iterable_vars_str_default = [
-        ("qskip_layer_name", ["pooler.dense"]),
-        ("qspecial_layers", {}),
-        ("qsinglesided_name", []),
-        ("ptqmod_to_be_optimized", []),
-        ("firstptqmodule", []),
-        ("params2optim", {"W": [[]], "cvs": [[]]}),
-        ("clip_val_asst_percentile", [0.1, 99.9]),
+    iterable_vars_str = [
+        "qskip_layer_name",
+        "qspecial_layers",
+        "qsinglesided_name",
+        "ptqmod_to_be_optimized",
+        "firstptqmodule",
+        "params2optim",
+        "clip_val_asst_percentile",
     ]
-    for iterable_var_str, iterable_var_default in iterable_vars_str_default:
+    for iterable_var_str in iterable_vars_str:
+        iterable_var_default = default_config.get(iterable_var_str)
         iterable_var = config.get(iterable_var_str, iterable_var_default)
         if not hasattr(iterable_var, "__iter__"):
             raise ValueError(
@@ -775,9 +922,10 @@ def check_config(config, model_dtype=None):
     # Other values that require special settings
 
     # clip_val_asst is the percentile to use for calibration. TODO: consider renaming
-    clip_val_asst_percentile = config[
-        "clip_val_asst_percentile"
-    ]  # already given default in iterable_var
+    clip_val_asst_percentile_default = default_config.get("clip_val_asst_percentile")
+    clip_val_asst_percentile = config.get(
+        "clip_val_asst_percentile", clip_val_asst_percentile_default
+    )
     if len(clip_val_asst_percentile) != 2:
         raise ValueError(
             f"clip_val_asst_percentile = {clip_val_asst_percentile} is not length 2"
