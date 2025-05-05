@@ -28,7 +28,6 @@ from transformers.tokenization_utils_base import BatchEncoding
 import torch
 
 # Local
-# from fms_mo.modules import QBmm
 from fms_mo.quant.quantizers import transformers_prepare_input
 from fms_mo.utils.import_utils import available_packages
 from fms_mo.utils.utils import move_to, patch_torch_bmm, prepare_data_4_fwd

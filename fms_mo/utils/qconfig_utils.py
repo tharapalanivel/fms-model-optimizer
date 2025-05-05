@@ -1182,18 +1182,18 @@ def check_config(config, model_dtype=None):
                 )
 
         # If mapping is defined, check for MX  classes
-        # Local
-        from fms_mo.modules.bmm import QBmmMX
-        from fms_mo.modules.linear import QLinearMX
+        if available_packages["mx"]:
+            # Local
+            from fms_mo.modules.bmm import QBmmMX
+            from fms_mo.modules.linear import QLinearMX
 
-        mapping = config.get("mapping", None)
+            mapping = config.get("mapping", None)
 
-        # partial was used to init this mapping --> use .func pointer
-        if mapping is not None:
-            if not mapping[nn.Linear].func is QLinearMX:
-                raise ValueError("MX mapping for nn.Linear is not QLinearMX")
+            # partial was used to init this mapping --> use .func pointer
+            if mapping is not None:
+                if not mapping[nn.Linear].func is QLinearMX:
+                    raise ValueError("MX mapping for nn.Linear is not QLinearMX")
 
-            if mapping["matmul_or_bmm"].func is QBmmMX:
-                raise ValueError("MX mapping for matmul_or_bmm is not QBmmMX")
-
+                if mapping["matmul_or_bmm"].func is QBmmMX:
+                    raise ValueError("MX mapping for matmul_or_bmm is not QBmmMX")
     # End mx_specs checks

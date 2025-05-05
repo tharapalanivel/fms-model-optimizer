@@ -4,16 +4,20 @@ import torch
 
 # Local
 from fms_mo import qmodel_prep
-from fms_mo.modules.bmm import QBmmMX
-from fms_mo.modules.linear import QLinearMX
 from fms_mo.utils.import_utils import available_packages
 from fms_mo.utils.qconfig_utils import check_config, set_mx_specs
 from tests.models.test_model_utils import delete_config, qmodule_error
 
-mx_qmodules = [
-    QLinearMX,
-    QBmmMX,
-]
+if available_packages["mx"]:
+    # Local
+    # pylint: disable=ungrouped-imports
+    from fms_mo.modules.bmm import QBmmMX
+    from fms_mo.modules.linear import QLinearMX
+
+    mx_qmodules = [
+        QLinearMX,
+        QBmmMX,
+    ]
 
 @pytest.mark.skipif(
     not available_packages["mx"],
@@ -92,7 +96,7 @@ def test_config_mx_error(
 
 @pytest.mark.skipif(
     not torch.cuda.is_available()
-    and not available_packages["mx"],
+    or not available_packages["mx"],
     reason="Skipped because CUDA or MX library was not available",
 )
 def test_residualMLP(

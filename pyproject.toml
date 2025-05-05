@@ -39,7 +39,6 @@ dependencies = [
 "safetensors",
 "ibm-fms>=0.0.8",
 "pkginfo>1.10",
-# "mx @ git+https://github.com/microsoft/microxcaling.git"
 ]
 
 [project.optional-dependencies]
