@@ -17,6 +17,7 @@ from pathlib import Path
 import logging
 
 # Third Party
+from fms_mo.utils.qconfig_utils import qconfig_save
 from transformers.modeling_utils import PreTrainedModel
 import torch
 
@@ -217,7 +218,7 @@ def convert_sd_for_aiu(
 
 def save_sd_for_aiu(
     model: PreTrainedModel,
-    output_dir: str,
+    output_dir: str = "./",
     savename: str = "qmodel_state_dict.pt",
     verbose: bool = False,
 ) -> None:
@@ -226,3 +227,31 @@ def save_sd_for_aiu(
     converted_sd = convert_sd_for_aiu(model, verbose)
     torch.save(converted_sd, Path(output_dir) / savename)
     logger.info("Model saved.")
+
+
+def save_for_aiu(
+    model: PreTrainedModel,
+    qcfg: dict,
+    output_dir: str = "./",
+    file_name: str = "qmodel.pt",
+    cfg_name: str = "qcfg.json",
+    recipe: str | None = None,
+    verbose: bool = False,
+) -> None:
+    """Save quantized model and configuration in the format request by the AIU.
+    The checkpoint saving is customized for AIU compatibility.
+    The general qconfig_save function is used to save the quantization configuration.
+    """
+
+    save_sd_for_aiu(model, output_dir, file_name, verbose)
+
+    # define specific keys needed when reloading model for AIU
+    qcfg["keys_to_save"] = [
+        "qa_mode",
+        "qw_mode",
+        "smoothq",
+        "scale_layers",
+        "qskip_layer_name",
+        "qskip_large_mag_layers",
+    ]
+    qconfig_save(qcfg, recipe=recipe, minimal=True, fname=Path(output_dir) / cfg_name)

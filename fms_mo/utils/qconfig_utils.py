@@ -538,9 +538,9 @@ def add_wanted_defaults_to_config(config: dict, minimal: bool = True) -> None:
 
 def qconfig_save(
     qcfg: dict,
-    recipe: str = None,
+    recipe: str | None = None,
     minimal: bool = True,
-    fname="qcfg.json",
+    fname: str = "qcfg.json",
 ) -> None:
     """
     Try to save qcfg into a JSON file (or use .pt format if something really can't be text-only).
@@ -550,8 +550,8 @@ def qconfig_save(
     Args:
         qcfg (dict): Quantized config.
         recipe (str, optional): String name for a save recipe. Defaults to None.
-        minimal (bool, optional): Save a minimal quantized config. Defaults to True.
-        fname (str, optional): File name to save quantized config. Defaults to "qcfg.json".
+        minimal (bool): Save a minimal quantized config. Defaults to True.
+        fname (str): File name to save quantized config. Defaults to "qcfg.json".
     """
 
     # First check in qcfg for added save list
@@ -598,6 +598,7 @@ def qconfig_save(
         warnings.warn(message, UserWarning)
     with open(fname, "w", encoding="utf-8") as outfile:
         json.dump(temp_qcfg, outfile, indent=4)
+    logger.info(f"Quantization configuration saved to {fname}")
 
 
 def qconfig_load(fname: str = "qcfg.json") -> dict:
