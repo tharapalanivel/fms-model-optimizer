@@ -17,9 +17,11 @@ from pathlib import Path
 import logging
 
 # Third Party
-from fms_mo.utils.qconfig_utils import qconfig_save
 from transformers.modeling_utils import PreTrainedModel
 import torch
+
+# Local
+from fms_mo.utils.qconfig_utils import qconfig_save
 
 # logging is only enabled for verbose output (performance is less critical during debug),
 # and f-string style logging is preferred for code readability
@@ -218,23 +220,23 @@ def convert_sd_for_aiu(
 
 def save_sd_for_aiu(
     model: PreTrainedModel,
-    output_dir: str = "./",
-    savename: str = "qmodel_state_dict.pt",
+    output_dir: str | Path = "./",
+    savename: str | Path = "qmodel_for_aiu.pt",
     verbose: bool = False,
 ) -> None:
     """Save model state dictionary after conversion for AIU compatibility."""
 
     converted_sd = convert_sd_for_aiu(model, verbose)
     torch.save(converted_sd, Path(output_dir) / savename)
-    logger.info("Model saved.")
+    logger.info(f"Quantized model checkpoint saved to {Path(output_dir) / savename}")
 
 
 def save_for_aiu(
     model: PreTrainedModel,
     qcfg: dict,
-    output_dir: str = "./",
-    file_name: str = "qmodel.pt",
-    cfg_name: str = "qcfg.json",
+    output_dir: str | Path = "./",
+    file_name: str | Path = "qmodel_for_aiu.pt",
+    cfg_name: str | Path = "qcfg.json",
     recipe: str | None = None,
     verbose: bool = False,
 ) -> None:

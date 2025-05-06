@@ -540,7 +540,7 @@ def qconfig_save(
     qcfg: dict,
     recipe: str | None = None,
     minimal: bool = True,
-    fname: str = "qcfg.json",
+    fname: str | Path = "qcfg.json",
 ) -> None:
     """
     Try to save qcfg into a JSON file (or use .pt format if something really can't be text-only).
