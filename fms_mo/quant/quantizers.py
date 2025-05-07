@@ -428,7 +428,7 @@ class SAWB(nn.Module):
             else:
                 self.quantizer = SAWBSTE
 
-    def forward(self, input_tensor):
+    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         input_tensor = self.quantizer.apply(
             input_tensor,
             self.num_bits,

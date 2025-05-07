@@ -13,14 +13,16 @@
 # limitations under the License.
 
 # Standard
+from copy import deepcopy
 from pathlib import Path
 import logging
 
 # Third Party
-from transformers.modeling_utils import PreTrainedModel
+from transformers.modeling_utils import PreTrainedModel  # type: ignore[import-untyped]
 import torch
 
 # Local
+from fms_mo.quant.quantizers import SAWB
 from fms_mo.utils.qconfig_utils import qconfig_save
 
 # logging is only enabled for verbose output (performance is less critical during debug),
@@ -65,9 +67,239 @@ def get_quantized_linear_names(model_type: str) -> list[str]:
     )
 
 
+def print_params(sd: dict) -> None:
+    """Print to logger some info and stats of all items in provided state dictionary."""
+
+    logger.info(
+        "\n"
+        + "\n".join(
+            f"{k:80} {str(list(v.size())):15} "
+            f"{str(v.dtype):18} {str(v.device):10} "
+            f"{v.reshape(-1)[0].item():12.4f} "
+            f"{v.min().item():12.4f} {v.max().item():12.4f}"
+            for k, v in sd.items()
+        )
+    )
+
+
+def process_smoothquant(
+    model: PreTrainedModel,
+    layer_name: str,
+    new_sd: dict,
+) -> tuple[torch.Tensor | None, torch.Tensor | None]:
+    """Check if smoothquant was in use and, if so:
+    1. compute combined weight/activation scaling factor
+    2. store it in new_sd dictionary
+    3. return scaled weights and smoothquant activation scale (for future use)
+
+    If smoothquant was not in use, activation scale does not exist or sums to zero.
+    In this case, a (None, None) tuple is returned.
+    """
+
+    weight_scaled = None
+    sq_a_scale = None
+    w = new_sd[layer_name + ".weight"]
+    if layer_name + ".smoothq_alpha" in model.state_dict():
+        sq_a_scale = model.state_dict()[layer_name + ".smoothq_act_scale"]
+        if sum(sq_a_scale) != 0:
+            sq_alpha = model.state_dict()[layer_name + ".smoothq_alpha"]
+            sq_w_scale = w.abs().max(dim=0, keepdim=True).values.clamp(min=1e-5)
+            sq_scale = sq_a_scale.pow(sq_alpha) / sq_w_scale.pow(1 - sq_alpha)
+            weight_scaled = w * sq_scale  # weights sq-scaled before quantization
+            # guarding FP16 casting
+            if sq_scale.abs().max() > torch.finfo(torch.float16).max:
+                raise ValueError(
+                    "Quantization parameters (qscale) exceeds float16 range. "
+                    "Aborted state dict saving."
+                )
+            new_sd[layer_name + ".smoothq_scale"] = (
+                sq_scale.squeeze().to(torch.float16).to("cpu")
+            )
+    return weight_scaled, sq_a_scale
+
+
+def recompute_weight_with_sawb(
+    weight_int_as_fp: torch.Tensor,
+    weight_per_channel: bool,
+    sq_a_scale: torch.Tensor | None,
+    layer_name: str,
+    new_sd: dict,
+    verbose: bool,
+) -> tuple[torch.Tensor | None, bool]:
+    """Use SAWB quantizer to recompute weights showing narrow distributions in the
+    integer domain.
+    """
+
+    is_w_recomputed = False
+    weight_int_sawb: torch.Tensor | None = None
+    weight_int_std: torch.Tensor | float | None = None
+    k = layer_name + ".weight"
+    w = new_sd[k]
+    if weight_per_channel:
+        # recompute if any channel shows narrow int weights
+        weight_int_std = weight_int_as_fp.std(dim=-1)
+        weight_int_std_min = weight_int_std.min()
+        recompute = any(w < 20 for w in weight_int_std)
+    else:
+        # recompute if full tensor shows narrow int weights
+        weight_int_std = weight_int_as_fp.std().item()
+        recompute = weight_int_std < 20
+
+    if recompute:
+        is_w_recomputed = True
+        if sq_a_scale is not None and sum(sq_a_scale) != 0:
+            # TODO: add support for smoothquant
+            raise ValueError(
+                "Weight recomputation while smoothquant is in use is "
+                "not yet supported."
+            )
+
+        # 1. Select an SAWB quantizer for weight recomputation
+        quantizer = SAWB(
+            num_bits=8,
+            dequantize=False,
+            align_zero=True,
+            perCh=w.size(0) if weight_per_channel else False,
+        )
+        quantizer.training = True  # set SAWB to recompute clips
+        # some SAWB quantizers only process FP32 inputs, so weights are
+        # temporarily upscaled
+        weight_int_sawb = quantizer(w.to(torch.float32))
+
+        # 2. Recompute clip values using new SAWB quantizer
+        w_cv_key = layer_name + ".quantize_weight.clip_val"
+        w_cvn_key = layer_name + ".quantize_weight.clip_valn"
+        if verbose:
+            logger.info(
+                f"  {'Overwrite' if w_cv_key in new_sd else 'Add'} key: {w_cv_key}"
+            )
+            logger.info(
+                f"  {'Overwrite' if w_cvn_key in new_sd else 'Add'} key: {w_cvn_key}"
+            )
+        new_sd[w_cv_key] = quantizer.clip_val.to("cpu").to(torch.float16)
+        new_sd[w_cvn_key] = -quantizer.clip_val.to("cpu").to(torch.float16)
+
+        # 3. [optional] Recompute standard deviation of integer weights
+        if verbose and weight_int_sawb is not None:
+            weight_int_sawb_as_fp = deepcopy(weight_int_sawb).to(torch.float32)
+            if weight_per_channel:
+                weight_int_sawb_std_min = weight_int_sawb_as_fp.std(dim=-1)[0].min()
+                logger.debug(
+                    "  Reprocessed weights "
+                    f"(std_min={weight_int_std_min:.1f} "
+                    f"-> {weight_int_sawb_std_min:.1f}) "
+                    f"and clips of {k}"
+                )
+            else:
+                weight_int_sawb_as_fp_std = weight_int_sawb_as_fp.std()
+                logger.debug(
+                    "  Reprocessed weights "
+                    f"(std={weight_int_std:.1f} "
+                    f"-> {weight_int_sawb_as_fp_std:.1f}) "
+                    f"and clips of {k}"
+                )
+        else:
+            log_min_std = "min_" if weight_per_channel else ""
+            log_w_std = weight_int_std_min if weight_per_channel else weight_int_std
+            logger.debug(f"  Weights preserved ({log_min_std}std={log_w_std:.1f})")
+
+    return weight_int_sawb, is_w_recomputed
+
+
+def process_weight(
+    model: PreTrainedModel,
+    layer_name: str,
+    weight_pre_quant: torch.Tensor,
+    recompute_narrow_weights: bool,
+    weight_per_channel: bool,
+    sq_a_scale: torch.Tensor | None,
+    new_sd: dict,
+    verbose: bool,
+) -> tuple[torch.Tensor | None, bool | None]:
+    """Compute integer weights and store them into new state dictionary.
+    If recomputation is enabled, int weights are updated using SAWB quantizer.
+    """
+
+    # in most scenarios, weights are quantized, so clip_val exists
+    weight_int = None
+    is_w_recomputed = False
+    if layer_name + ".quantize_weight.clip_val" in model.state_dict():
+        w_cv = model.state_dict()[layer_name + ".quantize_weight.clip_val"]
+        if w_cv.numel() > 1:
+            w_cv = w_cv.unsqueeze(dim=1)
+        weight_int_as_fp = torch.clamp(127 / w_cv * weight_pre_quant, -127, 127).round()
+
+        weight_int_sawb = None
+        if recompute_narrow_weights:
+            weight_int_sawb, is_w_recomputed = recompute_weight_with_sawb(
+                weight_int_as_fp,
+                weight_per_channel,
+                sq_a_scale,
+                layer_name,
+                new_sd,
+                verbose,
+            )
+
+        weight_int = (
+            weight_int_sawb if weight_int_sawb is not None else weight_int_as_fp
+        )
+        new_sd[layer_name + ".weight"] = weight_int.to(torch.int8).to("cpu")
+
+    return weight_int, is_w_recomputed
+
+
+def process_zero_shift(
+    model: PreTrainedModel,
+    layer_name: str,
+    weight_int: torch.Tensor | None,
+    new_sd: dict,
+) -> None:
+    """Compute and store the zero shift, a correction factor that compensates the
+    output of (W integer, X integer) matmuls to match the corresponding FP operation.
+
+    Only applies if activations are asymmetrically quantized.
+    """
+
+    k = layer_name + ".zero_shift"
+    a_cv_name = layer_name + ".quantize_feature.clip_val"
+    a_cvn_name = a_cv_name + "n"
+    a_cv = None
+    a_cvn = None
+    if a_cv_name in model.state_dict():
+        a_cv = model.state_dict()[a_cv_name]
+        if a_cvn_name in model.state_dict():
+            a_cvn = model.state_dict()[a_cvn_name]
+
+        # compute "zero_shift" correction factor only for asymmetric activations
+        if a_cv and a_cvn and a_cv != -a_cvn:
+            if weight_int is None:
+                logger.info(
+                    f"As weights appear to be not quantized, zero shift for {k} "
+                    "will not be generated."
+                )
+            elif weight_int.dim() == 2:
+                # weight_int: [out_feat, in_feat]
+                # sum (squash) along in_feat dimension: dim=1
+                new_sd[k] = (
+                    torch.sum(
+                        weight_int,
+                        dim=1,
+                    )
+                    .to(torch.float16)
+                    .to("cpu")
+                )
+            else:
+                raise NotImplementedError(
+                    "Zero shift computation for tensor "
+                    "with more than 2 dims is not supported yet."
+                )
+
+
 def convert_sd_for_aiu(
     model: PreTrainedModel,
-    verbose: bool,
+    recompute_narrow_weights: bool = False,
+    weight_per_channel: bool = False,
+    verbose: bool = False,
 ) -> dict[str, torch.Tensor]:
     """Convert the state dictionary (sd) of an FMS-MO-quantized model into a format
     compatible with the AIU.
@@ -91,23 +323,8 @@ def convert_sd_for_aiu(
     """
 
     if verbose:
-        logger.info("Before conversion:")
-        logger.info("* ALL MODEL PARAMETERS (name, size, dtype)")
-        logger.info(
-            "\n"
-            + "\n".join(
-                f"{k:80} {str(list(v.size())):15} {v.dtype}"
-                for k, v in model.named_parameters()
-            )
-        )
-        logger.info("* ALL BUFFERS (name, size, dtype)")
-        logger.info(
-            "\n"
-            + "\n".join(
-                f"{k:80} {str(list(v.size())):15} {v.dtype}"
-                for k, v in model.named_buffers()
-            )
-        )
+        logger.info("Parameters before conversion")
+        print_params(model.state_dict())
         logger.info("=" * 60)
 
     model_type = getattr(model.config, "model_type", None)
@@ -127,72 +344,38 @@ def convert_sd_for_aiu(
         "obsrv_clipvaln",
     ]
 
-    new_sd = {}
+    new_sd: dict = {}
+    num_w_recomputed = 0
+    num_w_preserved = 0
     for k, v in model.state_dict().items():
+        if verbose:
+            logger.info(f"Processing key: {k}")
         if k.endswith(".weight") and any(qlayer in k for qlayer in quantized_layers):
-            layername = k[:-7]
+            layer_name = k[:-7]
 
-            # smoothquant processing:
-            # - if smoothquant wasn't used, smoothq_alpha doesn't exist or is zero
-            # - compute combined weight/activation smoothquant scaling factor (sq_scale)
-            # - rescale weights before quantization
-            # - store scaling factor into state dict
-            v_scaled = None
-            if layername + ".smoothq_alpha" in model.state_dict():
-                sq_a_scale = model.state_dict()[layername + ".smoothq_act_scale"]
-                if sum(sq_a_scale) != 0:
-                    sq_alpha = model.state_dict()[layername + ".smoothq_alpha"]
-                    sq_w_scale = v.abs().max(dim=0, keepdim=True).values.clamp(min=1e-5)
-                    sq_scale = sq_a_scale.pow(sq_alpha) / sq_w_scale.pow(1 - sq_alpha)
-                    v_scaled = v * sq_scale  # weights sq-scaled before quantization
-                    # guarding FP16 casting
-                    if sq_scale.abs().max() > torch.finfo(torch.float16).max:
-                        raise ValueError(
-                            "Quantization parameters (qscale) exceeds float16 range. "
-                            "Aborted state dict saving."
-                        )
-                    new_sd[layername + ".smoothq_scale"] = (
-                        sq_scale.squeeze().to(torch.float16).to("cpu")
-                    )
+            v_scaled, sq_a_scale = process_smoothquant(
+                model=model,
+                layer_name=layer_name,
+                new_sd=new_sd,
+            )
 
-            # quantize weights and store them into state dict
-            if layername + ".quantize_weight.clip_val" in model.state_dict():
-                w_cv = model.state_dict()[layername + ".quantize_weight.clip_val"]
-                if w_cv.numel() > 1:
-                    w_cv = w_cv.unsqueeze(dim=1)
-                weight_pre_quant = v_scaled if v_scaled is not None else v
-                weight_int = torch.clamp(
-                    127 / w_cv * weight_pre_quant, -127, 127
-                ).round()
-                new_sd[k] = weight_int.to(torch.int8).to("cpu")  # signed int8
+            weight_int, is_w_recomputed = process_weight(
+                model=model,
+                layer_name=layer_name,
+                weight_pre_quant=v_scaled if v_scaled is not None else v,
+                recompute_narrow_weights=recompute_narrow_weights,
+                weight_per_channel=weight_per_channel,
+                sq_a_scale=sq_a_scale,
+                new_sd=new_sd,
+                verbose=verbose,
+            )
+            if is_w_recomputed:
+                num_w_recomputed += 1
+            else:
+                num_w_preserved += 1
 
-            a_cv_name = layername + ".quantize_feature.clip_val"
-            a_cvn_name = a_cv_name + "n"
-            a_cv = None
-            a_cvn = None
-            if a_cv_name in model.state_dict():
-                a_cv = model.state_dict()[a_cv_name]
-                if a_cvn_name in model.state_dict():
-                    a_cvn = model.state_dict()[a_cvn_name]
+            process_zero_shift(model, layer_name, weight_int, new_sd)
 
-                # compute "zero_shift" correction factor only for asymmetric activations
-                if a_cv and a_cvn and a_cv != -a_cvn:
-                    if v.dim() == 2:
-                        # weight_int: [out_feat, in_feat]
-                        # sum (squash) along in_feat dimension: dim=1
-                        new_sd[layername + ".zero_shift"] = (
-                            torch.sum(
-                                weight_int,
-                                dim=1,
-                            )
-                            .to(torch.float16)
-                            .to("cpu")
-                        )
-                    else:
-                        raise NotImplementedError(
-                            "Zero shift computation for tensor "
-                            "with more than 2 dims is not supported yet."
-                        )
         elif all(excluded_key not in k for excluded_key in excluded_keys_from_new_sd):
             # guarding FP16 cast
             if v.abs().max() > torch.finfo(torch.float16).max:
@@ -204,15 +387,14 @@ def convert_sd_for_aiu(
 
     logger.info("New state dict processed.")
     if verbose:
+        logger.info("Parameters after conversion")
+        print_params(new_sd)
+        logger.info("=" * 60)
+
+    if recompute_narrow_weights:
         logger.info(
-            "\n"
-            + "\n".join(
-                f"{k:80} {str(list(v.size())):15} "
-                f"{str(v.dtype):18} {str(v.device):10} "
-                f"{v.reshape(-1)[0].item():12.4f} "
-                f"{v.min().item():12.4f} {v.max().item():12.4f}"
-                for k, v in new_sd.items()
-            )
+            f"Recomputed {num_w_recomputed} weights with SAWB, "
+            f"{num_w_preserved} preserved."
         )
 
     return new_sd
@@ -220,15 +402,25 @@ def convert_sd_for_aiu(
 
 def save_sd_for_aiu(
     model: PreTrainedModel,
+    qcfg: dict | None = None,
     output_dir: str | Path = "./",
-    savename: str | Path = "qmodel_for_aiu.pt",
+    file_name: str | Path = "qmodel_for_aiu.pt",
     verbose: bool = False,
 ) -> None:
     """Save model state dictionary after conversion for AIU compatibility."""
 
-    converted_sd = convert_sd_for_aiu(model, verbose)
-    torch.save(converted_sd, Path(output_dir) / savename)
-    logger.info(f"Quantized model checkpoint saved to {Path(output_dir) / savename}")
+    converted_sd = convert_sd_for_aiu(
+        model=model,
+        recompute_narrow_weights=(
+            qcfg.get("recompute_narrow_weights", False) if qcfg is not None else False
+        ),
+        weight_per_channel=(
+            "perch" in qcfg.get("qw_mode", False) if qcfg is not None else False
+        ),
+        verbose=verbose,
+    )
+    torch.save(converted_sd, Path(output_dir) / file_name)
+    logger.info(f"Quantized model checkpoint saved to {Path(output_dir) / file_name}")
 
 
 def save_for_aiu(
@@ -240,14 +432,17 @@ def save_for_aiu(
     recipe: str | None = None,
     verbose: bool = False,
 ) -> None:
-    """Save quantized model and configuration in the format request by the AIU.
-    The checkpoint saving is customized for AIU compatibility.
+    """Main entry point to save quantized model state dictionary and configuration
+    in the format requested by the AIU.
+
+    Checkpoint saving is customized for AIU compatibility, with the option to recompute
+    weights presenting narrow distributions in the integer domain.
     The general qconfig_save function is used to save the quantization configuration.
     """
 
-    save_sd_for_aiu(model, output_dir, file_name, verbose)
+    save_sd_for_aiu(model, qcfg, output_dir, file_name, verbose)
 
-    # define specific keys needed when reloading model for AIU
+    # enforce specific keys needed when reloading model for AIU
     qcfg["keys_to_save"] = [
         "qa_mode",
         "qw_mode",
