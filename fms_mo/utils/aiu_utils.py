@@ -257,7 +257,7 @@ def process_zero_shift(
     """Compute and store the zero shift, a correction factor that compensates the
     output of (W integer, X integer) matmuls to match the corresponding FP operation.
 
-    Only applies if activations are asymmetrically quantized.
+    Only needed if activations are asymmetrically quantized.
     """
 
     k = layer_name + ".zero_shift"
@@ -438,6 +438,8 @@ def save_for_aiu(
     Checkpoint saving is customized for AIU compatibility, with the option to recompute
     weights presenting narrow distributions in the integer domain.
     The general qconfig_save function is used to save the quantization configuration.
+
+    Required arguments: model (quantized), qcfg
     """
 
     save_sd_for_aiu(model, qcfg, output_dir, file_name, verbose)
