@@ -122,6 +122,7 @@ def process_smoothquant(
 
 
 def recompute_weight_with_sawb(
+    weight_pre_quant: torch.Tensor,
     weight_int_as_fp: torch.Tensor,
     weight_per_channel: bool,
     sq_a_scale: torch.Tensor | None,
@@ -165,7 +166,7 @@ def recompute_weight_with_sawb(
         quantizer.training = True  # set SAWB to recompute clips
         # some SAWB quantizers only process FP32 inputs, so weights are
         # temporarily upscaled
-        weight_int_sawb = quantizer(weight_int_as_fp.to(torch.float32))
+        weight_int_sawb = quantizer(weight_pre_quant.to(torch.float32))
 
         # 2. Recompute clip values using new SAWB quantizer
         w_cv_key = layer_name + ".quantize_weight.clip_val"
@@ -181,7 +182,7 @@ def recompute_weight_with_sawb(
         new_sd[w_cvn_key] = -quantizer.clip_val.to("cpu").to(torch.float16)
 
         # 3. [optional] Recompute standard deviation of integer weights
-        if verbose and weight_int_sawb is not None:
+        if verbose:
             weight_int_sawb_as_fp = deepcopy(weight_int_sawb).to(torch.float32)
             if weight_per_channel:
                 weight_int_sawb_std_min = weight_int_sawb_as_fp.std(dim=-1)[0].min()
@@ -236,6 +237,7 @@ def process_weight(
         weight_int_sawb = None
         if recompute_narrow_weights:
             weight_int_sawb, is_w_recomputed = recompute_weight_with_sawb(
+                weight_pre_quant,
                 weight_int_as_fp,
                 weight_per_channel,
                 sq_a_scale,
@@ -378,13 +380,17 @@ def convert_sd_for_aiu(
             process_zero_shift(model, layer_name, weight_int, new_sd)
 
         elif all(excluded_key not in k for excluded_key in excluded_keys_from_new_sd):
-            # guarding FP16 cast
-            if v.abs().max() > torch.finfo(torch.float16).max:
-                raise ValueError(
-                    f"Quantization parameters ({k}) exceeds float16 range. "
-                    "Aborted state dict saving."
-                )
-            new_sd[k] = v.to("cpu").to(torch.float16)
+            if k not in new_sd:
+                # guarding FP16 cast
+                if v.abs().max() > torch.finfo(torch.float16).max:
+                    raise ValueError(
+                        f"Quantization parameters ({k}) exceeds float16 range. "
+                        "Aborted state dict saving."
+                    )
+                logger.info(f"  Save key: {k}")
+                new_sd[k] = v.to("cpu").to(torch.float16)
+            else:
+                logger.info(f"  Skip parameter already processed: {k}")
 
     logger.info("New state dict processed.")
     if verbose:
