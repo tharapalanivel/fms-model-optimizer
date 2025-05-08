@@ -191,8 +191,10 @@ def test_double_qconfig_save(
     """
     delete_config()
 
-    qconfig_save(config_fp32, minimal=False)
-    qconfig_save(config_fp32, minimal=False)
+    # Creating a qcfg, then saving again will cause a warning -> ignore it
+    with pytest.warns(UserWarning, match="qcfg.json already exist, will overwrite."):
+        qconfig_save(config_fp32, minimal=False)
+        qconfig_save(config_fp32, minimal=False)
 
     delete_config()
 
