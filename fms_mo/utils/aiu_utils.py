@@ -281,14 +281,15 @@ def process_zero_shift(
             elif weight_int.dim() == 2:
                 # weight_int: [out_feat, in_feat]
                 # sum (squash) along in_feat dimension: dim=1
-                new_sd[k] = (
-                    torch.sum(
-                        weight_int,
-                        dim=1,
+                zero_shift = torch.sum(weight_int, dim=1)
+
+                # guarding FP16 cast
+                if zero_shift.abs().max() > torch.finfo(torch.float16).max:
+                    raise ValueError(
+                        f"Zero shift ({k}) exceeds float16 range. "
+                        "Aborted state dict saving."
                     )
-                    .to(torch.float16)
-                    .to("cpu")
-                )
+                new_sd[k] = zero_shift.to(torch.float16).to("cpu")
             else:
                 raise NotImplementedError(
                     "Zero shift computation for tensor "
