@@ -539,9 +539,9 @@ def add_wanted_defaults_to_config(config: dict, minimal: bool = True) -> None:
 
 def qconfig_save(
     qcfg: dict,
-    recipe: str = None,
+    recipe: str | None = None,
     minimal: bool = True,
-    fname="qcfg.json",
+    fname: str = "qcfg.json",
 ) -> None:
     """
     Try to save qcfg into a JSON file (or use .pt format if something really can't be text-only).

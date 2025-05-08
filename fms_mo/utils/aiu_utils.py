@@ -188,7 +188,7 @@ def recompute_weight_with_sawb(
                         f"(std_min={weight_int_std_min:.1f} "
                         f"-> {weight_int_sawb_std_min:.1f}) "
                         f"and clips of {layer_name + '.weight'}"
-                )
+                    )
             else:
                 weight_int_sawb_as_fp_std = weight_int_sawb_as_fp.std()
                 if verbose:
@@ -410,6 +410,13 @@ def save_sd_for_aiu(
 ) -> None:
     """Save model state dictionary after conversion for AIU compatibility."""
 
+    if qcfg is None:
+        logger.info(
+            "Attention: saving state dictionary without specifying a quantization "
+            "configuration (qcfg) performs no recomputation for narrow weight "
+            "distributions and assumes the weight quantizer used was per-tensor."
+        )
+
     converted_sd = convert_sd_for_aiu(
         model=model,
         recompute_narrow_weights=(
@@ -426,7 +433,7 @@ def save_sd_for_aiu(
 
 def save_for_aiu(
     model: PreTrainedModel,
-    qcfg: dict,
+    qcfg: dict | None = None,
     output_dir: str | Path = "./",
     file_name: str | Path = "qmodel_for_aiu.pt",
     cfg_name: str | Path = "qcfg.json",
@@ -440,10 +447,17 @@ def save_for_aiu(
     weights presenting narrow distributions in the integer domain.
     The general qconfig_save function is used to save the quantization configuration.
 
-    Required arguments: model (quantized), qcfg
+    Required arguments: model (quantized)
     """
 
     save_sd_for_aiu(model, qcfg, output_dir, file_name, verbose)
+
+    if qcfg is None:
+        logger.info(
+            "Quantization configuration was not provided. Only converted checkpoint is "
+            "saved."
+        )
+        return
 
     # enforce specific keys needed when reloading model for AIU
     qcfg["keys_to_save"] = [
@@ -455,4 +469,9 @@ def save_for_aiu(
         "qskip_large_mag_layers",
         "recompute_narrow_weights",
     ]
-    qconfig_save(qcfg, recipe=recipe, minimal=True, fname=Path(output_dir) / cfg_name)
+    qconfig_save(
+        qcfg=qcfg,
+        recipe=recipe,
+        minimal=True,
+        fname=str(Path(output_dir) / cfg_name),  # only str is fname accepted type
+    )
