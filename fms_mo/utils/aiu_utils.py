@@ -30,6 +30,9 @@ from fms_mo.utils.qconfig_utils import qconfig_save
 # pylint: disable=logging-not-lazy
 
 
+# empirical threshold to standard deviation of INT weights to trigger their recomputation
+STD_THRESHOLD = 20
+
 logger = logging.getLogger()
 
 
@@ -137,11 +140,11 @@ def recompute_weight_with_sawb(
         # recompute if any channel shows narrow int weights
         weight_int_std = weight_int_as_fp.std(dim=-1)
         weight_int_std_min = weight_int_std.min()
-        recompute = any(w < 20 for w in weight_int_std)
+        recompute = any(w < STD_THRESHOLD for w in weight_int_std)
     else:
         # recompute if full tensor shows narrow int weights
         weight_int_std = weight_int_as_fp.std().item()
-        recompute = weight_int_std < 20
+        recompute = weight_int_std < STD_THRESHOLD
 
     if recompute:
         is_w_recomputed = True
@@ -283,13 +286,9 @@ def process_zero_shift(
                 # sum (squash) along in_feat dimension: dim=1
                 zero_shift = torch.sum(weight_int, dim=1)
 
-                # guarding FP16 cast
-                if zero_shift.abs().max() > torch.finfo(torch.float16).max:
-                    raise ValueError(
-                        f"Zero shift ({k}) exceeds float16 range. "
-                        "Aborted state dict saving."
-                    )
-                new_sd[k] = zero_shift.to(torch.float16).to("cpu")
+                # zero shift can exceed FP16 max value, especially if INT weights have
+                # been recomputed, so it is saved as FP32
+                new_sd[k] = zero_shift.to(torch.float32).to("cpu")
             else:
                 raise NotImplementedError(
                     "Zero shift computation for tensor "
