@@ -179,6 +179,24 @@ def test_save_config_minimal(
 
     delete_config()
 
+
+def test_double_qconfig_save(
+    config_fp32: dict,
+):
+    """
+    Ensure that using qconfig_save multiple times doesn't fail.
+
+    Args:
+        config_fp32 (dict): Config for fp32 quantization
+    """
+    delete_config()
+
+    qconfig_save(config_fp32, minimal=False)
+    qconfig_save(config_fp32, minimal=False)
+
+    delete_config()
+
+
 def test_load_config_restored_pair(
     config_fp32: dict,
     wanted_pair: tuple,
