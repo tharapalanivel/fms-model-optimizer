@@ -98,7 +98,7 @@ def process_smoothquant(
 
     weight_scaled = None
     sq_a_scale = None
-    w = new_sd[layer_name + ".weight"]
+    w = model.state_dict()[layer_name + ".weight"]
     if layer_name + ".smoothq_alpha" in model.state_dict():
         sq_a_scale = model.state_dict()[layer_name + ".smoothq_act_scale"]
         if sum(sq_a_scale) != 0:
@@ -133,8 +133,6 @@ def recompute_weight_with_sawb(
     is_w_recomputed = False
     weight_int_sawb: torch.Tensor | None = None
     weight_int_std: torch.Tensor | float | None = None
-    k = layer_name + ".weight"
-    w = new_sd[k]
     if weight_per_channel:
         # recompute if any channel shows narrow int weights
         weight_int_std = weight_int_as_fp.std(dim=-1)
@@ -159,12 +157,12 @@ def recompute_weight_with_sawb(
             num_bits=8,
             dequantize=False,
             align_zero=True,
-            perCh=w.size(0) if weight_per_channel else False,
+            perCh=weight_int_as_fp.size(0) if weight_per_channel else False,
         )
         quantizer.training = True  # set SAWB to recompute clips
         # some SAWB quantizers only process FP32 inputs, so weights are
         # temporarily upscaled
-        weight_int_sawb = quantizer(w.to(torch.float32))
+        weight_int_sawb = quantizer(weight_int_as_fp.to(torch.float32))
 
         # 2. Recompute clip values using new SAWB quantizer
         w_cv_key = layer_name + ".quantize_weight.clip_val"
@@ -184,24 +182,27 @@ def recompute_weight_with_sawb(
             weight_int_sawb_as_fp = deepcopy(weight_int_sawb).to(torch.float32)
             if weight_per_channel:
                 weight_int_sawb_std_min = weight_int_sawb_as_fp.std(dim=-1)[0].min()
-                logger.debug(
-                    "  Reprocessed weights "
-                    f"(std_min={weight_int_std_min:.1f} "
-                    f"-> {weight_int_sawb_std_min:.1f}) "
-                    f"and clips of {k}"
+                if verbose:
+                    logger.info(
+                        "  Reprocessed weights "
+                        f"(std_min={weight_int_std_min:.1f} "
+                        f"-> {weight_int_sawb_std_min:.1f}) "
+                        f"and clips of {layer_name + '.weight'}"
                 )
             else:
                 weight_int_sawb_as_fp_std = weight_int_sawb_as_fp.std()
-                logger.debug(
-                    "  Reprocessed weights "
-                    f"(std={weight_int_std:.1f} "
-                    f"-> {weight_int_sawb_as_fp_std:.1f}) "
-                    f"and clips of {k}"
-                )
+                if verbose:
+                    logger.info(
+                        "  Reprocessed weights "
+                        f"(std={weight_int_std:.1f} "
+                        f"-> {weight_int_sawb_as_fp_std:.1f}) "
+                        f"and clips of {layer_name + '.weight'}"
+                    )
         else:
             log_min_std = "min_" if weight_per_channel else ""
             log_w_std = weight_int_std_min if weight_per_channel else weight_int_std
-            logger.debug(f"  Weights preserved ({log_min_std}std={log_w_std:.1f})")
+            if verbose:
+                logger.info(f"  Weights preserved ({log_min_std}std={log_w_std:.1f})")
 
     return weight_int_sawb, is_w_recomputed
 
@@ -393,7 +394,7 @@ def convert_sd_for_aiu(
 
     if recompute_narrow_weights:
         logger.info(
-            f"Recomputed {num_w_recomputed} weights with SAWB, "
+            f"Recomputed {num_w_recomputed} weight matrices with SAWB, "
             f"{num_w_preserved} preserved."
         )
 
@@ -415,7 +416,7 @@ def save_sd_for_aiu(
             qcfg.get("recompute_narrow_weights", False) if qcfg is not None else False
         ),
         weight_per_channel=(
-            "perch" in qcfg.get("qw_mode", False) if qcfg is not None else False
+            "perch" in qcfg.get("qw_mode", False).lower() if qcfg is not None else False
         ),
         verbose=verbose,
     )
@@ -452,5 +453,6 @@ def save_for_aiu(
         "scale_layers",
         "qskip_layer_name",
         "qskip_large_mag_layers",
+        "recompute_narrow_weights",
     ]
     qconfig_save(qcfg, recipe=recipe, minimal=True, fname=Path(output_dir) / cfg_name)
