@@ -470,7 +470,7 @@ def save_for_aiu(
         "qa_mode",
         "qw_mode",
         "smoothq",
-        "scale_layers",
+        "smoothq_scale_layers",
         "qskip_layer_name",
         "qskip_large_mag_layers",
         "recompute_narrow_weights",

@@ -117,7 +117,6 @@ def config_defaults() -> dict:
         # Iterable vars
         "qlayer_name_pattern": [],
         "qskip_layer_name": [],
-        "qskip_large_mag_layers": False,
         "qspecial_layers": {},
         "qsinglesided_name": [],
         "clip_val_asst_percentile": (0.1, 99.9),
