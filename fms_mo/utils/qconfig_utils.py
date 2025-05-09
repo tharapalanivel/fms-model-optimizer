@@ -116,6 +116,7 @@ def config_defaults() -> dict:
         # Iterable vars
         "qlayer_name_pattern": [],
         "qskip_layer_name": [],
+        "qskip_large_mag_layers": False,
         "qspecial_layers": {},
         "qsinglesided_name": [],
         "clip_val_asst_percentile": (0.1, 99.9),
@@ -297,6 +298,7 @@ def qconfig_init(recipe: str = None, args: Any = None) -> dict:
     # ways to control which layers to be quantized/skipped
     qcfg["qlayer_name_pattern"] = []
     qcfg["qskip_layer_name"] = []
+    qcfg["qskip_large_mag_layers"] = False
     qcfg["qspecial_layers"] = {}
 
     # settings about quantizing bmm/matmul
@@ -538,9 +540,9 @@ def add_wanted_defaults_to_config(config: dict, minimal: bool = True) -> None:
 
 def qconfig_save(
     qcfg: dict,
-    recipe: str = None,
+    recipe: str | None = None,
     minimal: bool = True,
-    fname="qcfg.json",
+    fname: str = "qcfg.json",
 ) -> None:
     """
     Try to save qcfg into a JSON file (or use .pt format if something really can't be text-only).
