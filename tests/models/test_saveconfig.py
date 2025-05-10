@@ -179,6 +179,102 @@ def test_save_config_minimal(
 
     delete_config()
 
+
+def test_double_qconfig_save(
+    config_fp32: dict,
+):
+    """
+    Ensure that using qconfig_save multiple times doesn't fail.
+
+    Args:
+        config_fp32 (dict): Config for fp32 quantization
+    """
+    delete_config()
+
+    # Creating a qcfg, then saving again will cause a warning -> ignore it
+    with pytest.warns(UserWarning, match="qcfg.json already exist, will overwrite."):
+        qconfig_save(config_fp32, minimal=False)
+        qconfig_save(config_fp32, minimal=False)
+
+    delete_config()
+
+def test_qconfig_save_list_as_dict(
+    config_fp32: dict,
+):
+    """
+    Test that save recipes can't be used as dictionary
+
+    Args:
+        config_fp32 (dict): Config for fp32 quantization
+    """
+    delete_config()
+
+    # Fill in keys_to_save as dict with nonsense val
+    config_fp32["keys_to_save"] = {
+        "qa_mode": None,
+        "qw_mode": None,
+        "smoothq": None,
+        "scale_layers": None,
+        "qskip_layer_name": None,
+        "qskip_large_mag_layers": None,
+    }
+
+    with pytest.raises(ValueError):
+        qconfig_save(config_fp32, minimal=True)
+
+    delete_config()
+
+
+def test_qconfig_save_recipe_as_dict(
+    config_fp32: dict,
+):
+    """
+    Test that save recipes can't be used as dictionary
+
+    Args:
+        config_fp32 (dict): Config for fp32 quantization
+    """
+    delete_config()
+
+    # Fill in keys_to_save as dict with nonsense val
+    save_dict = {
+        "qa_mode": None,
+        "qw_mode": None,
+        "smoothq": None,
+        "scale_layers": None,
+        "qskip_layer_name": None,
+        "qskip_large_mag_layers": None,
+    }
+    save_json(save_dict, file_path="keys_to_save.json")
+
+
+    with pytest.raises(ValueError):
+        qconfig_save(config_fp32, recipe="keys_to_save.json", minimal=True)
+
+    delete_config()
+
+
+def test_qconfig_load_with_recipe_as_list(
+    config_fp32: dict,
+):
+    """
+    Test if using qconfig_load errors when loading a json list
+
+    Args:
+        config_fp32 (dict): Config for fp32 quantization
+    """
+    delete_config()
+
+    config_list = list( config_fp32.keys() )
+
+    save_json(config_list, file_path="qcfg.json")
+
+    with pytest.raises(ValueError):
+        _ = qconfig_load(fname="qcfg.json")
+
+    delete_config()
+
+
 def test_load_config_restored_pair(
     config_fp32: dict,
     wanted_pair: tuple,

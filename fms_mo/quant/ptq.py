@@ -2537,7 +2537,7 @@ def dq_llm(model, scale, qcfg):
 
     for name, module in model.named_modules():
         if isinstance(module, (QLinear,)):
-            if any(x in name for x in qcfg["scale_layers"]):
+            if any(x in name for x in qcfg["smoothq_scale_layers"]):
                 module.set_act_scale(scale[name])
                 logger.info(
                     f"Apply layer {name} with activation scales (10)"

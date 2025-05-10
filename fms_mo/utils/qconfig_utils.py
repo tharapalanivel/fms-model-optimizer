@@ -18,7 +18,7 @@ from copy import deepcopy
 from datetime import date
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 import json
 import logging
 import os
@@ -113,10 +113,10 @@ def config_defaults() -> dict:
         "qkvsync": False,
         "extend_act_range": False,
         "plotsvg": False,
+        "qskip_large_mag_layers": False,
         # Iterable vars
         "qlayer_name_pattern": [],
         "qskip_layer_name": [],
-        "qskip_large_mag_layers": False,
         "qspecial_layers": {},
         "qsinglesided_name": [],
         "clip_val_asst_percentile": (0.1, 99.9),
@@ -142,12 +142,17 @@ def config_defaults() -> dict:
         "temp_disable_calib": False,
         "org_batch_size": {},
         "ptqmod_to_be_optimized": [],
+        # SmoothQuant vars
+        "smoothq": False,
+        "smoothq_scale_layers": [],
+        "smoothq_act_scale_path": None,
         # Other vars
         "which2patch_contextmanager": None,
         "force_stop_if_qbmm_auto_check_failed": False,
         "world_size": max(1, torch.cuda.device_count()),
         "global_rank": 0,
         "batch_size": 2,
+        "keys_to_save": [],
         # items could be obsoleted
         "output_attentions": False,
         "bias_corr": False,
@@ -155,8 +160,6 @@ def config_defaults() -> dict:
         "qvit": False,
         "numparamsfromloadertomodel": 1,
         "gradclip": 0.0,
-        "smoothq": False,
-        "keys_to_save": [],
     }
 
     return cfg_defaults
@@ -201,7 +204,7 @@ def find_recipe_json(recipe: str, subdir: str = None) -> Path:
     return json_file
 
 
-def get_recipe(recipe: str, subdir: str = None) -> Any:
+def get_recipe(recipe: str, subdir: str = None) -> Union[list, dict]:
     """
     Get a json recipe.
 
@@ -218,6 +221,10 @@ def get_recipe(recipe: str, subdir: str = None) -> Any:
         with open(json_file, "r", encoding="utf-8") as openfile:
             temp_data = json.load(openfile)
         logger.info(f"Loaded settings from {json_file}.")
+
+        # Any recipe should be a dict (qcfg) or list (keys_to_save)
+        if not isinstance(temp_data, (dict, list)):
+            raise ValueError(f"Loaded recipe {json_file} was not a dict or list")
 
     return temp_data
 
@@ -378,8 +385,14 @@ def qconfig_init(recipe: str = None, args: Any = None) -> dict:
     #    this can be used to load a previously saved ckpt as well
     if recipe:
         # qcfg recipes should reside in fms_mo/recipes
-        temp_cfg = get_recipe(recipe)
+        temp_cfg = qconfig_load(recipe)
+
         if temp_cfg:
+            if not isinstance(temp_cfg, dict):
+                raise ValueError(
+                    f"Quantized config recipe={recipe} is not a dictionary"
+                )
+
             qcfg.update(temp_cfg)
             logger.info("Updated config with recipe values")
         else:
@@ -562,7 +575,12 @@ def qconfig_save(
 
     # Next, check in fms_mo/recipes and merge them into a unique set (in case they differ)
     keys_to_save_json = get_recipe(recipe)
+
     if keys_to_save_json:
+        if not isinstance(keys_to_save_json, list):
+            raise ValueError(f"Save recipe={recipe} is not a list!")
+
+        # Merge keys_to_save lists
         keys_to_save = list(set(keys_to_save + keys_to_save_json))
 
     # If we found keys to save, fetch them from qcfg
@@ -604,9 +622,12 @@ def qconfig_save(
 
 def qconfig_load(fname: str = "qcfg.json") -> dict:
     """Read config in json format, work together with qconfig_save"""
-    if os.path.isfile(fname):
-        with open(fname, "r", encoding="utf-8") as openfile:
-            config = json.load(openfile)
+    config = get_recipe(fname)
+
+    if config:
+        # Check that loaded file is a dict
+        if not isinstance(config, dict):
+            raise ValueError(f"Quantized config={fname} is not a dictionary")
 
         # Add back wanted defaults for any missing vars
         add_wanted_defaults_to_config(config, minimal=False)
@@ -856,6 +877,8 @@ def check_config(config: dict, model_dtype: torch.dtype = None) -> None:
         "plotsvg",
         "ptq_freezecvs",
         "ptq_qdrop",
+        "qskip_large_mag_layers",
+        "smoothq",
     ]
     for boolean_var_str in boolean_vars_str:
         boolean_var = config.get(
@@ -912,6 +935,7 @@ def check_config(config: dict, model_dtype: torch.dtype = None) -> None:
         "firstptqmodule",
         "params2optim",
         "clip_val_asst_percentile",
+        "smoothq_scale_layers",
     ]
     for iterable_var_str in iterable_vars_str:
         iterable_var_default = default_config.get(iterable_var_str)
@@ -990,3 +1014,7 @@ def check_config(config: dict, model_dtype: torch.dtype = None) -> None:
             f"which2patch_contextmanager = {which2patch_contextmanager} is not one of "
             f"the following: {which2patch_contextmanager_settings}"
         )
+
+    smoothq_act_scale_path = config.get("smoothq_act_scale_path", None)
+    if smoothq_act_scale_path and not smoothq_act_scale_path.endswith(".pt"):
+        raise ValueError(f"{smoothq_act_scale_path=} is not a .pt checkpoint")
