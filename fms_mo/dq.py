@@ -51,7 +51,7 @@ from fms_mo.utils.utils import patch_torch_bmm, prepare_input
 logger = logging.getLogger(__name__)
 
 
-def run_dq(model_args, data_args, opt_args, fms_mo_args, aiu_args = None):
+def run_dq(model_args, data_args, opt_args, fms_mo_args):
     """
     For direct quantization LLMs without optimization:
     Models are directly quantized into INT8 or FP8 precisions using
@@ -66,8 +66,6 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args, aiu_args = None):
         opt_args (fms_mo.training_args.OptArguments): Generic optimization arguments to be used
             during DQ
         fms_mo_args (fms_mo.training_args.FMSMOArguments): Parameters to use for DQ quantization
-        aiu_args (fms_mo.training_args.AIUArguments): Parameters specific to AIU-compliant
-            checkpoint generation and saving
 
     NOTE:
         use dynamo tracing instead of torchscript by default. if torchscript is needed, change
@@ -175,7 +173,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args, aiu_args = None):
 
     qcfg["seq_len"] = block_size
     qcfg["model"] = model_args.model_name_or_path
-    qcfg["smoothq"] = True
+    qcfg["smoothq"] = qcfg.get("smoothq_alpha", -1) >= 0
     qcfg["plotsvg"] = False
 
     calibration_dataset = load_from_disk(data_args.training_data_path)
@@ -224,10 +222,13 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args, aiu_args = None):
         save_fname="dq",
     )
     logger.info(f"Quantized model {model}")
-    logger.info("Starting to apply smooth scale")
-    dq_llm(model, act_scales, qcfg)
-    logger.info("Finished applying smooth scale")
     logger.info("==" * 20)
+
+    if qcfg["smoothq"]:
+        logger.info("Starting to apply smooth scale")
+        dq_llm(model, act_scales, qcfg)
+        logger.info("Finished applying smooth scale")
+
     if qcfg["qmodel_calibration_new"] > 0:
         logger.info("Starting to calibrate activation clip_val")
         if qcfg["large_model"]:
@@ -244,9 +245,9 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args, aiu_args = None):
                 with patch_torch_bmm(qcfg):
                     model(**data_mb)
 
-    if aiu_args is not None and aiu_args.save_ckpt_for_aiu:
+    if opt_args.save_ckpt_for_aiu:
         logger.info(
-            f"Saving model processed for AIU and tokenizer to {aiu_args.output_dir}"
+            f"Saving model processed for AIU and tokenizer to {opt_args.output_dir}"
         )
         save_for_aiu(model, qcfg, output_dir=opt_args.output_dir, verbose=True)
     elif opt_args.save_ckpt:

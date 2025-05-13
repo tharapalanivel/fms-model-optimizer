@@ -110,7 +110,6 @@ def test_parse_arguments(job_config):
         _,
         _,
         _,
-        _,
     ) = parse_arguments(parser, job_config_copy)
     assert str(model_args.torch_dtype) == "torch.bfloat16"
     assert data_args.training_data_path == "data_train"
@@ -131,7 +130,6 @@ def test_parse_arguments_defaults(job_config):
         data_args,
         _,
         fms_mo_args,
-        _,
         _,
         _,
     ) = parse_arguments(parser, job_config_defaults)

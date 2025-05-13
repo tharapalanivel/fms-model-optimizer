@@ -43,7 +43,6 @@ import transformers
 # Local
 from fms_mo.dq import run_dq
 from fms_mo.training_args import (
-    AIUArguments,
     DataArguments,
     FMSMOArguments,
     FP8Arguments,
@@ -68,7 +67,6 @@ def quantize(
     fms_mo_args: FMSMOArguments = None,
     gptq_args: GPTQArguments = None,
     fp8_args: FP8Arguments = None,
-    aiu_args: AIUArguments = None,
 ):
     """Main entry point to quantize a given model with a set of specified hyperparameters
 
@@ -107,7 +105,7 @@ def quantize(
             )
         run_fp8(model_args, data_args, opt_args, fp8_args)
     elif opt_args.quant_method == "dq":
-        run_dq(model_args, data_args, opt_args, fms_mo_args, aiu_args)
+        run_dq(model_args, data_args, opt_args, fms_mo_args)
     else:
         raise ValueError(
             f"{opt_args.quant_method} is not a valid quantization technique option. \
@@ -236,7 +234,6 @@ def get_parser():
             FMSMOArguments,
             GPTQArguments,
             FP8Arguments,
-            AIUArguments,
         )
     )
     return parser
@@ -273,7 +270,6 @@ def parse_arguments(parser, json_config=None):
             fms_mo_args,
             gptq_args,
             fp8_args,
-            aiu_args,
         ) = parser.parse_dict(json_config, allow_extra_keys=True)
     else:
         (
@@ -283,7 +279,6 @@ def parse_arguments(parser, json_config=None):
             fms_mo_args,
             gptq_args,
             fp8_args,
-            aiu_args,
             _,
         ) = parser.parse_args_into_dataclasses(return_remaining_strings=True)
 
@@ -298,7 +293,6 @@ def parse_arguments(parser, json_config=None):
         fms_mo_args,
         gptq_args,
         fp8_args,
-        aiu_args,
     )
 
 
@@ -317,7 +311,6 @@ def main():
             fms_mo_args,
             gptq_args,
             fp8_args,
-            aiu_args,
         ) = parse_arguments(parser, job_config)
 
         logger = set_log_level(opt_args.log_level, __name__)
@@ -325,7 +318,7 @@ def main():
         logger.debug(
             f"Input args parsed: \nmodel_args {model_args}, data_args {data_args}, "
             f"opt_args {opt_args}, fms_mo_args {fms_mo_args}, gptq_args {gptq_args}, "
-            f"fp8_args {fp8_args}, aiu_args {aiu_args}"
+            f"fp8_args {fp8_args}"
         )
     except Exception as e:  # pylint: disable=broad-except
         logger.error(traceback.format_exc())
@@ -345,7 +338,6 @@ def main():
             fms_mo_args=fms_mo_args,
             gptq_args=gptq_args,
             fp8_args=fp8_args,
-            aiu_args=aiu_args,
         )
     except (MemoryError, OutOfMemoryError) as e:
         logger.error(traceback.format_exc())
