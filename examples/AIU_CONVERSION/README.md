@@ -34,4 +34,33 @@ python  -m fms_mo.run_quant \
 > - In this example, we are not evaluating the perplexity of the quantized model, but, if so desired, the user can add the `--eval_ppl` flag.
 > - We set a single calibration example because the quantizers in use do not need calibration: weights remain static during DQ, so a single example will initialize the quantizer correctly, and the activation quantizer `pertokenmax` will dynamically recompute the quantization range at inference time, when running on the AIU.
 
-**3. Reload checkpoint for testing**
+**3. Reload checkpoint for testing** and validate its content (optional).
+
+```python
+sd = torch.load("dq_test/qmodel_for_aiu.pt", weights_only=True)
+```
+
+Check that all quantized layers have been converted to `torch.int8`, while the rest are `torch.float16`.
+
+```python
+# select quantized layers by name
+roberta_qlayers = ["attention.self.query", "attention.self.key", "attention.self.value", "attention.output.dense", "intermediate.dense", "output.dense"]
+# assert all quantized weights are int8
+assert all(v.dtype == torch.int8 for k,v in sd.items() if any(n in k for n in roberta_qlayers) and k.endswith(".weight"))
+# assert all other parameters are fp16
+assert all(v.dtype == torch.float16 for k,v in sd.items() if all(n not in k for n in roberta_qlayers) or not k.endswith(".weight"))
+```
+
+> [!TIP]
+> - We have trained the model with symmetric quantizer for activations (`qa_mode`). If an asymmetric quantizer is used, then the checkpoint will also carry a `zero_shift` parameters which is torch.float32, so this validation step should be modified accordingly.
+
+Because we have used the `narrow_weight_recomputation` option along with a `maxperCh` (max per-channel) quantizer for weights, the INT weight matrices distributions have been widened. Most values of standard deviation (per channel) should surpass the empirical threshold of 20.
+
+```python
+[f"{v.to(torch.float32).std(dim=-1).mean():.4f}" for k,v in sd.items() if k.endswith(".weight") and any(n in k for n in roberta_qlayers)]
+```
+
+> [!TIP]
+> - We cast the torch.int8 weights to torch.float32 to be able to apply the torch.std function.
+> - For per-channel weights, the recomputation is applied per-channel. Here we print a mean across channels for help of visualization.
+> - It is not a guarantee that the recomputed weights will exceed the empirical threshold after recomputation, but it is the case for several common models of BERT, RoBERTa, Llama, and Granite families.
