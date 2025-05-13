@@ -43,6 +43,7 @@ from fms_mo.quant.ptq import (
     get_act_scales,
     get_act_scales_1gpu,
 )
+from fms_mo.utils.aiu_utils import save_for_aiu
 from fms_mo.utils.dq_utils import config_quantize_smooth_layers
 from fms_mo.utils.eval_utils import Evaluator, eval_llm_1GPU
 from fms_mo.utils.utils import patch_torch_bmm, prepare_input
@@ -50,7 +51,7 @@ from fms_mo.utils.utils import patch_torch_bmm, prepare_input
 logger = logging.getLogger(__name__)
 
 
-def run_dq(model_args, data_args, opt_args, fms_mo_args):
+def run_dq(model_args, data_args, opt_args, fms_mo_args, aiu_args = None):
     """
     For direct quantization LLMs without optimization:
     Models are directly quantized into INT8 or FP8 precisions using
@@ -65,6 +66,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         opt_args (fms_mo.training_args.OptArguments): Generic optimization arguments to be used
             during DQ
         fms_mo_args (fms_mo.training_args.FMSMOArguments): Parameters to use for DQ quantization
+        aiu_args (fms_mo.training_args.AIUArguments): Parameters specific to AIU-compliant
+            checkpoint generation and saving
 
     NOTE:
         use dynamo tracing instead of torchscript by default. if torchscript is needed, change
@@ -199,7 +202,11 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         scale_file.parent.mkdir(exist_ok=False)
 
     if scale_file.exists():
-        act_scales = torch.load(scale_file, map_location=getattr(model, "device", dev))
+        act_scales = torch.load(
+            scale_file,
+            map_location=getattr(model, "device", dev),
+            weights_only=True,
+        )
     else:
         logger.info("Generate activation scales")
         if qcfg["large_model"]:
@@ -237,9 +244,15 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
                 with patch_torch_bmm(qcfg):
                     model(**data_mb)
 
-    logger.info(f"Saving quantized model and tokenizer to {opt_args.output_dir}")
-    model.save_pretrained(opt_args.output_dir, use_safetensors=True)
-    tokenizer.save_pretrained(opt_args.output_dir)
+    if aiu_args is not None and aiu_args.save_ckpt_for_aiu:
+        logger.info(
+            f"Saving model processed for AIU and tokenizer to {aiu_args.output_dir}"
+        )
+        save_for_aiu(model, qcfg, output_dir=opt_args.output_dir, verbose=True)
+    elif opt_args.save_ckpt:
+        logger.info(f"Saving quantized model and tokenizer to {opt_args.output_dir}")
+        model.save_pretrained(opt_args.output_dir, use_safetensors=True)
+        tokenizer.save_pretrained(opt_args.output_dir)
 
     if fms_mo_args.eval_ppl:
         path_test = Path(data_args.test_data_path)
