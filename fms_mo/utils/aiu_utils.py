@@ -89,6 +89,7 @@ def process_smoothquant(
     model: PreTrainedModel,
     layer_name: str,
     new_sd: dict,
+    verbose: bool = False,
 ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
     """Check if smoothquant was in use and, if so:
     1. compute combined weight/activation scaling factor
@@ -115,9 +116,10 @@ def process_smoothquant(
                     "Quantization parameters (qscale) exceeds float16 range. "
                     "Aborted state dict saving."
                 )
-            new_sd[layer_name + ".smoothq_scale"] = (
-                sq_scale.squeeze().to(torch.float16).to("cpu")
-            )
+            k = layer_name + ".smoothq_scale"
+            if verbose:
+                logger.info(f"  Save key: {k}")
+            new_sd[k] = sq_scale.squeeze().to(torch.float16).to("cpu")
     return weight_scaled, sq_a_scale
 
 
@@ -128,7 +130,7 @@ def recompute_weight_with_sawb(
     sq_a_scale: torch.Tensor | None,
     layer_name: str,
     new_sd: dict,
-    verbose: bool,
+    verbose: bool = False,
 ) -> tuple[torch.Tensor | None, bool]:
     """Use SAWB quantizer to recompute weights showing narrow distributions in the
     integer domain.
@@ -219,7 +221,7 @@ def process_weight(
     weight_per_channel: bool,
     sq_a_scale: torch.Tensor | None,
     new_sd: dict,
-    verbose: bool,
+    verbose: bool = False,
 ) -> tuple[torch.Tensor | None, bool | None]:
     """Compute integer weights and store them into new state dictionary.
     If recomputation is enabled, int weights are updated using SAWB quantizer.
@@ -259,6 +261,7 @@ def process_zero_shift(
     layer_name: str,
     weight_int: torch.Tensor | None,
     new_sd: dict,
+    verbose: bool = False,
 ) -> None:
     """Compute and store the zero shift, a correction factor that compensates the
     output of (W integer, X integer) matmuls to match the corresponding FP operation.
@@ -287,6 +290,9 @@ def process_zero_shift(
                 # weight_int: [out_feat, in_feat]
                 # sum (squash) along in_feat dimension: dim=1
                 zero_shift = torch.sum(weight_int, dim=1)
+
+                if verbose:
+                    logger.info(f"  Save key: {k}")
 
                 # zero shift can exceed FP16 max value, especially if INT weights have
                 # been recomputed, so it is saved as FP32
@@ -360,6 +366,7 @@ def convert_sd_for_aiu(
                 model=model,
                 layer_name=layer_name,
                 new_sd=new_sd,
+                verbose=verbose,
             )
 
             weight_int, is_w_recomputed = process_weight(
@@ -377,7 +384,13 @@ def convert_sd_for_aiu(
             else:
                 num_w_preserved += 1
 
-            process_zero_shift(model, layer_name, weight_int, new_sd)
+            process_zero_shift(
+                model=model,
+                layer_name=layer_name,
+                weight_int=weight_int,
+                new_sd=new_sd,
+                verbose=verbose,
+            )
 
         elif all(excluded_key not in k for excluded_key in excluded_keys_from_new_sd):
             if k not in new_sd:
