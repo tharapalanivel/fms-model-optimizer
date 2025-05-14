@@ -1,7 +1,9 @@
-# Direct Quantization (DQ) Using `microscaling`
-This is the same example as in the [DQ](../DQ_SQ/README.md) folder, except using [microscaling](https://arxiv.org/abs/2310.10537) format. 
+# `microscaling` Examples Using a Toy Model and Direct Quantization (DQ)
+Here, we provide two simple examples of using MX format in `fms-mo`. 
+"MX format", such as `MXFP8`, is a different format compared to typical IEEE formats, e.g. PyTorch FP8s (`e4m3` or `e5m2`, see our other [FP8 example](../FP8_QUANT/README.md).)  Mainly all the `mx` format are group-based where each member of the group is using the specified format, e.g. FP8 for MXFP8 while each group has a shared (usualy 8-bit) "scale".  Group size could be as small as 32 or 16, depending on hardware design. 
+> [!NOTE]
+It is important to keep in mind that `mx` is not natively supported by Hopper GPUs yet (some will be supported by Blackwell), which means the quantization configurations and corresponding behavior are simulated, i.e. no real "speed up" should be expected.
 
-Here, we provide an example of direct quantization. In this case, we demonstrate DQ of `llama3-8b` model into MXINT8, MXFP8, MXFP6, MXFP4 for weights, activations, and/or KV-cache. Note that `MXFP8` is a different format compared to typical PyTorch FP8s (e4m3 or e5m2), see our other [FP8 example](../FP8_QUANT/README.md).  Mainly all the `mx` format are not natively supported by Hopper yet (some will be supported by Blackwell), which means the quantization configurations and corresponding behavior are simulated, no "speed up" should be expected.
 
 ## Requirements
 - [FMS Model Optimizer requirements](../../README.md#requirements)
@@ -10,6 +12,18 @@ Here, we provide an example of direct quantization. In this case, we demonstrate
 > After git clone BEFORE installation, first update `pyproject.toml` to remove the version constraints in [dependencies]. (simply comment those three lines out.) Then use `pip install -e .` as usual.
 
 ## QuickStart
+
+First example is based on a toy model with only a few Linear layers, in which only one Linear layer will be quantized with MX version of `int8`, `int4`, `fp8`, and `fp4`.  The example can simply be run as follow
+
+```bash
+>>> python simple_mx_example.py
+```
+Expected output includes:
+```bash
+
+```
+
+The second example is the same as in the [DQ](../DQ_SQ/README.md) folder, except using [microscaling](https://arxiv.org/abs/2310.10537) format.  We demonstrate the effect of MXINT8, MXFP8, MXFP6, MXFP4 for weights, activations, and/or KV-cache. 
 
 **1. Prepare Data** for calibration process by converting into its tokenized form. An example of tokenization using `LLAMA-3-8B`'s tokenizer is below.
 
