@@ -264,7 +264,8 @@ def imatmul_kernel(
         else:
             accumulator_inner = tl.dot(a, b, accumulator, input_precision="ieee")
 
-        ## ------ MSB truncation by clamp, chunky LSB truncation by rounding/masking --------
+        ## ------ INT MSB truncation is simulated by clamping,
+        #           "special" INT LSB truncation by right and left shift --------
         if max_acc_bits < 32:
             accumulator_inner = tl.maximum(
                 tl.minimum(accumulator_inner, acc_max), acc_min
@@ -530,7 +531,6 @@ def tl_matmul_chunk_truncate(
         c_org_dtype = c.dtype
         c = c.to(acc_dtype)
         assert c.shape[0] == M and c.shape[1] == N, "C shape is inconsistent with A B."
-        # assert acc_dtype == torch.float32, "INT truncation is not yet supported."
 
     # 1D launch kernel where each block gets its own program.
     def grid(META):
