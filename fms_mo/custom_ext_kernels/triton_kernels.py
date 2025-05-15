@@ -101,7 +101,7 @@ def matmul_kernel(
     stride_cm,
     stride_cn,
     chunk_trun_bits,
-    max_acc_bits,
+    max_acc_bits,  # pylint: disable=unused-argument
     truncate_then_accumulate,
     # Meta-parameters
     BLOCK_SIZE_M: tl.constexpr,
@@ -311,7 +311,7 @@ def matmul_kernel_DABC(
     stride_cm,
     stride_cn,
     chunk_trun_bits,
-    max_acc_bits,
+    max_acc_bits,  # pylint: disable=unused-argument
     truncate_then_accumulate,
     # Meta-parameters
     BLOCK_SIZE_M: tl.constexpr,
