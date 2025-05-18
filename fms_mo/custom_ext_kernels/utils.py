@@ -700,7 +700,7 @@ def imatmul_ops_reg(
         tar_shape = tuple(m1.shape[:-1]) + (m2.shape[1],)
         m1 = m1.view(re_shape)
 
-        if useINTkernel:
+        if useINTkernel in ["triton", "cutlass"]:
             assert (
                 m1.dtype == torch.int8 and m2.dtype == torch.int8
             ), "When using int matmul, inputs must be 2D and INT8."

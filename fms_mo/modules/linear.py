@@ -760,6 +760,7 @@ class QLinearINT8Deploy(nn.Linear):
         )
         qlin_int.usePTnativeQfunc = kwargs.get("use_PT_native_Qfunc", False)
         qlin_int.useDynMaxQfunc = kwargs.get("use_dynamic_max_act_Qfunc", False)
+        qlin_int.useSymAct = "sym" in fms_mo_qlinear.qa_mode
         qlin_int.max_acc_bits = kwargs.get("max_acc_bits", 32)
         qlin_int.accminmax = (
             -(1 << (qlin_int.max_acc_bits - 1)),
@@ -770,6 +771,8 @@ class QLinearINT8Deploy(nn.Linear):
         qlin_int.acc_dtype = torch.float16
         qlin_int.nbits_a = fms_mo_qlinear.num_bits_feature  # only support INT8 for now
         qlin_int.nbits_w = fms_mo_qlinear.num_bits_weight
+        w_levels = 2**qlin_int.nbits_w - 2
+        a_levels = 2**qlin_int.nbits_a - 1 - qlin_int.useSymAct
 
         with torch.no_grad():
             Qa = fms_mo_qlinear.quantize_feature
@@ -794,29 +797,19 @@ class QLinearINT8Deploy(nn.Linear):
             if qlin_int.useDynMaxQfunc in [-1, -2]:
                 input_scale = torch.tensor(1.0, device=tar_dev)
                 input_zero_point = torch.tensor(128, dtype=torch.int, device=tar_dev)
-                w_scale = torch.tensor(
-                    [w_cv * 2 / (2**qlin_int.nbits_w - 2)], device=tar_dev
-                )
+                w_scale = torch.tensor([w_cv * 2 / w_levels], device=tar_dev)
             elif qlin_int.usePTnativeQfunc:
-                input_scale = torch.tensor(
-                    [(a_cv - a_cvn) / (2**qlin_int.nbits_a - 1)], device=tar_dev
-                )
+                input_scale = torch.tensor([(a_cv - a_cvn) / a_levels], device=tar_dev)
                 input_zero_point = torch.round(-a_cvn / input_scale).to(torch.int)
-                w_scale = torch.tensor(
-                    [w_cv * 2 / (2**qlin_int.nbits_w - 2)], device=tar_dev
-                )
+                w_scale = torch.tensor([w_cv * 2 / w_levels], device=tar_dev)
             else:
                 # fms_mo formula is a bit different from conventional PT formula
-                quant_scale = (2**qlin_int.nbits_a - 1) / torch.tensor(
-                    [a_cv - a_cvn], device=tar_dev
-                )
+                quant_scale = a_levels / torch.tensor([a_cv - a_cvn], device=tar_dev)
                 quant_stepsize = 1.0 / quant_scale
                 quant_zero_point = torch.round(a_cvn * quant_scale)
                 input_scale = quant_stepsize
                 input_zero_point = -quant_zero_point
-                quant_w_scale = (2**qlin_int.nbits_a - 2) / torch.tensor(
-                    [w_cv * 2], device=tar_dev
-                )
+                quant_w_scale = w_levels / torch.tensor([w_cv * 2], device=tar_dev)
                 w_scale = 1.0 / quant_w_scale
                 qlin_int.register_buffer("quant_scale", quant_scale)
                 qlin_int.register_buffer("quant_stepsize", quant_stepsize)
@@ -829,7 +822,7 @@ class QLinearINT8Deploy(nn.Linear):
             qlin_int.register_buffer("w_zp", w_zp)
 
             corr_term = (
-                (input_zero_point - 128)
+                (input_zero_point - 128 + qlin_int.useSymAct)
                 * (w_int8.sum(dim=1))
                 * w_scale.float()
                 * input_scale.float()
@@ -975,7 +968,7 @@ class QLinearINT8Deploy(nn.Linear):
             Tensor: Quantized tensor with values in the range [-128, 127].
         """
         return torch.ops.fms_mo.q_per_t_sym(
-            x.float(), self.input_scale, self.input_zp - 128
+            x.float(), self.input_scale, self.input_zp - 128 + self.useSymAct
         )
 
     def qa_pt_quant_func(self, x):
@@ -990,7 +983,10 @@ class QLinearINT8Deploy(nn.Linear):
             Tensor: Quantized tensor with values in the range [-128, 127].
         """
         return torch.quantize_per_tensor(
-            x.float(), self.input_scale, self.input_zp - 128, torch.qint8
+            x.float(),
+            self.input_scale,
+            self.input_zp - 128 + self.useSymAct,
+            torch.qint8,
         ).int_repr()
 
     def qa_raw_qfunc(self, x):
@@ -998,7 +994,11 @@ class QLinearINT8Deploy(nn.Linear):
         Quantizes the input tensor x to 8-bit integer values using raw formula, slower if not
         torch.compiled
         """
-        x = torch.clamp((x / self.input_scale + self.input_zp - 128).round(), -128, 127)
+        x = torch.clamp(
+            (x / self.input_scale + self.input_zp - 128 + self.useSymAct).round(),
+            -128,
+            127,
+        )
         return x.to(torch.int8)
 
     def qa_fmo_mo_qfunc(self, x):
@@ -1007,13 +1007,10 @@ class QLinearINT8Deploy(nn.Linear):
         before rounds, as opposed to typical torch formula that rounds before clamps.
         (See qa_raw_qfunc() above.)
         """
-        x = (
-            torch.round(
-                x.clamp(self.cvs[1], self.cvs[0]) / self.quant_stepsize
-                - self.quant_zero_point
-            )
-            - 128
-        )
+        x = torch.round(
+            x.clamp(self.cvs[1], self.cvs[0]) / self.quant_stepsize
+            - self.quant_zero_point
+        ) - (128 - self.useSymAct)
         return x.to(torch.int8)
 
     def qa_dynamic_max_qfunc(self, x):
@@ -1060,7 +1057,9 @@ class QLinearINT8Deploy(nn.Linear):
             Nchunk = len(idx)
             idx.append(m1.shape[1])
             accumulator = torch.zeros(
-                (m1.shape[0], m2.shape[1]), dtype=torch.float16, device=m1.device
+                (m1.shape[0], m2.shape[1]),
+                dtype=torch.int,
+                device=m1.device,  # cast float16 if needed
             )
             trun_scale = 1
             if self.truncate_lsb > 0:
@@ -1080,7 +1079,7 @@ class QLinearINT8Deploy(nn.Linear):
                     # could cast to smaller data type to further simulate HW behavior, for example,
                     # if HW truncates 8b from both sides of i32 accumulator, the remaining data can
                     # be cast to i16 to be more realistic. pay attention to overflow handling
-                accumulator += imm_out.to(torch.float16)
+                accumulator += imm_out  # .to(torch.float16) if needed
 
             return (
                 accumulator
@@ -1107,8 +1106,14 @@ class QLinearINT8Deploy(nn.Linear):
         Returns:
             Tensor: the result of the matrix multiplication with addition of bias
         """
-        m2 = m2.to(m1.dtype)
-        return torch.addmm(bias, m1, m2)
+        if self.useDynMaxQfunc in [-1, -2]:
+            m1 = self.qa_dynamic_max_qfunc(m1)
+        elif self.usePTnativeQfunc:
+            m1 = self.qa_raw_qfunc(m1)
+        else:
+            m1 = self.qa_fmo_mo_qfunc(m1)
+
+        return torch.matmul(m1 * self.input_scale, m2 * self.w_scale) + bias
 
     def set_matmul_op(self):
         """
