@@ -22,6 +22,7 @@ from copy import deepcopy
 import os
 
 # Third Party
+from torch.utils.data import DataLoader, TensorDataset
 from torchvision.io import read_image
 from torchvision.models import ResNet50_Weights, ViT_B_16_Weights, resnet50, vit_b_16
 from transformers import (
@@ -1346,7 +1347,7 @@ def input_tiny() -> DataLoader:
         dataset,
         batch_size=batch_size,
         shuffle=False,
-        collate_fn=lambda batch: tuple(torch.stack(samples) for samples in zip(*batch))
+        collate_fn=lambda batch: tuple(torch.stack(samples) for samples in zip(*batch)),
     )
 
 
