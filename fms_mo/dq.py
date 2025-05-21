@@ -38,7 +38,7 @@ import torch
 from fms_mo import qconfig_init, qmodel_prep
 from fms_mo.fx.utils import model_size_Wb
 from fms_mo.quant.ptq import (
-    calibration_llm_1GPU,
+    calibration_llm_1GPU_v2,
     dq_llm,
     get_act_scales,
     get_act_scales_1gpu,
@@ -224,9 +224,9 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     if qcfg["qmodel_calibration_new"] > 0:
         logger.info("Starting to calibrate activation clip_val")
         if qcfg["large_model"]:
-            calibration_llm_1GPU(qcfg, model, dq_dataloader)
+            calibration_llm_1GPU_v2(qcfg, model, dq_dataloader)
         else:
-            model.to("cuda:0")
+            model.to("cuda")
             pbar = tqdm(
                 dq_dataloader,
                 desc=" calibration after applying smoothq scale and before inference",
