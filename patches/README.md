@@ -15,7 +15,7 @@ To make a git diff patch file, first make your desired changes to the repository
 ```
 git diff > <package>.patch
 ```
-Packages may include files that differ by whitespaces even if you didn't change them.
+Packages may include files that differ by white spaces even if you didn't change them.
 To address this, add `--ignore-all-spaces` to the `git diff` command.
 
 To test the patch file, copy the `<package>.patch` file to `fms-model-optimizer/patches`.

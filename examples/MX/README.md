@@ -1,6 +1,6 @@
 # `microscaling` Examples Using a Toy Model and Direct Quantization (DQ)
 Here, we provide two simple examples of using MX format in `fms-mo`. 
-"MX format", such as `MXFP8`, is a different format compared to typical IEEE formats, e.g. PyTorch FP8s (`e4m3` or `e5m2`, see our other [FP8 example](../FP8_QUANT/README.md).)  Mainly all the `mx` format are group-based where each member of the group is using the specified format, e.g. FP8 for MXFP8 while each group has a shared (usualy 8-bit) "scale".  Group size could be as small as 32 or 16, depending on hardware design. 
+"MX format", such as `MXFP8`, is a different format compared to typical IEEE formats, e.g. PyTorch FP8s (`e4m3` or `e5m2`, see our other [FP8 example](../FP8_QUANT/README.md).)  Mainly all the `mx` format are group-based where each member of the group is using the specified format, e.g. FP8 for MXFP8 while each group has a shared (usually 8-bit) "scale".  Group size could be as small as 32 or 16, depending on hardware design. 
 > [!NOTE]
 It is important to keep in mind that `mx` is not natively supported by Hopper GPUs yet (some will be supported by Blackwell), which means the quantization configurations and corresponding behavior are simulated, i.e. no real "speed up" should be expected.
 
@@ -23,7 +23,7 @@ Expected output includes:
 
 ```
 
-The second example is the same as in the [DQ](../DQ_SQ/README.md) folder, except using [microscaling](https://arxiv.org/abs/2310.10537) format.  We demonstrate the effect of MXINT8, MXFP8, MXFP6, MXFP4 for weights, activations, and/or KV-cache. 
+The second example is the same as in the [DQ](../DQ_SQ/README.md) folder, except using [microxcaling](https://arxiv.org/abs/2310.10537) format.  We demonstrate the effect of MXINT8, MXFP8, MXFP6, MXFP4 for weights, activations, and/or KV-cache. 
 
 **1. Prepare Data** for calibration process by converting into its tokenized form. An example of tokenization using `LLAMA-3-8B`'s tokenizer is below.
 
