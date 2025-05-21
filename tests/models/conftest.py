@@ -1369,19 +1369,8 @@ tiny_bert_config_params = [
 ]
 
 
-@pytest.fixture(scope="session", params=tiny_bert_config_params)
-def config_tiny_bert(request) -> BertConfig:
-    """
-    Get a tiny Bert config
-
-    Returns:
-        BertConfig: Trimmed Tiny Bert config
-    """
-    return request.param
-
-
-@pytest.fixture(scope="function")
-def model_tiny_bert(config_tiny_bert: BertConfig) -> BertModel:
+@pytest.fixture(scope="function", params=tiny_bert_config_params)
+def model_tiny_bert(request) -> BertModel:
     """
     Get a tiny Llama Model based on the config
 
@@ -1391,7 +1380,7 @@ def model_tiny_bert(config_tiny_bert: BertConfig) -> BertModel:
     Returns:
         BertConfig: Tiny Bert model
     """
-    model = BertModel(config=config_tiny_bert)
+    model = BertModel(config=request.param)
     return model
 
 
@@ -1485,19 +1474,8 @@ tiny_llama_config_params = [
 ]
 
 
-@pytest.fixture(scope="session", params=tiny_llama_config_params)
-def config_tiny_llama(request) -> LlamaConfig:
-    """
-    Get a tiny Llama config
-
-    Returns:
-        LlamaConfig: Trimmed Tiny Llama config
-    """
-    return request.param
-
-
-@pytest.fixture(scope="function")
-def model_tiny_llama(config_tiny_llama: LlamaConfig) -> LlamaModel:
+@pytest.fixture(scope="function", params=tiny_llama_config_params)
+def model_tiny_llama(request) -> LlamaModel:
     """
     Get a tiny Llama Model based on the config
 
@@ -1507,7 +1485,7 @@ def model_tiny_llama(config_tiny_llama: LlamaConfig) -> LlamaModel:
     Returns:
         LlamaModel: Tiny Llama model
     """
-    model = LlamaModel(config=config_tiny_llama)
+    model = LlamaModel(config=request.param)
     return model
 
 
@@ -1585,19 +1563,8 @@ tiny_granite_config_params = [
 ]
 
 
-@pytest.fixture(scope="session", params=tiny_granite_config_params)
-def config_tiny_granite(request) -> GraniteConfig:
-    """
-    Get a tiny Granite config
-
-    Returns:
-        GraniteConfig: Tiny Granite config
-    """
-    return request.param
-
-
-@pytest.fixture(scope="function")
-def model_tiny_granite(config_tiny_granite: GraniteConfig) -> GraniteModel:
+@pytest.fixture(scope="function", params=tiny_granite_config_params)
+def model_tiny_granite(request) -> GraniteModel:
     """
     Get a tiny Granite Model based on the config
 
@@ -1607,7 +1574,7 @@ def model_tiny_granite(config_tiny_granite: GraniteConfig) -> GraniteModel:
     Returns:
         GraniteModel: Tiny Granite model
     """
-    model = GraniteModel(config=config_tiny_granite)
+    model = GraniteModel(config=request.param)
     return model
 
 
