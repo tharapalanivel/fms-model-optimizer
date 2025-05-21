@@ -1189,11 +1189,14 @@ def check_config(config, model_dtype=None):
 
             mapping = config.get("mapping", None)
 
-            # partial was used to init this mapping --> use .func pointer
+            # partial was used to wrap QLinearMX, will be an instance of partial
+            # 1. can use .func pointer to find the original class
+            # 2. QBmm is optional, could be partial(QBmmMX,) or QBmm
             if mapping is not None:
                 if not mapping[nn.Linear].func is QLinearMX:
                     raise ValueError("MX mapping for nn.Linear is not QLinearMX")
 
-                if mapping["matmul_or_bmm"].func is QBmmMX:
+                qbmm_map = mapping["matmul_or_bmm"]
+                if not (qbmm_map is QBmm or getattr(qbmm_map, "func", None) is QBmmMX):
                     raise ValueError("MX mapping for matmul_or_bmm is not QBmmMX")
     # End mx_specs checks
