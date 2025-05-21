@@ -134,3 +134,30 @@ def test_residualMLP(
             assert module.mx_specs["a_elem_format"] == mx_format
 
     assert found_qmodule_mx
+
+
+@pytest.mark.skipif(
+    not available_packages["mx"],
+    reason="Skipping mx_specs error test; No package found",
+)
+def test_mx_specs_after_qconfig_init(
+    model_residualMLP: torch.nn.Module,
+    input_residualMLP: torch.FloatTensor,
+    config_fp32: dict,
+):
+    """
+    Test if a default config w/ MX qmodes trigger setting mx_specs inside qmodel_prep
+
+    Args:
+        model_residualMLP (torch.nn.Module): Single fp32 model.
+        input_residualMLP (torch.FloatTensor): Random 16x128 tensor.
+        config_fp32 (dict): Config w/ fp32 settings.
+    """
+    config_fp32["qa_mode"] = "mx_fp8_e5m2"
+    config_fp32["qw_mode"] = "mx_fp8_e5m2"
+
+    assert "mx_specs" not in config_fp32
+
+    qmodel_prep(model_residualMLP, input_residualMLP, config_fp32, use_dynamo=True)
+
+    assert "mx_specs" in config_fp32
