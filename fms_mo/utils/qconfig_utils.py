@@ -57,7 +57,7 @@ def config_defaults():
         ("bmm1_qm1_mode", "pact"),
         ("bmm1_qm2_mode", "pact"),
         ("bmm2_qm1_mode", "pact"),
-        ("bmm1_qm2_mode", "pact"),
+        ("bmm2_qm2_mode", "pact"),
         # mode_calib vars
         ("qa_mode_calib", "percentile"),
         ("qw_mode_calib", "percentile"),
@@ -1193,10 +1193,14 @@ def check_config(config, model_dtype=None):
             # 1. can use .func pointer to find the original class
             # 2. QBmm is optional, could be partial(QBmmMX,) or QBmm
             if mapping is not None:
-                if not mapping[nn.Linear].func is QLinearMX:
+                if mapping[nn.Linear].func is not QLinearMX:
                     raise ValueError("MX mapping for nn.Linear is not QLinearMX")
 
                 qbmm_map = mapping["matmul_or_bmm"]
-                if not (qbmm_map is QBmm or getattr(qbmm_map, "func", None) is QBmmMX):
-                    raise ValueError("MX mapping for matmul_or_bmm is not QBmmMX")
+                if bmm_mode_consistency > 0:
+                    if getattr(qbmm_map, "func", None) is not QBmmMX:
+                        raise ValueError("MX mapping for matmul_or_bmm is not QBmmMX")
+                else:
+                    if qbmm_map is not QBmm:
+                        raise ValueError("Mapping for matmul_or_bmm is not QBmm")
     # End mx_specs checks
