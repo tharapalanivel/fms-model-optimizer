@@ -1,8 +1,11 @@
 # Train and prepare INT8 checkpoint for the AIU using Direct Quantization
-This example builds on the [Direct Quantization (DQ) example](../DQ_SQ/README.md). We assume the user is already familiar with the DQ quantization process and would like to generate an INT8-quantized checkpoint that is made compliant with the requirements of the AIU.
+This example builds on the [Direct Quantization (DQ) example](../DQ_SQ/README.md). We assume the user is already familiar with the DQ quantization process and would like to generate an INT8-quantized checkpoint that is made compliant with the requirements of the AIU/Spire accelerator.
 
 Once created, this checkpoint can be run on the AIU by using an inference script from [aiu-fms-testing-utils](https://github.com/foundation-model-stack/aiu-fms-testing-utils).
 
+For more information on the AIU/Spyre accelerator, see the following blogs:
+- [Introducing the IBM Spyre AI Accelerator chip](https://research.ibm.com/blog/spyre-for-z)
+- [IBM Power modernizes infrastructure and accelerates innovation with AI in the year ahead](https://newsroom.ibm.com/blog-ibm-power-modernizes-infrastructure-and-accelerates-innovation-with-ai-in-the-year-ahead)
 
 ## Requirements
 - [FMS Model Optimizer requirements](../../README.md#requirements)

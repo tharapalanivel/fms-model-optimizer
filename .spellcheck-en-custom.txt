@@ -3,6 +3,8 @@ acc
 ADR
 aiu
 AIU
+Spyre
+spyre
 Args
 AutoGPTQ
 autoregressive
