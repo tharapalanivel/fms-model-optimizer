@@ -117,4 +117,7 @@ venv
 vllm
 xs
 zp
-
+microxcaling
+MX
+MXINT
+MXFP

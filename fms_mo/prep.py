@@ -28,7 +28,8 @@ import torch
 from fms_mo.calib import qmodel_calib
 from fms_mo.modules import QBmm_modules, QConv2d_modules, QLinear_modules, QLSTM_modules
 from fms_mo.quant.quantizers import Qbypass
-from fms_mo.utils.qconfig_utils import check_config, qconfig_save
+from fms_mo.utils.import_utils import available_packages
+from fms_mo.utils.qconfig_utils import check_config, qconfig_save, set_mx_specs
 from fms_mo.utils.utils import prepare_inputs
 
 # import numpy as np # only used in experimental func
@@ -196,6 +197,17 @@ def make_quant_module(module, curr_full_name, qcfg, verbose=False):
     nbits_w = qcfg.get("nbits_w", 32)
     qa_mode = qcfg.get("qa_mode", "pact+")
     qw_mode = qcfg.get("qw_mode", "sawb+")
+
+    # Check if MX has been set outside of qconfig_init without mx_specs being created
+    if (
+        available_packages["mx"]
+        and "mx_specs" not in qcfg
+        and (
+            (qcfg["qa_mode"].startswith("mx_") and qcfg["qw_mode"].startswith("mx_"))
+            or any(key.startswith("mx_") for key in qcfg.keys())
+        )
+    ):
+        set_mx_specs(qcfg, use_mx=True)
 
     # check if on "black list" (need to be exact match), can be skipped or quantized those
     # to slightly higher "default" precision, or use qspecial_layers to have fine control
