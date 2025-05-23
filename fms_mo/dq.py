@@ -38,7 +38,7 @@ import torch
 from fms_mo import qconfig_init, qmodel_prep
 from fms_mo.fx.utils import model_size_Wb
 from fms_mo.quant.ptq import (
-    calibration_llm_1GPU,
+    calibration_llm_1GPU_v2,
     dq_llm,
     get_act_scales,
     get_act_scales_1gpu,
@@ -232,9 +232,9 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     if qcfg["qmodel_calibration_new"] > 0:
         logger.info("Starting to calibrate activation clip_val")
         if qcfg["large_model"]:
-            calibration_llm_1GPU(qcfg, model, dq_dataloader)
+            calibration_llm_1GPU_v2(qcfg, model, dq_dataloader)
         else:
-            model.to("cuda:0")
+            model.to("cuda")
             pbar = tqdm(
                 dq_dataloader,
                 desc=" calibration after applying smoothq scale and before inference",
@@ -263,7 +263,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
             test_dataset = load_from_disk(data_args.test_data_path)
             test_dataset = test_dataset.with_format("torch")
         elif len(pt_files) > 0:
-            test_dataset = torch.load(pt_files[0])
+            test_dataset = torch.load(pt_files[0], weights_only=False)
 
         logger.info(f"Model for evaluation: {model}")
         if qcfg["large_model"]:
@@ -272,7 +272,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
             model.to(torch.device("cuda:0"))
             n_samples = int(test_dataset.input_ids.shape[1] / block_size)
             evaluator = Evaluator(test_dataset, "cuda", n_samples=n_samples)
-            ppl = evaluator.evaluate(model, block_size=block_size)
+            with patch_torch_bmm(qcfg):
+                ppl = evaluator.evaluate(model, block_size=block_size)
             logger.info(f"Model perplexity: {ppl}")
         logger.info("-" * 50)
         logger.info("Finished evaluation")

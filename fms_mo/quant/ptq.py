@@ -419,15 +419,25 @@ class PTQHookRecInOutLMv2(nn.Module):
     leave the special handling, e.g. reshape/cat/shuffling...etc, for later
     """
 
-    def __init__(self, qcfg, name=None, cls2rec=(nn.Conv2d,), recInOnly=False):
+    def __init__(
+        self,
+        qcfg,
+        name=None,
+        cls2rec=(nn.Conv2d, nn.Linear),
+        recInOnly=False,
+        stop_after_rec=False,
+        cache_dev="cuda",
+    ):
         super().__init__()
         self.name = name
         self.qcfg = qcfg
         self.cls2rec = cls2rec
         self.rec_input_only = recInOnly
         self.num_valid_input = -1
+        self.stop_after_rec = stop_after_rec
+        self.cache_dev = cache_dev
 
-    def __call__(self, mod, inputs, output):
+    def __call__(self, mod, inputs, *args, **_kwargs):
         # make sure this module/block's ptqmode is not 'q_out'
         submods = [m for m in mod.modules() if isinstance(m, self.cls2rec)]
         if any(sm.ptqmode == "q_out" for sm in submods):
@@ -448,7 +458,7 @@ class PTQHookRecInOutLMv2(nn.Module):
         # check available GPU memory, cache on GPU if possible:
         GPUmem_available, _GPUmem_total = torch.cuda.mem_get_info()
         # 1 block for SQUAD/BERT 500 batches*12/batch = ~10G
-        if GPUmem_available / 1e9 > 20:
+        if self.cache_dev == "cuda" and GPUmem_available / 1e9 > 20:
             cache_device = "cuda"
         else:
             cache_device = "cpu"
@@ -461,13 +471,15 @@ class PTQHookRecInOutLMv2(nn.Module):
         )
 
         # output could be a tuple of a single tensor or simply a tensor ?
-        assert isinstance(output, (torch.Tensor, tuple))
-        if not self.rec_input_only:
+        if not self.rec_input_only and "output" in args:
+            output = args["output"]
+            assert isinstance(output, (torch.Tensor, tuple))
             self.qcfg["cached_output"].append(
                 output[0].detach().to(cache_device)
                 if isinstance(output, tuple)
                 else output.detach().to(cache_device)
             )
+        assert not self.stop_after_rec
 
 
 # this hook is meant for ptq_loss_func == 'fisher_diag' and to temp hold the "Q_out" of the module
@@ -2021,7 +2033,7 @@ def get_blocks(model, model_type=None):
         "llama": (
             "model.layers",
             "model.embed_tokens",
-            None,
+            "model.rotary_emb",
             None,
             "model.norm",
             "lm_head",
@@ -2111,7 +2123,9 @@ def cache_block0_inputs(
     model, dloader, qcfg, blocks, emb=None, emb_pos=None, emb_ln=None, dev="cpu"
 ):
     """
-    To cache the input to the first transformer block.
+    To cache the input to the first transformer block. Basically a "forward_pre_hook"
+    NOTE, change caching from tensor to list to allow varying input length, slightly
+    increase memeory due to mask and alibi.
     """
     emb = emb.to(dev)
     if emb_pos is not None:
@@ -2119,12 +2133,6 @@ def cache_block0_inputs(
     if emb_ln is not None:
         emb_ln = emb_ln.to(dev)
     blocks[0] = blocks[0].to(dev)
-    # NOTE, change caching from tensor to list to allow varying input length, slightly
-    # increase memeory due to mask and alibi.
-    qcfg["cached_block0_input"] = []
-    qcfg["cache_id"] = 0
-    qcfg["cached_mask"] = []
-    qcfg["cached_alibi"] = []
     # move block0 to GPU and excuting fwd() until finish block0
     if "fms" in qcfg["model_type"]:
         qcfg["kw_to_cache"] = {
@@ -2142,9 +2150,16 @@ def cache_block0_inputs(
         }
         blocks[0] = RunModule(blocks[0], qcfg)
 
+    # clear up old cache, if exists.
+    qcfg["cached_block0_input"] = []
+    qcfg["cache_id"] = 0
+    for kw in qcfg["kw_to_cache"].values():
+        if kw in qcfg:
+            qcfg[kw] = []
+
     if isinstance(dloader, torch.utils.data.DataLoader):
         pbar = tqdm(
-            dloader, desc="Phase 0: PTQ caching block0 input", total=qcfg["ptq_nbatch"]
+            dloader, desc="Phase 0: Caching block0 inputs", total=qcfg["ptq_nbatch"]
         )
         for data_mb, _ in zip(pbar, range(qcfg["ptq_nbatch"])):
             try:
@@ -2310,9 +2325,8 @@ def freeze_layers(m, layer_list):
 
 @torch.no_grad()
 def calibration_llm_1GPU(qcfg, model, dloader):
-    """
-    calibration for large models that can not fit the whole model on 1 GPU.
-    """
+    """Calibration for large models that can not fit on 1 GPU."""
+
     model.train()
     dev = "cuda"
     qcfg["batch_size"] = 1
@@ -2358,6 +2372,83 @@ def calibration_llm_1GPU(qcfg, model, dloader):
 
             with torch.no_grad(), patch_torch_bmm(qcfg):
                 qcfg["cached_input"][i] = m(cached_inp_prev_lay, **data_mb)[0].cpu()
+
+        m.cpu()
+        torch.cuda.empty_cache()
+
+    logger.info("All blocks are calibrated")
+
+
+@torch.no_grad()
+def calibration_llm_1GPU_v2(qcfg, model, dloader):
+    """
+    Improved version of Calibration for large language models that can not fit on 1 GPU with new
+    (built-in) calibration mechanism.
+    NOTE:
+    1. Calibration only, NO update to weights!
+    2. Rely on a alternative "pre fwd hook" to cache all possible inputs.
+    3. As calibration usually cache a small number of data only, no need to move each batch back and
+        forth between GPU and CPU.
+    """
+
+    model.train()
+    dev = "cuda"
+    qcfg["batch_size"] = 1
+    qcfg["dtype"] = next(iter(model.parameters())).dtype
+    qcfg["n_samples"] = min(qcfg["ptq_nbatch"], qcfg["qmodel_calibration_new"])
+
+    assert "model_type" in qcfg, "Unknown model type. please check before proceed."
+    assert isinstance(
+        dloader, torch.utils.data.DataLoader
+    ), "Please provide a valid dataloader."
+    # --- Phase 0 cache the inputs of the block0---
+    model.config.use_cache = False
+    blocks, emb, emb_pos, emb_ln, _, _ = get_blocks(model, qcfg["model_type"])
+
+    cache_block0_inputs(
+        model,
+        dloader,
+        qcfg,
+        blocks,
+        emb=emb,
+        emb_pos=emb_pos,
+        emb_ln=emb_ln,
+        dev="cpu",
+    )
+    logger.info("Done, caching inputs to block0 for calibration")
+
+    # --- Phase 1 --- compute blocks and last linear layer
+    pbar = tqdm(
+        blocks, desc="Phase 1: Calibration for each block", position=0, leave=True
+    )
+    qcfg["cached_input"] = [
+        inp.clone().detach().to(dev) for inp in qcfg["cached_block0_input"]
+    ]
+    kw_to_use = {
+        kw_org: kw_new
+        for kw_org, kw_new in qcfg["kw_to_cache"].items()
+        if len(qcfg[kw_new]) == len(qcfg["cached_input"])
+    }
+    for _num_block, m in enumerate(pbar):
+        m.to(dev)
+        for i in tqdm(
+            range(qcfg["n_samples"]), desc="number of samples", position=1, leave=False
+        ):
+            if qcfg["cached_alibi"]:
+                cached_inp_prev_lay = qcfg["cached_input"][i].unsqueeze(0).to(dev)
+                data_mb = {
+                    "attention_mask": qcfg["cached_mask"][i].unsqueeze(0).to(dev),
+                    "alibi": qcfg["cached_alibi"][i].unsqueeze(0).to(dev),
+                }
+            else:
+                cached_inp_prev_lay = qcfg["cached_input"][i]
+                data_mb = {
+                    kw_org: move_to(qcfg[kw_new][i], dev)
+                    for kw_org, kw_new in kw_to_use.items()
+                }
+
+            with patch_torch_bmm(qcfg):
+                qcfg["cached_input"][i] = m(cached_inp_prev_lay, **data_mb)[0]
 
         m.cpu()
         torch.cuda.empty_cache()
@@ -2498,8 +2589,8 @@ def get_act_scales_1gpu(model, dloader, qcfg):
 
     assert "model_type" in qcfg, "Unknown model type. please check before proceed."
     assert (
-        qcfg["loader_len"] == qcfg["ptq_nbatch"]
-    ), "set batch_size=1 and PTQ samples== Nbatches"
+        qcfg["loader_len"] >= qcfg["ptq_nbatch"]
+    ), "Please make sure dataloader has enough data needed for PTQ (ie. check qcfg['ptq_nbatch'])."
     # --- Phase 0 cache the inputs of the block0---
     blocks, emb, emb_pos, emb_ln, _, _ = get_blocks(model, qcfg["model_type"])
     cache_block0_inputs(
