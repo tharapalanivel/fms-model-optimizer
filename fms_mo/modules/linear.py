@@ -29,6 +29,7 @@ import torch.nn.functional as F
 # Local
 from fms_mo.custom_ext_kernels.utils import pack_vectorized
 from fms_mo.quant.quantizers import (
+    SAWB,
     HardPrune,
     Qbypass,
     Qdynamic,
@@ -751,7 +752,7 @@ class QLinearINT8Deploy(nn.Linear):
             fms_mo_qlinear.in_features,
             fms_mo_qlinear.out_features,
             bias=fms_mo_qlinear.bias is not None,
-            device=tar_dev,
+            device="meta",  # init on tar_dev is unnecessary
         )
         # Make sure to register an Op for integer matmul, could be real INT matmul or emulation
         qcfg = getattr(fms_mo_qlinear, "qcfg", {})
@@ -777,31 +778,26 @@ class QLinearINT8Deploy(nn.Linear):
         with torch.no_grad():
             Qa = fms_mo_qlinear.quantize_feature
             Qw = fms_mo_qlinear.quantize_weight
-            w_cv = Qw.clip_val.item()
+            w_cv = Qw.clip_val
             if qlin_int.useDynMaxQfunc in [-1, -2]:  # [-1, -2] indicates reduce_dim
                 # dynamic Qmax has no clipvals, reg fake ones, won't be used in real calc
                 Qa.register_buffer("clip_val", torch.tensor(8.0, device=tar_dev))
                 Qa.register_buffer("clip_valn", torch.tensor(-8.0, device=tar_dev))
-            a_cv, a_cvn = Qa.clip_val.item(), Qa.clip_valn.item()
-            # Store original cv_a and cv_w (in python floats, not tensors), and sq scales
-            # for later use (probably not necessary)
-            qlin_int.cvs = [a_cv, a_cvn, w_cv]
-            # NOTE: Keep w transposed to prevent confusion
-            Qw.dequantize = False
-            # trigger Qw.clipval re-calc for SAWB (if needed)
-            w_int8 = Qw(fms_mo_qlinear.weight.float())
-            qlin_int.weight = nn.Parameter(
-                w_int8.to(torch.int8), requires_grad=False
-            )  # NOTE: may need INT W stored as FP in some cases
+            a_cv = Qa.clip_val
+            a_cvn = Qa.clip_valn
+            # Store original cv_a and cv_w in python floats (instead of tensors) will be more
+            # accurate, but not compatible for per-ch and per-token.
+            qlin_int.cvs = [a_cv, a_cvn, w_cv]  # TODO remove the need of this.
 
+            # may need to trigger Qw.clipval re-calc for SAWB here, (if needed?)
             if qlin_int.useDynMaxQfunc in [-1, -2]:
                 input_scale = torch.tensor(1.0, device=tar_dev)
                 input_zero_point = torch.tensor(128, dtype=torch.int, device=tar_dev)
-                w_scale = torch.tensor([w_cv * 2 / w_levels], device=tar_dev)
+                w_scale = w_cv * 2 / w_levels
             elif qlin_int.usePTnativeQfunc:
                 input_scale = torch.tensor([(a_cv - a_cvn) / a_levels], device=tar_dev)
                 input_zero_point = torch.round(-a_cvn / input_scale).to(torch.int)
-                w_scale = torch.tensor([w_cv * 2 / w_levels], device=tar_dev)
+                w_scale = w_cv * 2 / w_levels
             else:
                 # fms_mo formula is a bit different from conventional PT formula
                 quant_scale = a_levels / torch.tensor([a_cv - a_cvn], device=tar_dev)
@@ -809,7 +805,7 @@ class QLinearINT8Deploy(nn.Linear):
                 quant_zero_point = torch.round(a_cvn * quant_scale)
                 input_scale = quant_stepsize
                 input_zero_point = -quant_zero_point
-                quant_w_scale = w_levels / torch.tensor([w_cv * 2], device=tar_dev)
+                quant_w_scale = w_levels / (w_cv * 2)
                 w_scale = 1.0 / quant_w_scale
                 qlin_int.register_buffer("quant_scale", quant_scale)
                 qlin_int.register_buffer("quant_stepsize", quant_stepsize)
@@ -820,6 +816,21 @@ class QLinearINT8Deploy(nn.Linear):
             qlin_int.register_buffer("input_zp", input_zero_point)
             qlin_int.register_buffer("w_scale", w_scale)
             qlin_int.register_buffer("w_zp", w_zp)
+
+            # NOTE:
+            # 1. Keep W transposed to prevent confusion, hence (W.t()/scale).t()
+            # 2. only a few quantizer have .dequantize working correctly
+            if isinstance(Qw, SAWB):
+                Qw.dequantize = False
+                w_int8 = Qw(fms_mo_qlinear.weight.float())
+            else:
+                w_int8 = (
+                    torch.round(fms_mo_qlinear.weight.t() / w_scale)
+                    .clamp(-w_levels / 2, w_levels / 2)
+                    .t()
+                )
+
+            qlin_int.weight = nn.Parameter(w_int8.to(torch.int8), requires_grad=False)
 
             corr_term = (
                 (input_zero_point - 128 + qlin_int.useSymAct)
@@ -836,8 +847,11 @@ class QLinearINT8Deploy(nn.Linear):
                     (fms_mo_qlinear.bias - corr_term).to(fms_mo_w_dtype),
                     requires_grad=False,
                 )
+
                 qlin_int.org_model_has_bias = True
             else:
+                delattr(qlin_int, "bias")
+                # even if bias is None, reg_buffer() is still unhappy about it
                 qlin_int.register_buffer("bias", -corr_term.to(fms_mo_w_dtype))
                 qlin_int.org_model_has_bias = False
 

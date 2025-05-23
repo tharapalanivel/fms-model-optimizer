@@ -859,6 +859,64 @@ def lower_qmodel_cutlass(
     return mod
 
 
+def lower_qmodel_triton(
+    model: torch.nn.Module,
+    use_dyn_max_act=False,
+    max_acc_bits=32,
+    num_lsb_to_truncate=0,
+    chunk_size=32,
+):
+    """
+    Examplar GPU lowering function using triton. Only swap Qlinears in transformers, nothing else.
+    Triton kernel can be used to:
+    1. test INT8 or FP8 HW performance (kernel is not optimized)
+    2. simulate MSB/LSB truncation effect
+
+    Args:
+        model: nn.Module. should be a fms_mo Qmodel, will do inplace layer swapping, no deepcopy
+        use_dyn_max_act: bool or int, can be False or -1 for per-token, or -2 for perCh. will use
+                        dynamic max quantizer for activation if not False.
+        max_acc_bits: max bits for accumulator, typically FP32 for all FP matmuls and INT32 for all
+                        INT matmuls. But some HW could use fewer bits to trade-off power
+                        efficiency at the expense of higher chance of accumulation "overflow".
+                        For example, an INT24 accumulator can only hold values ranged from -2^23 to
+                        2^23 -1, as opposed to typical range -2^31 to -2^31 -1.
+        num_lsb_to_truncate: number of bits to truncate from LSB side. For example, given fp32 is
+                        s1e8m23, if we choose to truncate 13 mantissa bits from right most side,
+                        i.e. LSB, the resulting number will be s1e8m10, which is TF32.
+        chunk_size: given a matmul of (m, k) @ (k, n), the inner product will be "accumulated" along
+                    k-dim. Since the entire matrix will be partitioned into smaller tiles when being
+                    computed, accumulator will only add a certain num of elements in one shot. This
+                    "chunk size" in k-dim will affect the overflow/underflow of accumulator.
+    """
+    # Third Party
+    from torch.ao.quantization.utils import _parent_name
+
+    # Local
+    from fms_mo.modules.linear import QLinear, QLinearINT8Deploy
+
+    for name, m in model.named_modules():
+        if not isinstance(m, QLinear):
+            continue
+        parent_name, module_name = _parent_name(name)
+        parent_mod = model.get_submodule(parent_name)
+        qmod = getattr(parent_mod, module_name)
+        setattr(
+            parent_mod,
+            module_name,
+            QLinearINT8Deploy.from_fms_mo(
+                qmod,
+                use_int_kernel="triton",
+                use_dynamic_max_act_Qfunc=use_dyn_max_act,
+                max_acc_bits=max_acc_bits,
+                truncate_lsb=num_lsb_to_truncate,
+                chunk_size=chunk_size,
+            ),
+        )
+
+    logger.info(f"\nModel lowering with triton kernel is done.\n{model}")
+
+
 ### -------------------------------------------------------------
 #   GPTQ tensor packing functions for Exllama kernel
 ### -------------------------------------------------------------

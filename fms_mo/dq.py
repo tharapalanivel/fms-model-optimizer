@@ -172,7 +172,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
 
     qcfg["seq_len"] = block_size
     qcfg["model"] = model_args.model_name_or_path
-    qcfg["smoothq"] = True
+    qcfg["smoothq"] = fms_mo_args.smoothq_alpha != -1
     qcfg["plotsvg"] = False
 
     calibration_dataset = load_from_disk(data_args.training_data_path)
@@ -217,9 +217,10 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         save_fname="dq",
     )
     logger.info(f"Quantized model {model}")
-    logger.info("Starting to apply smooth scale")
-    dq_llm(model, act_scales, qcfg)
-    logger.info("Finished applying smooth scale")
+    if qcfg["smoothq"]:
+        logger.info("Starting to apply smooth scale")
+        dq_llm(model, act_scales, qcfg)
+        logger.info("Finished applying smooth scale")
     logger.info("==" * 20)
     if qcfg["qmodel_calibration_new"] > 0:
         logger.info("Starting to calibrate activation clip_val")
@@ -249,7 +250,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
             test_dataset = load_from_disk(data_args.test_data_path)
             test_dataset = test_dataset.with_format("torch")
         elif len(pt_files) > 0:
-            test_dataset = torch.load(pt_files[0])
+            test_dataset = torch.load(pt_files[0], weights_only=False)
 
         logger.info(f"Model for evaluation: {model}")
         if qcfg["large_model"]:
@@ -258,7 +259,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
             model.to(torch.device("cuda:0"))
             n_samples = int(test_dataset.input_ids.shape[1] / block_size)
             evaluator = Evaluator(test_dataset, "cuda", n_samples=n_samples)
-            ppl = evaluator.evaluate(model, block_size=block_size)
+            with patch_torch_bmm(qcfg):
+                ppl = evaluator.evaluate(model, block_size=block_size)
             logger.info(f"Model perplexity: {ppl}")
         logger.info("-" * 50)
         logger.info("Finished evaluation")

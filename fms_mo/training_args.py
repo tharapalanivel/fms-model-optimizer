@@ -173,6 +173,9 @@ class FMSMOArguments(TypeChecker):
         default=2048, metadata={"help": "input sequence length after tokenization"}
     )
     eval_ppl: bool = field(default=False)
+    aiu_sim_triton: bool = field(
+        default=False, metadata={"help": ("AIU simulation with triton kernel")}
+    )
 
 
 @dataclass
