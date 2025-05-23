@@ -9,7 +9,12 @@ It is important to keep in mind that `mx` is not natively supported by Hopper GP
 - [FMS Model Optimizer requirements](../../README.md#requirements)
 - Microsoft `microxcaling` python package, download [here](https://github.com/microsoft/microxcaling.git).
 > [!TIP]
-> After git clone BEFORE installation, first update `pyproject.toml` to remove the version constraints in [dependencies]. (simply comment those three lines out.) Then use `pip install -e .` as usual.
+> `FMS-Model-Optimizer` and `microxcaling` have clashing dependency requirements for `PyTorch` packages.  We have created a patching solution to resolve this, run the following in command line:
+``` bash
+python3 ../install_patches.py
+```
+This patching file will either download the repo for you, or look for an already installed version in `$HOME` or the current working directory, then install the patch.
+For more information, see `patches/README.md`.
 
 ## QuickStart
 
