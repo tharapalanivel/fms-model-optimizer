@@ -138,6 +138,14 @@ class OptArguments(TypeChecker):
         default="INFO",
         metadata={"help": "The log level to adopt during optimization."},
     )
+    save_ckpt: bool = field(
+        default=True,
+        metadata={"help": "Save quantized checkpoint."},
+    )
+    save_ckpt_for_aiu: bool = field(
+        default=False,
+        metadata={"help": "Prepare and save AIU-compliant checkpoint."},
+    )
 
 
 @dataclass
@@ -175,6 +183,10 @@ class FMSMOArguments(TypeChecker):
     eval_ppl: bool = field(default=False)
     aiu_sim_triton: bool = field(
         default=False, metadata={"help": ("AIU simulation with triton kernel")}
+    )
+    recompute_narrow_weights: bool = field(
+        default=False,
+        metadata={"help": "Apply recomputation during checkpoint saving for AIU."},
     )
 
 
