@@ -46,3 +46,4 @@ data*_train/
 data*_test/
 act_scales/
 examples/
+!examples/MX/README.md
