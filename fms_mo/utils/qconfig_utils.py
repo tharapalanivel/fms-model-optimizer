@@ -232,7 +232,7 @@ def get_recipe(recipe: str, subdir: str = None) -> Union[list, dict]:
     return temp_data
 
 
-def qconfig_init(recipe: str = None, args: Any = None) -> dict:
+def qconfig_init(recipe: str = None, args: Any = None, use_mx: bool = False) -> dict:
     """Three possible ways to create qcfg:
         1. create a default qcfg
         2. load from a json
@@ -725,6 +725,7 @@ def get_unwanted_defaults() -> dict:
                 nn.ConvTranspose2d: QConvTranspose2d,
                 nn.Linear: QLinear,
                 nn.LSTM: QLSTM,
+                "matmul_or_bmm": QBmm,
             },
         ),
         ("checkQerr_frequency", False),
