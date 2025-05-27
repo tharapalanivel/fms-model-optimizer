@@ -342,7 +342,10 @@ def set_mx_specs(
 
     # Check args for any mx_specs vars
     use_mx_args = args is not None and any(
-        hasattr(args, key) for key, _ in fms_defaults.items()
+        hasattr(args, key)
+        for key, _ in fms_defaults.items()
+        if key != "block_size"
+        # some items are not unique to mx, add names here if needed
     )
 
     # Lastly, check for BMM consistency to enable QBmmMX
@@ -479,9 +482,9 @@ def get_mx_specs_defaults():
         "a_elem_format_bp_os": "fp8_e4m3",
         "shared_exp_method": "max",
         "scale_bits": 8,
-        "block_size": 32,
-        "bfloat": 16,
-        "fp": 16,
+        "block_size": 32,  # this item is not unique to mx
+        "bfloat": 16,  # bfloat and fp cannot be set at the same time
+        "fp": 0,
         "round": "nearest",
         "round_m": "nearest",
         "round_weight": "nearest",
@@ -1100,7 +1103,7 @@ def check_config(config, model_dtype=None):
         mx_spec_int_var_str_defaults = [
             ("scale_bits", 8),
             ("block_size", 32),
-            ("fp", 16),
+            # ("fp", 16),  # can only set either fp or bfloat to non-zero
             ("bfloat", 16),
         ]
         mx_spec_int_var_values = {2, 4, 6, 8, 16, 32}

@@ -1,8 +1,10 @@
 # `microscaling` Examples Using a Toy Model and Direct Quantization (DQ)
+Microscaling, or "MX", format, such as `MXFP8`, is a different numeric format compared to commonly used FP8 formats. For example, PyTorch provides two FP8 formats, which are 1 sign bit, 4 exponent bits, and 3 mantissa bits (denoted as `e4m3`) or 1 sign bit, 5 exponent bits, and 2 mantissa bits (`e5m2`), see our other [FP8 example](../FP8_QUANT/README.md) for more details.  On the other hand, all the `mx` formats are group-based data structure where each member of the group is using the specified format, e.g. FP8 for MXFP8, while each group has a shared (usually 8-bit) "scale".  Group size could be as small as 32 or 16, depending on hardware design.  One may consider each MXFP8 number actually requires 8.25 bits (when group size is 32) instead of 8 bits.
+
 Here, we provide two simple examples of using MX format in `fms-mo`. 
-"MX format", such as `MXFP8`, is a different format compared to typical IEEE formats, e.g. PyTorch FP8s (`e4m3` or `e5m2`, see our other [FP8 example](../FP8_QUANT/README.md).)  Mainly all the `mx` format are group-based where each member of the group is using the specified format, e.g. FP8 for MXFP8 while each group has a shared (usually 8-bit) "scale".  Group size could be as small as 32 or 16, depending on hardware design. 
+
 > [!NOTE]
-It is important to keep in mind that `mx` is not natively supported by Hopper GPUs yet (some will be supported by Blackwell), which means the quantization configurations and corresponding behavior are simulated, i.e. no real "speed up" should be expected.
+It is important to keep in mind that `mx` is not natively supported by Hopper GPUs yet (some will be supported by Blackwell), which means the quantization configurations and corresponding behavior are simulated. Hence, no real "speed up" should be expected.
 
 
 ## Requirements
@@ -18,16 +20,28 @@ For more information, see `patches/README.md`.
 
 ## QuickStart
 
+### Example 1
 First example is based on a toy model with only a few Linear layers, in which only one Linear layer will be quantized with MX version of `int8`, `int4`, `fp8`, and `fp4`.  The example can simply be run as follow
 
 ```bash
 >>> python simple_mx_example.py
 ```
-Expected output includes:
-```bash
 
-```
+Expected output:
 
+| dtype      |   output[0, 0] |   output[0, 1] |   output[0, 2] |   \|\|ref - out_dtype\|\|<sub>2</sub> |
+|:-----------|---------------:|---------------:|---------------:|------------------------:|
+| fp32       |        -1.0491 |         0.5312 |        -1.6387 |                  0.0000 |
+| fmsmo_int8 |        -1.0577 |         0.5346 |        -1.6508 |                  0.4937 |
+| fmsmo_int4 |        -0.5885 |         0.5831 |        -1.7976 |                  8.2927 |
+| mxint8     |        -0.6444 |         0.6828 |        -1.8626 |                  8.3305 |
+| mxint4     |        -0.9089 |         0.6141 |        -1.7630 |                  8.0692 |
+| mxfp8_e4m3 |        -0.8031 |         0.7262 |        -1.9581 |                  7.8554 |
+| mxfp8_e5m2 |        -0.8471 |         0.7319 |        -1.7458 |                  8.1838 |
+| mxfp4_e2m1 |        -0.7506 |         0.6123 |        -1.9311 |                  7.9936 |
+
+
+### Example 2
 The second example is the same as in the [DQ](../DQ_SQ/README.md) folder, except using [microxcaling](https://arxiv.org/abs/2310.10537) format.  We demonstrate the effect of MXINT8, MXFP8, MXFP6, MXFP4 for weights, activations, and/or KV-cache. 
 
 **1. Prepare Data** for calibration process by converting into its tokenized form. An example of tokenization using `LLAMA-3-8B`'s tokenizer is below.
@@ -62,12 +76,10 @@ python  -m fms_mo.run_quant \
         --output_dir "dq_test" \
         --eval_ppl
 ```
-> [!TIP]
+> [!NOTE]
 > To use MX format, simply assign `qa_mode` and `qw_mode` argument with a `mx_<dtype supported by mx package>`, e.g. `mx_fp8_e4m3` as in the above example. Corresponding `QLinearMX` wrappers will be used in place of `QLinear` as in other examples.
 
 **3. Compare the Perplexity score** For user convenience, the code will print out perplexity (controlled by `eval_ppl` flag) at the end of the run, so no additional steps needed (if the logging level is set to `INFO` in terminal). You can check output in the logging file. `./fms_mo.log`.
-
-# *TO BE UPDATED BELOW THIS LINE*
 
 
 ## Example Test Results
@@ -75,121 +87,12 @@ The perplexity of the INT8 and FP8 quantized models on the `wikitext` dataset is
 
 | Model     |Type |QA            |QW            |DQ  |SQ  |Perplexity|
 |:---------:|:---:|:------------:|:------------:|:--:|:--:|:--------:|
-|`Llama3-8b`|INT8 |maxpertoken   |maxperCh      |yes |yes |6.21      |
+|`Llama3-8b`|INT8 |maxpertoken   |maxperCh      |yes |yes |6.22      |
 |           |FP8  |fp8_e4m3_scale|fp8_e4m3_scale|yes |yes |6.19      |
+|           |**MX**|mx_fp8_e4m3  |mx_fp8_e4m3   |yes |**no** |6.23   |
+|           |**MX**|mx_fp4_e2m1  |mx_fp4_e2m1   |yes |**no** |8.22   |
 
-## Code Walk-through
 
-**1. KV caching**
+> [!NOTE]
+> SmoothQuant is disabled when `mx` is being used. See `dq.py` for more details.
 
-In large language models (LLMs), key/value pairs are frequently cached during token generation, a process known as KV caching, to prevent redundant computations due to the autoregressive nature of token generation. However, the size of the KV cache increases with both batch size and context length, which can slow down model inference due to the need to access a large amount of data in memory. Quantizing the KV cache effectively reduces this memory bandwidth limitation, improving inference speed. To study the quantization behavior of KV cache, we can simply set the `nbits_kvcache` argument to 8-bit, then the KV cache will be quantized together with weights and activations. In addition, the `bmm1_qm1_mode`, `bmm1_qm2_mode`, and `bmm2_qm2_mode` [arguments](../../fms_mo/training_args.py) must be set to the same quantizer mode as `qa_mode`. **NOTE**: `bmm2_qm1_mode` should be kept as `minmax`.
-
-The effect of setting the `nbits_kvcache` to 8 and its relevant code sections are:
-
-- Enables eager attention for the quantization of attention operations, including KV cache.
-    ```python
-    # For attention or kv-cache quantization, need to use eager attention
-    attn_bits = [fms_mo_args.nbits_bmm1, fms_mo_args.nbits_bmm2, fms_mo_args.nbits_kvcache]
-    if any(attn_bits) != 32:
-        attn_implementation = "eager"
-    else:
-        attn_implementation = None
-    ```
--  Enables Dynamo for quantized model preparation. We use PyTorch's Dynamo tracer to identify the bmm and KV cache inside the attention block.
-    ```python
-    if any(x != 32 for x in attn_bits):
-        logger.info("Quantize attention bmms or kvcache, use dynamo for prep")
-        use_layer_name_pattern_matching = False
-        qcfg["qlayer_name_pattern"] = []
-        assert (
-            qcfg["qlayer_name_pattern"] == []
-        ), "ensure nothing in qlayer_name_pattern when use dynamo"
-        use_dynamo = True
-    else:
-        logger.info("Do not quantize attention bmms")
-        use_layer_name_pattern_matching = True
-        use_dynamo = False
-    ```
-
-**2. Define quantization config** including quantizers and hyperparameters. Here we simply use the default [dq recipe](../../fms_mo/recipies/dq.json).
-
-```python
-qcfg = qconfig_init(recipe="dq",args=fms_mo_args)
-```
-
-**3. Obtain activation scales for SmoothQuant (SQ)**
-
-``` python
-# For loading or creating smoothquant scale.
-act_scale_directory = "./act_scales"
-if not os.path.exists(act_scale_directory):
-    os.makedirs(act_scale_directory)
-
-if qcfg["act_scale_path"] is not None:
-    act_scales = torch.load(qcfg["act_scale_path"], map_location="cpu")
-else:
-    logger.info("Generate activation scales")
-    if qcfg["large_model"]:
-        act_scales = get_act_scales_1gpu(model, dq_dataloader, qcfg)
-    else:
-        act_scales = get_act_scales(model, dq_dataloader, qcfg)
-    scale_file = f"{act_scale_directory}/{qcfg['model'].replace('/', '-')}" + ".pt"
-    torch.save(act_scales, scale_file)
-```
-
-**4. Prepare the quantized model and attach activation scales** to quantized modules
-
-```python
-qmodel_prep(
-    model,
-    dq_dataloader,
-    qcfg,
-    use_layer_name_pattern_matching=use_layer_name_pattern_matching,
-    use_dynamo=use_dynamo,
-    dev=dev,
-    save_fname='test'
-)
-
-dq_llm(model, act_scales, qcfg)
-```
-
-**5. Perform direct quantization** by calibrating quantizers (clip_vals)
-
-``` python
-if qcfg["qmodel_calibration_new"] > 0:
-    logger.info("Starting to calibrate activation clip_val")
-    if qcfg["large_model"]:
-        calibration_llm_1GPU(qcfg, model, calibration_dataset)
-    else:
-        model.to("cuda:0")
-        pbar = tqdm(
-            dq_dataloader,
-            desc=" calibration after applying smoothq scale and before inference",
-            total=qcfg["qmodel_calibration_new"],
-        )
-        for data_mb, _ in zip(pbar, range(qcfg["qmodel_calibration_new"])):
-            data_mb = prepare_input(model.device, data_mb)
-            with patch_torch_bmm(qcfg):
-                model(**data_mb)
-
-logger.info(f"Saving quantized model and tokenizer to {output_dir}")
-model.save_pretrained(output_dir, use_safetensors=True)
-tokenizer.save_pretrained(output_dir)
-```
-
-**6. Check perplexity** (simple method to evaluate the model quality)
-
-``` python
-if fms_mo_args.eval_ppl:
-    logger.info(f"Model for evaluation: {model}")
-    if qcfg["large_model"]:
-        eval_llm_1GPU(qcfg, model, test_dataset)
-    else:
-        model.to(torch.device("cuda:0"))
-        n_samples = int(test_dataset.input_ids.shape[1] / block_size)
-        evaluator = Evaluator(test_dataset, "cuda", n_samples=n_samples)
-        ppl = evaluator.evaluate(model, block_size=block_size)
-        logger.info(f"Model perplexity: {ppl}")
-    logger.info("-" * 50)
-    logger.info("Finished evaluation")
-```

@@ -54,38 +54,49 @@ if __name__ == "__main__":
     HIDDEN_DIM = 128
     x = np.random.randn(16, HIDDEN_DIM)
     x = torch.tensor(x, dtype=torch.float32, device="cuda")
-    results = {"dtype": [], "output[0, :5]": [], "||ref - out_dtype||_2": []}
+    results = {
+        "dtype": [],
+        "output[0, 0]": [],
+        "output[0, 1]": [],
+        "output[0, 2]": [],
+        "||ref - out_dtype||_2": [],
+    }
 
     # --- Test 0. Run MLP as is
-    mlp = ResidualMLP(HIDDEN_DIM)
-    # mlp.to("cuda")
+    model = ResidualMLP(HIDDEN_DIM)
     with torch.no_grad():
-        out = mlp(x)
+        out = model(x)
         results["dtype"].append("fp32")
-        results["output[0, :5]"].append(out[0, :5].tolist())
-        results["||ref - out_dtype||_2"].append("-")
-    print(mlp)
+        results["output[0, 0]"].append(out[0, 0])
+        results["output[0, 1]"].append(out[0, 1])
+        results["output[0, 2]"].append(out[0, 2])
+        results["||ref - out_dtype||_2"].append(0)
+    print(model)
 
     # --- Test 1. fms-mo qmodel_prep, replace Linear with our QLinear
     qcfg = qconfig_init()
     qcfg["nbits_a"] = 8
     qcfg["nbits_w"] = 8
-    model = qmodel_prep(mlp, x, qcfg)
+    qmodel_prep(model, x, qcfg)
     with torch.no_grad():
         out_dtype = model(x)
-        results["dtype"].append("fms_int8")
-        results["output[0, :5]"].append(out_dtype[0, :5].tolist())
+        results["dtype"].append("fmsmo_int8")
+        results["output[0, 0]"].append(out_dtype[0, 0])
+        results["output[0, 1]"].append(out_dtype[0, 1])
+        results["output[0, 2]"].append(out_dtype[0, 2])
         results["||ref - out_dtype||_2"].append(torch.norm(out - out_dtype).item())
-    # print(model)
+    print(model)
 
     qcfg["nbits_a"] = 4
     qcfg["nbits_w"] = 4
-    mlp = ResidualMLP(HIDDEN_DIM)
-    model = qmodel_prep(mlp, x, qcfg)
+    model = ResidualMLP(HIDDEN_DIM)
+    qmodel_prep(model, x, qcfg)
     with torch.no_grad():
         out_dtype = model(x)
-        results["dtype"].append("fms_int4")
-        results["output[0, :5]"].append(out_dtype[0, :5].tolist())
+        results["dtype"].append("fmsmo_int4")
+        results["output[0, 0]"].append(out_dtype[0, 0])
+        results["output[0, 1]"].append(out_dtype[0, 1])
+        results["output[0, 2]"].append(out_dtype[0, 2])
         results["||ref - out_dtype||_2"].append(torch.norm(out - out_dtype).item())
     print(model)
 
@@ -96,15 +107,17 @@ if __name__ == "__main__":
     for dtype_to_test in ["int8", "int4", "fp8_e4m3", "fp8_e5m2", "fp4_e2m1"]:
         qcfg["qw_mode"] = f"mx_{dtype_to_test}"
         qcfg["qa_mode"] = f"mx_{dtype_to_test}"
-        mlp = ResidualMLP(HIDDEN_DIM)  # fresh model
-        model = qmodel_prep(mlp, x, qcfg)
+        model = ResidualMLP(HIDDEN_DIM)  # fresh model
+        qmodel_prep(model, x, qcfg)
         with torch.no_grad():
             out_dtype = model(x)
             results["dtype"].append(f"mx{dtype_to_test}")
-            results["output[0, :5]"].append(out_dtype[0, :5].tolist())
+            results["output[0, 0]"].append(out_dtype[0, 0])
+            results["output[0, 1]"].append(out_dtype[0, 1])
+            results["output[0, 2]"].append(out_dtype[0, 2])
             results["||ref - out_dtype||_2"].append(torch.norm(out - out_dtype).item())
     print(model)
 
-    print(tabulate(results, headers="keys"))
+    print(tabulate(results, headers="keys", tablefmt="pipe", floatfmt=".4f"))
 
     print("DONE!")
