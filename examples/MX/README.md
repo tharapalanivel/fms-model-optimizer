@@ -27,7 +27,7 @@ First example is based on a toy model with only a few Linear layers, in which on
 >>> python simple_mx_example.py
 ```
 
-Expected output:
+Comparison between different formats, including the first 3 elements from output tensors and the norm compared to FP32 reference, is shown below.
 
 | dtype      |   output[0, 0] |   output[0, 1] |   output[0, 2] |   \|\|ref - out_dtype\|\|<sub>2</sub> |
 |:-----------|---------------:|---------------:|---------------:|------------------------:|
@@ -42,7 +42,7 @@ Expected output:
 
 
 ### Example 2
-The second example is the same as in the [DQ](../DQ_SQ/README.md) folder, except using [microxcaling](https://arxiv.org/abs/2310.10537) format.  We demonstrate the effect of MXINT8, MXFP8, MXFP6, MXFP4 for weights, activations, and/or KV-cache. 
+The second example is the same as the [DQ example](../DQ_SQ/README.md), except using [microxcaling](https://arxiv.org/abs/2310.10537) format.  We only demonstrate `mxfp8` and `mxfp4` here, but MXINT8, MXFP8, MXFP6, MXFP4 are also available for weights, activations, and/or KV-cache. 
 
 **1. Prepare Data** for calibration process by converting into its tokenized form. An example of tokenization using `LLAMA-3-8B`'s tokenizer is below.
 
