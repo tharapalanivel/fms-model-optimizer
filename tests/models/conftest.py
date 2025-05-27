@@ -33,7 +33,7 @@ import torch.nn.functional as F
 # Local
 # fms_mo imports
 from fms_mo import qconfig_init
-from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
+from fms_mo.modules import QLSTM, QBmm, QConv2d, QConvTranspose2d, QLinear
 from fms_mo.utils.qconfig_utils import get_mx_specs_defaults, set_mx_specs
 
 ########################
@@ -1085,6 +1085,7 @@ required_pair_params = [
             torch.nn.ConvTranspose2d: QConvTranspose2d,
             torch.nn.Linear: QLinear,
             torch.nn.LSTM: QLSTM,
+            "matmul_or_bmm": QBmm,
         },
     ),
     ("checkQerr_frequency", False),
