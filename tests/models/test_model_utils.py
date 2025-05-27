@@ -168,6 +168,16 @@ def load_json(file_path: str = "qcfg.json"):
     assert json_file is not None, f"JSON at {file_path} was not found"
     return json_file
 
+def save_json(data, file_path: str = "qcfg.json"):
+    """
+    Save data object to json file
+
+    Args:
+        data (_type_): _description_
+        file_path (str, optional): _description_. Defaults to "qcfg.json".
+    """
+    with open(file_path, "w", encoding="utf-8") as outfile:
+        json.dump(data, outfile, indent=4)
 
 def save_serialized_json(config: dict, file_path: str = "qcfg.json"):
     """
@@ -184,5 +194,4 @@ def save_serialized_json(config: dict, file_path: str = "qcfg.json"):
             del config[key]
 
     serialize_config(config)  # Only remove stuff necessary to dump
-    with open(file_path, "w", encoding="utf-8") as outfile:
-        json.dump(config, outfile, indent=4)
+    save_json(config, file_path)

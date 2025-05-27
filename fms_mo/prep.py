@@ -178,7 +178,10 @@ def make_quant_module(module, curr_full_name, qcfg, verbose=False):
     is mappable, create a Qmodule and return, otherwise, return the original module. In the future,
     Qmodules need to have a .from_torch() or .from_nn() classmethod, and then this function will be
     greatly simplified.
-    NOTE: This func will check qskip_layer_name before creating the Qmodule
+    NOTE:
+    1. This func will check qskip_layer_name before creating the Qmodule
+    2. Qmodule will be created on "meta device" as a placeholder, which will skip params init and
+        mem alloc, as weights and bias will be reassigned to module.weight/.bias right after
 
     Args:
         module (nn.Module): the module which Qmodule will be based on
@@ -229,7 +232,7 @@ def make_quant_module(module, curr_full_name, qcfg, verbose=False):
         if hasattr(module, "__constants__"):
             base_params = {k: getattr(module, k) for k in module.__constants__}
             base_params["bias"] = module.bias is not None
-        base_params["device"] = next(module.parameters()).device  # usually cuda
+        base_params["device"] = "meta"
 
     module_output = module
 
@@ -521,8 +524,17 @@ def q_any_net_5(model: nn.Module, qcfg: dict, verbose: bool = False):
     """
     # Third Party
     from torch.ao.quantization.utils import _parent_name
+    from tqdm import tqdm
 
-    for name, module in model.named_modules():
+    total_modules = len(list(model.named_modules()))
+    pbar = tqdm(
+        model.named_modules(),
+        total=total_modules,
+        desc="Mapping modules to target Qmodules.",
+    )
+    for name, module in pbar:
+        pbar.set_description(f"processing {name}")
+
         parent_module_name, curr_mod_name = _parent_name(name)
         new_module = make_quant_module(module, name, qcfg)
         parent_module = model.get_submodule(parent_module_name)
@@ -547,6 +559,7 @@ def q_any_net_5(model: nn.Module, qcfg: dict, verbose: bool = False):
             if verbose:
                 logger.info(f"Swap ({name}) from {type(module)} to {type(new_module)}")
 
+    pbar.close()
     return model
 
 
@@ -894,7 +907,7 @@ def qmodel_prep(
             model, device_ids=DPorDDPdevices
         )
 
-    qconfig_save(qcfg, "qcfg.json")
+    qconfig_save(qcfg, fname="qcfg.json")
     qcfg["tb_writer"] = tb_writer
 
     logger.info(f"--- Quantized model --- \n{model}\n")

@@ -696,12 +696,12 @@ def model_half(request):
 ###################################
 sample_input_fp32_params = [
     torch.randn(1, 3, 3, 3),
-    torch.zeros(1, 3, 3, 3),
+    torch.randn(1, 3, 3, 3)*.001,
     torch.ones(1, 3, 3, 3),
 ]
 sample_input_fp16_params = [
     torch.randn(1, 3, 3, 3).half(),
-    torch.zeros(1, 3, 3, 3).half(),
+    (torch.randn(1, 3, 3, 3)*.001).half(),
     torch.ones(1, 3, 3, 3).half(),
 ]
 
@@ -899,6 +899,36 @@ def config_fp16(request):
     qconfig["nbits_w"] = 16
     return qconfig
 
+keys_to_save_params = [
+    ["qa_mode", "qw_mode", "nbits_a", "nbits_w", "qskip_layer_name"],
+]
+@pytest.fixture(scope="session", params=keys_to_save_params)
+def save_list(request):
+    """
+    Generate a save list for testing user-requested save config.
+
+    Args:
+        request (list): List of variables to save in a quantized config.
+
+    Returns:
+        list: List of variables to save in a quantized config.
+    """
+    return request.param
+
+wrong_recipe_name_params = ["qat_int7", "pzq_int8"]
+
+@pytest.fixture(scope="session", params=wrong_recipe_name_params)
+def wrong_recipe_name(request):
+    """
+    Get a bad recipe json file name in fms_mo/recipes
+
+    Args:
+        request (str): Bad recipe name in fms_mo/recipes
+
+    Returns:
+        str: Bad recipe name
+    """
+    return request.param
 
 # Create QAT/PTQ int8 config fixture.
 config_params = ["qat_int8", "ptq_int8"]
@@ -1024,7 +1054,7 @@ def bad_pair(request):
 
 wanted_pair_params = [
     ("nbits_a", 32),
-    ("qw_mode", "sawb"),
+    ("qw_mode", "sawb+"),
     ("extend_act_range", False),
     ("qspecial_layers", {}),
 ]
