@@ -172,8 +172,6 @@ def lower_qmodel_to_ext_kernels(
             QLinearExllamaV2,
         )
 
-    # qclass_accepted = list( qcfg["mapping"].values() )
-
     mod2swap = {
         n: m
         for n, m in mod.named_modules()

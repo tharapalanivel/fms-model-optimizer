@@ -46,8 +46,6 @@ from fms_mo.quant.ptq import (
 from fms_mo.utils.aiu_utils import save_for_aiu
 from fms_mo.utils.dq_utils import config_quantize_smooth_layers
 from fms_mo.utils.eval_utils import Evaluator, eval_llm_1GPU
-
-# from fms_mo.utils.import_utils import available_packages
 from fms_mo.utils.utils import patch_torch_bmm, prepare_input
 
 logger = logging.getLogger(__name__)

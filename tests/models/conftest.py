@@ -838,7 +838,6 @@ def config_fp32_mx(request):
     qconfig = deepcopy(request.param)
     mx_specs = get_mx_specs_defaults()
 
-    # print(f"fixture qcfg before {qconfig=}")
     # Set config vars prefixed w/ "mx_"
     for key, val in mx_specs.items():
         qconfig["mx_" + key] = val
@@ -853,11 +852,6 @@ def config_fp32_mx(request):
     qconfig["qw_mode"] = "mx_" + qconfig["mx_w_elem_format"]
     del qconfig["mx_a_elem_format"]
     del qconfig["mx_w_elem_format"]
-
-    # Set mx_specs as if we ran qconfig_init
-    # set_mx_specs(qconfig)
-
-    # print(f"fixture qcfg after", qconfig["mx_specs"])
 
     return qconfig
 

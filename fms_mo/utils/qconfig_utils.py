@@ -1285,7 +1285,6 @@ def check_config(config: dict, model_dtype: torch.dtype = None) -> None:
         mx_spec_int_var_str_defaults = [
             ("scale_bits", 8),
             ("block_size", 32),
-            # ("fp", 16),  # can only set either fp or bfloat to non-zero
             ("bfloat", 16),
         ]
         mx_spec_int_var_values = {2, 4, 6, 8, 16, 32}
@@ -1388,4 +1387,3 @@ def check_config(config: dict, model_dtype: torch.dtype = None) -> None:
                 else:
                     if qbmm_map is not QBmm:
                         raise ValueError("Mapping for matmul_or_bmm is not QBmm")
-    # End mx_specs checks
