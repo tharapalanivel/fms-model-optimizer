@@ -159,7 +159,7 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     config_quantize_smooth_layers(qcfg)
 
     if any(x != 32 for x in attn_bits):
-        logger.info("Quantize attention bmms or kvcache, use dynamo for prep")
+        logger.info("Quantize attention bmms or kvcache, will use dynamo for prep")
         use_layer_name_pattern_matching = False
         qcfg["qlayer_name_pattern"] = []
         assert (
@@ -167,13 +167,13 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         ), "ensure nothing in qlayer_name_pattern when use dynamo"
         use_dynamo = True
     else:
-        logger.info("Do not quantize attention bmms")
+        logger.info("Attention bmms will not be quantized.")
         use_layer_name_pattern_matching = True
         use_dynamo = False
 
     qcfg["seq_len"] = block_size
     qcfg["model"] = model_args.model_name_or_path
-    qcfg["smoothq"] = qcfg.get("smoothq_alpha", -1) >= 0
+    qcfg["smoothq"] = qcfg.get("smoothq_alpha", -1) >= 0 and "mx_specs" not in qcfg
     qcfg["plotsvg"] = False
 
     calibration_dataset = load_from_disk(data_args.training_data_path)
@@ -187,31 +187,32 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     )
 
     # For loading or creating smoothquant scale. Sometimes we may include scales in ckpt as well.
-    scale_file = Path(f"./act_scales/{qcfg['model'].replace('/', '-')}.pt")
-    if qcfg.get("act_scale_path", None):
-        # user provided a scale file (or a dir)
-        scale_file_or_dir = Path(qcfg["act_scale_path"])
-        if scale_file_or_dir.is_dir():
-            scale_file = scale_file_or_dir / f"{qcfg['model'].replace('/', '-')}.pt"
-        elif scale_file_or_dir.is_file():
-            scale_file = scale_file_or_dir
+    if qcfg["smoothq"]:
+        scale_file = Path(f"./act_scales/{qcfg['model'].replace('/', '-')}.pt")
+        if qcfg.get("act_scale_path", None):
+            # user provided a scale file (or a dir)
+            scale_file_or_dir = Path(qcfg["act_scale_path"])
+            if scale_file_or_dir.is_dir():
+                scale_file = scale_file_or_dir / f"{qcfg['model'].replace('/', '-')}.pt"
+            elif scale_file_or_dir.is_file():
+                scale_file = scale_file_or_dir
 
-    if not scale_file.parent.exists():
-        scale_file.parent.mkdir(exist_ok=False)
+        if not scale_file.parent.exists():
+            scale_file.parent.mkdir(exist_ok=False)
 
-    if scale_file.exists():
-        act_scales = torch.load(
-            scale_file,
-            map_location=getattr(model, "device", dev),
-            weights_only=True,
-        )
-    else:
-        logger.info("Generate activation scales")
-        if qcfg["large_model"]:
-            act_scales = get_act_scales_1gpu(model, dq_dataloader, qcfg)
+        if scale_file.exists():
+            act_scales = torch.load(
+                scale_file, map_location=getattr(model, "device", dev)
+            )
+
         else:
-            act_scales = get_act_scales(model, dq_dataloader, qcfg)
-        torch.save(act_scales, scale_file)
+            logger.info("Generate activation scales")
+            if qcfg["large_model"]:
+                act_scales = get_act_scales_1gpu(model, dq_dataloader, qcfg)
+            else:
+                act_scales = get_act_scales(model, dq_dataloader, qcfg)
+            torch.save(act_scales, scale_file)
+
     qmodel_prep(
         model,
         dq_dataloader,

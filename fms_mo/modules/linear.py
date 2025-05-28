@@ -1804,29 +1804,6 @@ except ModuleNotFoundError:
         "QLinearExv1WI4AF16 and QLinearExv2WI4AF16 wrappers will not be available."
     )
 
-QLinear_modules = (
-    QLinear,
-    QLinearFPout,
-    QLinearDebug,
-    QLinearW4A32Debug,
-    QLinearINT8Deploy,
-    QLinearCublasI8I32NT,
-    QLinearCutlassI8I32NT,
-)
-
-
-def isinstance_qlinear(module):
-    """
-    Checks if the given module is one of the available quantized linear classes.
-
-    Args:
-        module (nn.Module): The module to check.
-
-    Returns:
-        bool: True if the module is a quantized linear class, False otherwise.
-    """
-    return isinstance(module, QLinear_modules)
-
 
 class LinearFuncFPxFwdBwd(torch.autograd.Function):
     """Linear function using FP24 accumulation, experimental only.
@@ -2001,3 +1978,147 @@ class LinearFPxAcc(torch.nn.Linear):
             f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
             f"trun_bits={self.trun_bits},fp8_dyn={self.fp8_dyn},chunk_size={self.chunk_size}"
         )
+
+
+if available_packages["mx"]:
+    # Third Party
+    # pylint: disable = import-error
+    from mx.elemwise_ops import quantize_elemwise_op
+    from mx.linear import linear as mx_linear
+    from mx.specs import apply_mx_specs, mx_assert_test
+
+    # import mx  # defaults to import all classes
+
+    mx_specs_default = {
+        "w_elem_format": "fp8_e4m3",
+        "a_elem_format": "fp8_e4m3",
+        "block_size": 32,
+        "bfloat": 16,
+        "custom_cuda": True,
+        # For quantization-aware finetuning, do backward pass in FP32
+        "quantize_backprop": False,
+    }
+
+    class QLinearMX(torch.nn.Linear):
+        """Modified from mx.linear class. Only mildly changed init() and add extra_repr.
+        1. Add **kwargs to receive extra (unused) params passed from qmodel_prep
+        2. pass device to super.init, i.e. nn.Linear's
+        """
+
+        def __init__(
+            self,
+            in_features,
+            out_features,
+            bias=True,
+            mx_specs=None,
+            name=None,
+            **kwargs,
+        ):
+            mx_assert_test(mx_specs)
+            self.mx_none = mx_specs is None
+
+            self.name = name
+            self.prequantized_weights = False
+            self.mx_specs = apply_mx_specs(mx_specs)
+            super().__init__(
+                in_features, out_features, bias, device=kwargs.get("device", "cuda")
+            )
+
+        def apply_mx_specs(self, mx_specs):
+            """Unchanged."""
+            mx_assert_test(mx_specs)
+            self.mx_none = mx_specs is None
+            self.mx_specs = apply_mx_specs(mx_specs)
+
+        def append_name(self, postfix):
+            """Unchanged."""
+            self.name += postfix
+
+        def prequantize_weights(self):
+            """Unchanged."""
+            # Can't prequantize if not using bfloat weights
+            if self.mx_none:
+                return
+
+            assert (
+                self.mx_specs["round"] == "even"
+            ), "Bfloat round should be 'even' for prequantizing weights."
+            assert (
+                torch.cuda.is_bf16_supported()
+            ), "Current device does not support bfloat16"
+            assert self.mx_specs[
+                "bfloat_subnorms"
+            ], "Bfloat_subnorms should be set to True for prequantizing weights."
+            assert (
+                self.mx_specs["bfloat"] == 16
+            ), "Only Bfloat16 is supported for prequantizing weights."
+
+            with torch.no_grad():
+                self.weight.data = quantize_elemwise_op(
+                    self.weight.data,
+                    mx_specs=self.mx_specs,
+                    round=self.mx_specs["round_weight"],
+                ).to(torch.bfloat16)
+
+                if self.bias is not None:
+                    self.bias.data = quantize_elemwise_op(
+                        self.bias.data,
+                        mx_specs=self.mx_specs,
+                        round=self.mx_specs["round_weight"],
+                    ).to(torch.bfloat16)
+
+            self.prequantized_weights = True
+
+        def forward(self, inputs):
+            """Unchanged."""
+            if self.mx_none:
+                return super().forward(inputs)
+
+            if self.prequantized_weights:
+                assert (
+                    not self.training
+                ), "Cannot use prequantized weights when training!"
+
+            return mx_linear(
+                input=inputs,
+                weight=self.weight,
+                bias=self.bias,
+                mx_specs=self.mx_specs,
+                prequantized_weights=self.prequantized_weights,
+                name=self.name,
+            )
+
+        def extra_repr(self) -> str:
+            repr_str = (
+                f"in={self.in_features},out={self.out_features},"
+                f"w_fmt={self.mx_specs['w_elem_format']},a_fmt={self.mx_specs['a_elem_format']},"
+                f"blk_size={self.mx_specs['block_size']}"
+            )
+            return repr_str
+
+
+# KEEP THIS AT END OF FILE - classes must be declared
+QLinear_modules = (
+    QLinear,
+    QLinearFPout,
+    QLinearDebug,
+    QLinearW4A32Debug,
+    QLinearINT8Deploy,
+    QLinearCublasI8I32NT,
+    QLinearCutlassI8I32NT,
+)
+if available_packages["mx"]:
+    QLinear_modules += (QLinearMX,)
+
+
+def isinstance_qlinear(module):
+    """
+    Checks if the given module is one of the available quantized linear classes.
+
+    Args:
+        module (nn.Module): The module to check.
+
+    Returns:
+        bool: True if the module is a quantized linear class, False otherwise.
+    """
+    return isinstance(module, QLinear_modules)

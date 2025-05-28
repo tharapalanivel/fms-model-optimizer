@@ -45,4 +45,9 @@ fms_mo.log
 data*_train/
 data*_test/
 act_scales/
-examples/
+examples/**/*.json
+examples/**/*.safetensors
+examples/**/*.log
+examples/**/*.sh
+examples/**/*.pt
+examples/**/*.arrow
