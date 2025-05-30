@@ -29,9 +29,9 @@ def test_save_model_bert(
 
     Args:
         model_tiny_bert (BertModel): Bert Tiny Model
-        config_tiny_bert (BertConfig): Bert Tiny config
         input_tiny (BatchEncoding): Fake tiny input
-        qcfg_bert (dict): Quantized config for Bert
+        qcfg_bert (dict): Quantized config for Tiny Bert
+        bert_linear_names (list): Names of linear layers for Bert
     """
     # Quantize model and save state dict
     qmodel_prep(model_tiny_bert, input_tiny, qcfg_bert, use_dynamo=True)
@@ -54,8 +54,8 @@ def test_large_outlier_bert(
     Args:
         model_tiny_bert (BertModel): Bert Tiny Model
         input_tiny (BatchEncoding): Bert Tiny config
-        qcfg_bert (dict): Fake tiny input
-        bert_linear_names (list): Quantized config for Bert
+        qcfg_bert (dict): Quantized config for Tiny Bert
+        bert_linear_names (list): Names of linear layers for Bert
     """
     # Third Party
     import torch
@@ -85,6 +85,27 @@ def test_large_outlier_bert(
             perCh_stdev_loaded = v.to(torch.float32).std(dim=-1)
 
             assert torch.all(perCh_stdev_loaded >= perCh_stdev_model)
+
+
+def test_clip_vals_zero_bert(
+    model_tiny_bert: BertModel,
+    input_tiny: BatchEncoding,
+    qcfg_bert: dict,
+):
+    """
+    Test if uninitialized clip vals throws an error
+
+    Args:
+        model_tiny_bert (BertModel): Bert Tiny Model
+        input_tiny (BatchEncoding): Bert Tiny config
+        qcfg_bert (dict): Quantized config for Tiny Bert
+    """
+    # Turn off calibration -> clip vals are init as 0
+    qcfg_bert["qmodel_calibration"] = 0
+    qmodel_prep(model_tiny_bert, input_tiny, qcfg_bert, use_dynamo=True)
+
+    with pytest.raises(ValueError):
+        save_for_aiu(model_tiny_bert, qcfg=qcfg_bert, verbose=True)
 
 
 def test_save_model_llama(
