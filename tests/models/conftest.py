@@ -38,7 +38,6 @@ import numpy as np
 import pytest
 import torch
 import torch.nn.functional as F
-from torch.utils.data import TensorDataset, DataLoader
 
 # Local
 # fms_mo imports
