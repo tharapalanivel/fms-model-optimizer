@@ -13,12 +13,13 @@
 # limitations under the License.
 
 """
-Linear Quantization Utility functions 
+Linear Quantization Utility functions
 
 Raises:
     ValueError: Lower clip value is less than 0 for symmetric quantization
 """
 
+# Standard
 from typing import Tuple
 
 # Third Party
@@ -288,7 +289,7 @@ def asymmetric_linear_quantization_params(
         diff = sat_max - sat_min
         # If float values are all 0, we just want the quantized values to be 0 as well.
         # So overriding the saturation value to 'n', so the scale becomes 1
-        diff[ diff == 0.0 ] = n_levels
+        diff[diff == 0.0] = n_levels
         scale = diff / n_levels
         zero_point = -sat_min / scale
         if integral_zero_point:
@@ -310,7 +311,7 @@ def symmetric_linear_quantization_params(
         num_bits (torch.IntTensor): Number of bits for quantization.
         sat_max (torch.FloatTensor): Upper clip value.  Can be multi-valued (perCh/perGp).
         qlevel_lowering (bool, optional): Specify lowering of quantized levels. Defaults to False.
-        Ngp_or_ch (int, optional): 
+        Ngp_or_ch (int, optional):
 
     Returns:
         [torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
@@ -326,11 +327,12 @@ def symmetric_linear_quantization_params(
         # If float values are all 0, we just want the quantized values to be 0 as well.
         # So overriding the saturationvalue to '2n', so the scale becomes 1
         diff = 2 * sat_val
-        diff[ diff == 0.0 ] = n_levels
+        diff[diff == 0.0] = n_levels
         scale = diff / n_levels
         zero_point = torch.zeros_like(scale)
         return n_levels, scale, zero_point
-    
+
+
 def per_channel_axis(
     scale: torch.FloatTensor,
     zero_point: torch.IntTensor,
@@ -349,7 +351,7 @@ def per_channel_axis(
         tensor_shape (torch.Size): Shape of quantized tensor
 
     Returns:
-        scale, zero_point: 
+        scale, zero_point:
     """
     if axis == 0:
         scale = scale.unsqueeze(1)
@@ -359,9 +361,9 @@ def per_channel_axis(
         zero_point = zero_point.unsqueeze(0)
     else:
         raise ValueError("Axis must be 0 or 1")
-    
+
     # Check that tensor shape axis is same as scale/zp broadcast
     assert tensor_shape[axis] == scale.shape[axis]
     assert tensor_shape[axis] == zero_point.shape[axis]
-    
+
     return scale, zero_point

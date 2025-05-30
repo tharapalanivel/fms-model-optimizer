@@ -16,21 +16,23 @@
 SAWB Quantizer Rewrite
 """
 
+# Standard
 from typing import Tuple
 
 # Third Party
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
-from fms_mo.quant_refactor.per_tensor_ste import (
-    PerTensorSTESAWB,
-    PerTensorSTESAWB_PTnative,
-)
+from fms_mo.quant_refactor.base_quant import Qscheme, Quantizer
 from fms_mo.quant_refactor.per_channel_ste import (
     PerChannelSTESAWB,
     PerChannelSTESAWB_PTnative,
 )
+from fms_mo.quant_refactor.per_tensor_ste import (
+    PerTensorSTESAWB,
+    PerTensorSTESAWB_PTnative,
+)
+
 # from fms_mo.quant_refactor.linear_utils import linear_dequantize, linear_quantize
 from fms_mo.quant_refactor.sawb_utils import sawb_params, sawb_params_code
 
@@ -42,6 +44,7 @@ qscheme_per_tensor = Qscheme(
     single_sided=False,
     qlevel_lowering=False,
 )
+
 
 class SAWB_new(Quantizer):
     """
@@ -65,7 +68,7 @@ class SAWB_new(Quantizer):
         clipSTE: bool = False,
         align_zero: bool = False,
         use16bins: bool = False,
-        **kwargs
+        **kwargs,
     ):
         """
         Init SAWB Quantizer
@@ -94,7 +97,7 @@ class SAWB_new(Quantizer):
             with torch.no_grad():
                 self.clip_valn.data *= init_clip_valn
                 self.clip_val.data *= init_clip_val
-        
+
         self.clipSTE = clipSTE
         self.align_zero = align_zero
         self.use16bins = use16bins
@@ -571,4 +574,3 @@ class SAWBPlusZeroPerChSTE_new(PerChannelSTESAWB):
         """
         grad_input = grad_output.clone()
         return grad_input, None, None, None, None, None, None, None
-

@@ -19,6 +19,7 @@ Each group has a PyTorch native implementation that uses the fake_quantize_per_t
 Each STE implements the torch.autograd.Function forward() and backward() functions.
 """
 
+# Standard
 from typing import Tuple
 
 # Third Party

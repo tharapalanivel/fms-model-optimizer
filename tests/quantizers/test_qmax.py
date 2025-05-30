@@ -81,9 +81,7 @@ def set_other_options(
     n_half = 2 ** (num_bits - 1)
 
     if other_option["minmax"]:
-        if is_perCh:  # QminmaxPerChSTE
-            pass
-        elif is_perGp:  # QminmaxPerGpSTE
+        if is_perCh or is_perGp:  # QminmaxPerChSTE
             pass
         else:  # QminmaxSTE
             # min/max clip vals asymmetric
@@ -117,9 +115,7 @@ def set_other_options(
         torch_quantizer.symmetric_nlevel = 0
 
     else:  # non-minmax STEs
-        if is_perCh:  # QmaxPerChSTE
-            pass
-        elif is_perGp:  # QmaxPerGpSTE
+        if is_perCh or is_perGp:  # QmaxPerChSTE
             pass
         else:  # QmaxSTE
             # clip_vals symmetric
@@ -192,9 +188,7 @@ def set_other_options_new(
     n_half = 2 ** (num_bits - 1)
 
     if other_option["minmax"]:
-        if is_perCh:  # QminmaxPerChSTE_new
-            pass
-        elif is_perGp:  # QminmaxPerGpSTE_new
+        if is_perCh or is_perGp:  # QminmaxPerChSTE_new
             pass
         else:  # QminmaxSTE_new
             # min/max clip vals asymmetric
@@ -225,9 +219,7 @@ def set_other_options_new(
         torch_quantizer.symmetric_nlevel = 0
 
     else:  # non-minmax STEs
-        if is_perCh:  # QmaxPerChSTE_new
-            pass
-        elif is_perGp:  # QmaxPerGpSTE_new
+        if is_perCh or is_perGp:  # QmaxPerChSTE_new
             pass
         else:  # QmaxSTE_new
             # clip_vals symmetric

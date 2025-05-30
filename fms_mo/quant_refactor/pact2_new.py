@@ -20,11 +20,8 @@ PACT2 Quantizer
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
-from fms_mo.quant_refactor.per_tensor_ste import (
-    PerTensorSTE,
-    PerTensorSTE_PTnative,
-)
+from fms_mo.quant_refactor.base_quant import Qscheme, Quantizer
+from fms_mo.quant_refactor.per_tensor_ste import PerTensorSTE, PerTensorSTE_PTnative
 
 clip_valn_default = torch.tensor(-8.0)
 clip_val_default = torch.tensor(8.0)
@@ -36,6 +33,7 @@ qscheme_per_tensor = Qscheme(
     single_sided=False,
     qlevel_lowering=False,
 )
+
 
 class PACT2_new(Quantizer):
     """
@@ -52,7 +50,7 @@ class PACT2_new(Quantizer):
         qscheme: Qscheme = qscheme_per_tensor,
         dequantize: bool = True,
         pact_plus: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """
         Init PACT2 quantizer

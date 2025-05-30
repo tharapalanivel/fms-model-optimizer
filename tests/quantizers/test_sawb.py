@@ -18,13 +18,13 @@ Test SAWB quantizers
 
 # Third Party
 from test_quantizer_utils import quantizer_error, set_base_options
+import pytest
+import torch
 
+# Local
 from fms_mo.quant_refactor.quantizers_new import SAWB
 from fms_mo.quant_refactor.sawb_new import SAWB_new
 from fms_mo.quant_refactor.torch_quantizer import TorchQuantizer
-
-import pytest
-import torch
 
 other_option_params = []
 for clipSTE in [True, False]:
@@ -78,8 +78,12 @@ def set_other_options(
     # For SAWB Zero STEs
     if other_option["align_zero"]:
         # SAWBPlus16ZeroSTE - no sawb_params
-        if torch_quantizer.qscheme.q_unit == "perT" \
-            and other_option["clipSTE"] and other_option["use16bins"] and num_bits == 4:
+        if (
+            torch_quantizer.qscheme.q_unit == "perT"
+            and other_option["clipSTE"]
+            and other_option["use16bins"]
+            and num_bits == 4
+        ):
             # Set num_bits and [clip_low,clip_high]
             torch_quantizer.n_levels = 2**num_bits - 1
             torch_quantizer.quant_min = -8
@@ -103,7 +107,7 @@ def set_other_options(
             torch_quantizer.qscheme.q_unit = "perCh"
             torch_quantizer.qscheme.Nch = Nch
             torch_quantizer.qscheme.qlevel_lowering = True
-            torch_quantizer.set_sawb_clip_code(tensor, perCh=True) # sets clip vals
+            torch_quantizer.set_sawb_clip_code(tensor, perCh=True)  # sets clip vals
 
         else:  # SAWBZeroSTE, SAWBPlusZeroSTE - sawb_params_code
             # Set num_bits and [clip_low,clip_high]
@@ -185,8 +189,12 @@ def set_other_options_new(
     # For SAWB Zero STEs
     if other_option["align_zero"]:
         # SAWBPlus16ZeroSTE_new - no sawb_params
-        if torch_quantizer.qscheme.q_unit == "perT" \
-            and other_option["clipSTE"] and other_option["use16bins"] and num_bits == 4:
+        if (
+            torch_quantizer.qscheme.q_unit == "perT"
+            and other_option["clipSTE"]
+            and other_option["use16bins"]
+            and num_bits == 4
+        ):
             # Set num_bits and [clip_low,clip_high]
             torch_quantizer.n_levels = 2**num_bits - 1
             torch_quantizer.set_sawb_clip_code(tensor, code=403)  # sets clip_high
@@ -200,14 +208,17 @@ def set_other_options_new(
             torch_quantizer.set_quant_range()
 
         # SAWBPlusZeroPerChSTE_new - TODO: perCh test not functional yet
-        elif torch_quantizer.qscheme.q_unit == "perCh" and other_option["clipSTE"] and\
-            not other_option["use16bins"]:
+        elif (
+            torch_quantizer.qscheme.q_unit == "perCh"
+            and other_option["clipSTE"]
+            and not other_option["use16bins"]
+        ):
             Nch = tensor.shape[axis]
 
             torch_quantizer.qscheme.q_unit = "perCh"
             torch_quantizer.qscheme.Nch = Nch
             torch_quantizer.qscheme.qlevel_lowering = True
-            torch_quantizer.set_sawb_clip_code(tensor, perCh=True) # sets clip vals
+            torch_quantizer.set_sawb_clip_code(tensor, perCh=True)  # sets clip vals
             torch_quantizer.set_quant_bounds()
 
         else:  # SAWBZeroSTE_new, SAWBPlusZeroSTE_new - sawb_params_code
@@ -221,6 +232,7 @@ def set_other_options_new(
 
         torch_quantizer.set_quant_bounds()
 
+
 def set_per_channel(
     tensor: torch.FloatTensor,
     fms_mo_quantizer: torch.autograd.Function,
@@ -233,7 +245,7 @@ def set_per_channel(
     Args:
         tensor (torch.FloatTensor): Tensor to quantize.
         fms_mo_quantizer (torch.autograd.Function): FMS quantizer.
-        torch_quantizer (torch.nn.Module): Torch Quantizer 
+        torch_quantizer (torch.nn.Module): Torch Quantizer
         axis (int, optional): Per channel axis dimension. Defaults to 0.
     """
     Nch = tensor.shape[axis]
@@ -247,7 +259,7 @@ def set_per_channel(
     torch_quantizer.qscheme.q_unit = "perCh"
     torch_quantizer.qscheme.Nch = Nch
     torch_quantizer.qscheme.qlevel_lowering = True
-    torch_quantizer.set_sawb_clip_code(tensor, perCh=True) # sets clip vals
+    torch_quantizer.set_sawb_clip_code(tensor, perCh=True)  # sets clip vals
     torch_quantizer.set_quant_bounds()
 
 
@@ -279,9 +291,9 @@ def test_sawb_symmetric(
     base_options["nativePT"] = False  # Not supported for SAWB
     set_base_options(sawb_quantizer_symmetric, torch_quantizer_symmetric, base_options)
     # SAWB requires tensor to set parameters for TorchQuantizer
-    
+
     use16bins = other_options["use16bins"]
-    other_options["use16bins"] = False # Not implemented for quantizer_new.SAWB
+    other_options["use16bins"] = False  # Not implemented for quantizer_new.SAWB
     set_other_options(
         tensor, sawb_quantizer_symmetric, torch_quantizer_symmetric, other_options
     )
@@ -365,6 +377,7 @@ def test_sawbnew_symmetric(
     )
     torch_quantizer_symmetric.qscheme.qlevel_lowering = qlevel_lowering  # reset value
 
+
 def test_sawb_symmetric_perCh(
     tensor: torch.FloatTensor,
     quantizer_symmetric_perCh: dict,
@@ -380,20 +393,20 @@ def test_sawb_symmetric_perCh(
     """
 
     Nch = tensor.shape[0]
-    clip_val = torch.rand(Nch) + 2.5 # [2.5,3.5]
+    clip_val = torch.rand(Nch) + 2.5  # [2.5,3.5]
 
     # SAWB computes clip_val_vec in forward()
     sawb_quantizer_symmetric_perCh = SAWB(
-        num_bits = quantizer_symmetric_perCh["num_bits"],
-        perCh = Nch,
+        num_bits=quantizer_symmetric_perCh["num_bits"],
+        perCh=Nch,
     )
 
     # Clip val is not optional, but gets overriden in set_per_channel
     torch_quantizer_symmetric_perCh = TorchQuantizer(
-        num_bits = quantizer_symmetric_perCh["num_bits"],
-        clip_low = -clip_val,
-        clip_high = clip_val,
-        qscheme = quantizer_symmetric_perCh["scheme"]
+        num_bits=quantizer_symmetric_perCh["num_bits"],
+        clip_low=-clip_val,
+        clip_high=clip_val,
+        qscheme=quantizer_symmetric_perCh["scheme"],
     )
 
     # Set base quantizer and SAWB options ; save nativePT
@@ -403,8 +416,12 @@ def test_sawb_symmetric_perCh(
     # Create only set of other options for SAWB perCh STEs
     other_options = {"clipSTE": True, "align_zero": True, "use16bins": False}
 
-    set_base_options(sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options)
-    set_per_channel(tensor, sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh)
+    set_base_options(
+        sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options
+    )
+    set_per_channel(
+        tensor, sawb_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh
+    )
 
     # Create quantized tensors from FMS Model Optimizer + torch
     qtensor_fms_mo = sawb_quantizer_symmetric_perCh(tensor).detach()
@@ -415,10 +432,18 @@ def test_sawb_symmetric_perCh(
     # There should be no differences between these two tensors
     # SAWB uses torch functions, so zero out errors
     quantizer_error(
-        tensor, qtensor_fms_mo, qtensor_torch, setup, base_options, other_options,
-        max_norm_tol=0.0, l2_norm_tol=0.0, nonzero_tol=0.0
+        tensor,
+        qtensor_fms_mo,
+        qtensor_torch,
+        setup,
+        base_options,
+        other_options,
+        max_norm_tol=0.0,
+        l2_norm_tol=0.0,
+        nonzero_tol=0.0,
     )
     base_options["nativePT"] = native_pt  # reset value
+
 
 def test_sawbnew_symmetric_perCh(
     tensor: torch.FloatTensor,
@@ -434,7 +459,7 @@ def test_sawbnew_symmetric_perCh(
         other_options (dict): Other Options for quantization.
     """
     Nch = tensor.shape[0]
-    clip_val = torch.rand(Nch) + 2.5 # [2.5,3.5]
+    clip_val = torch.rand(Nch) + 2.5  # [2.5,3.5]
 
     # Need to set proper Nch; registered parameters can't change shape (Quantizer.init())
     qscheme = quantizer_symmetric_perCh["scheme"]
@@ -442,18 +467,18 @@ def test_sawbnew_symmetric_perCh(
 
     # SAWB computes clip_val_vec in forward()
     sawbnew_quantizer_symmetric_perCh = SAWB_new(
-        num_bits = quantizer_symmetric_perCh["num_bits"],
+        num_bits=quantizer_symmetric_perCh["num_bits"],
         init_clip_valn=-clip_val,
         init_clip_val=clip_val,
-        qscheme = qscheme,
+        qscheme=qscheme,
     )
 
     # Clip val is not optional, but gets overriden in set_per_channel
     torch_quantizer_symmetric_perCh = TorchQuantizer(
-        num_bits = quantizer_symmetric_perCh["num_bits"],
-        clip_low = -clip_val,
-        clip_high = clip_val,
-        qscheme = qscheme,
+        num_bits=quantizer_symmetric_perCh["num_bits"],
+        clip_low=-clip_val,
+        clip_high=clip_val,
+        qscheme=qscheme,
     )
 
     # Create only set of other options for SAWB perCh STEs
@@ -464,8 +489,9 @@ def test_sawbnew_symmetric_perCh(
         sawbnew_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options
     )
     # SAWB requires tensor to set parameters for TorchQuantizer
-    set_per_channel(tensor, sawbnew_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh)
-
+    set_per_channel(
+        tensor, sawbnew_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh
+    )
 
     # Create quantized tensors from FMS Model Optimizer + torch
     qtensor_fms_mo = sawbnew_quantizer_symmetric_perCh(tensor).detach()
@@ -474,5 +500,10 @@ def test_sawbnew_symmetric_perCh(
     setup = torch_quantizer_symmetric_perCh.get_setup()
 
     quantizer_error(
-        tensor, qtensor_fms_mo, qtensor_torch, setup, base_options, other_options,
+        tensor,
+        qtensor_fms_mo,
+        qtensor_torch,
+        setup,
+        base_options,
+        other_options,
     )

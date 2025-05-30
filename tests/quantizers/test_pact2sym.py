@@ -26,6 +26,7 @@ import torch
 
 # PACT2Sym does not support pact_plus, align_zero
 
+
 # Must override this method for each test file
 def set_other_options(torch_quantizer):
     """

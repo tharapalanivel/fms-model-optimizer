@@ -29,14 +29,14 @@ import math
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
-from fms_mo.quant_refactor.per_tensor_ste import PerTensorSTE
+from fms_mo.quant_refactor.base_quant import Qscheme, Quantizer
 from fms_mo.quant_refactor.linear_utils import (
     asymmetric_linear_quantization_params,
     linear_dequantize,
     linear_quantize_LSQresidual,
     qint_bounds,
 )
+from fms_mo.quant_refactor.per_tensor_ste import PerTensorSTE
 
 clip_valn_default = torch.tensor(-8.0)
 clip_val_default = torch.tensor(8.0)
@@ -48,6 +48,7 @@ qscheme_per_tensor = Qscheme(
     single_sided=True,
     qlevel_lowering=False,
 )
+
 
 class LSQQuantization_new(Quantizer):
     """
@@ -64,7 +65,7 @@ class LSQQuantization_new(Quantizer):
         init_clip_val: torch.FloatTensor = clip_val_default,
         qscheme=qscheme_per_tensor,
         dequantize: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """
         Init LSQ Quantizer
@@ -135,8 +136,9 @@ class LSQQuantizationSTE_new(PerTensorSTE):
             torch.Tensor: Dequantized or Quantized output tensor.
         """
 
-        clip_valn, clip_val = clip_valn.to(input_tensor.dtype), clip_val.to(
-            input_tensor.dtype
+        clip_valn, clip_val = (
+            clip_valn.to(input_tensor.dtype),
+            clip_val.to(input_tensor.dtype),
         )
 
         n_levels, scale, zero_point = asymmetric_linear_quantization_params(
@@ -205,7 +207,7 @@ class LSQPlus_new(Quantizer):
         init_clip_val: torch.FloatTensor = clip_val_default,
         qscheme=qscheme_per_tensor,
         dequantize: bool = True,
-        **kwargs
+        **kwargs,
     ):
         """
         Init LSQ+ Quantizer

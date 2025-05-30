@@ -15,6 +15,7 @@
 """
 Quantizer Testing Utility Functions
 """
+
 # Standard
 from typing import Union
 import logging
@@ -153,7 +154,9 @@ def quantizer_error(
             logger.error("Other Options = %s", other_options)
             if num_nan_fms_mo > 0:
                 logger.error("FMS Model Optimizer # of NaN = %s", num_nan_fms_mo)
-                logger.error("Original Tensor =\n%s", tensor[nan_indices_fms_mo].detach())
+                logger.error(
+                    "Original Tensor =\n%s", tensor[nan_indices_fms_mo].detach()
+                )
                 logger.error(
                     "FMS Model Optimizer Tensor =\n%s",
                     qtensor_fms_mo[nan_indices_fms_mo].detach(),
@@ -163,7 +166,9 @@ def quantizer_error(
                 )
             if num_inf_fms_mo > 0:
                 logger.error("FMS Model Optimizer # of INF = %s", num_inf_fms_mo)
-                logger.error("Original Tensor =\n%s", tensor[inf_indices_fms_mo].detach())
+                logger.error(
+                    "Original Tensor =\n%s", tensor[inf_indices_fms_mo].detach()
+                )
                 logger.error(
                     "FMS Model Optimizer Tensor =\n%s",
                     qtensor_fms_mo[inf_indices_fms_mo].detach(),
@@ -173,7 +178,9 @@ def quantizer_error(
                 )
             if num_nan_torch > 0:
                 logger.error("Torch # of NaN = %s", num_nan_torch)
-                logger.error("Original Tensor =\n%s", tensor[nan_indices_torch].detach())
+                logger.error(
+                    "Original Tensor =\n%s", tensor[nan_indices_torch].detach()
+                )
                 logger.error(
                     "FMS Model Optimizer Tensor =\n%s",
                     qtensor_fms_mo[nan_indices_torch].detach(),
@@ -183,7 +190,9 @@ def quantizer_error(
                 )
             if num_inf_torch > 0:
                 logger.error("Torch # of INF = %s", num_inf_torch)
-                logger.error("Original Tensor =\n%s", tensor[inf_indices_torch].detach())
+                logger.error(
+                    "Original Tensor =\n%s", tensor[inf_indices_torch].detach()
+                )
                 logger.error(
                     "FMS Model Optimizer Tensor =\n%s",
                     qtensor_fms_mo[inf_indices_torch].detach(),

@@ -16,6 +16,7 @@
 Functions to create quantizers for activation and weights.  Called from Qmodule level.
 """
 
+# Third Party
 import torch
 
 # Local
@@ -38,15 +39,15 @@ from fms_mo.quant_refactor.sawb_new import SAWB_new
 
 
 def get_activation_quantizer_new(
-    qa_mode:str="PACT",
-    nbits:int=32,
-    clip_val:torch.FloatTensor=None,
-    clip_valn:torch.FloatTensor=None,
-    non_neg:bool=False,
-    align_zero:bool=True,  # pylint: disable=unused-argument
-    extend_act_range:bool=False,
-    use_PT_native_Qfunc:bool=False,
-    use_subnormal:bool=False,
+    qa_mode: str = "PACT",
+    nbits: int = 32,
+    clip_val: torch.FloatTensor = None,
+    clip_valn: torch.FloatTensor = None,
+    non_neg: bool = False,
+    align_zero: bool = True,  # pylint: disable=unused-argument
+    extend_act_range: bool = False,
+    use_PT_native_Qfunc: bool = False,
+    use_subnormal: bool = False,
 ):
     """Return a quantizer for activation quantization
     Regular quantizers:
@@ -212,16 +213,16 @@ def get_activation_quantizer_new(
 
 
 def get_weight_quantizer_new(
-    qw_mode:str="SAWB+",
-    nbits:int=32,
-    clip_val:torch.FloatTensor=None,
-    clip_valn:torch.FloatTensor=None,
-    align_zero:bool=True,
-    w_shape:torch.Size=None,
-    recompute:bool=False,  # pylint: disable=unused-argument
-    perGp:int=None,
-    use_PT_native_Qfunc:bool=False,
-    use_subnormal:bool=False,
+    qw_mode: str = "SAWB+",
+    nbits: int = 32,
+    clip_val: torch.FloatTensor = None,
+    clip_valn: torch.FloatTensor = None,
+    align_zero: bool = True,
+    w_shape: torch.Size = None,
+    recompute: bool = False,  # pylint: disable=unused-argument
+    perGp: int = None,
+    use_PT_native_Qfunc: bool = False,
+    use_subnormal: bool = False,
 ):
     """Return a quantizer for weight quantization
     Regular quantizers:
@@ -236,13 +237,7 @@ def get_weight_quantizer_new(
     Ngrp = (
         [w_shape[0] * w_shape[1] // perGp, perGp] if "perGp" in qw_mode else False
     )  # store clip_val size and group size
-    unit = (
-        "perCh"
-        if Nch is not False
-        else "perGrp"
-        if perGp is not None
-        else "perT"
-    )
+    unit = "perCh" if Nch is not False else "perGrp" if perGp is not None else "perT"
     if "sawb" in qw_mode:
         clipSTE = "+" in qw_mode
         weight_quantizer = SAWB_new(
@@ -260,7 +255,6 @@ def get_weight_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif "max" in qw_mode:
-        
         weight_quantizer = Qmax_new(
             nbits,
             Qscheme=Qscheme(

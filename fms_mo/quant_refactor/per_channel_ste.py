@@ -15,7 +15,10 @@
 """
 Base Per Channel Quantizer Class
 """
+
+# Standard
 from typing import Tuple
+
 # Third Party
 import torch
 
@@ -23,12 +26,13 @@ import torch
 from fms_mo.quant_refactor.linear_utils import (
     asymmetric_linear_quantization_params,
     linear_quantization,
+    per_channel_axis,
     symmetric_linear_quantization_params,
     transform_clips,
-    per_channel_axis,
 )
 
 default_axis = int(0)
+
 
 class PerChannelSTE(torch.autograd.Function):
     """Base class for customized forward/backward functions that is NOT using PT native func.
@@ -138,12 +142,12 @@ class PerChannelSTE(torch.autograd.Function):
                 integral_zero_point=True,
                 signed=False,
             )
-        
+
         # Broadcast scale, zero_point based on axis
         scale, zero_point = per_channel_axis(scale, zero_point, tensor_shape, axis)
 
         return n_levels, scale, zero_point
-    
+
     # The save_tensors and backward unpacking must be synced
     @classmethod
     def save_tensors(cls, ctx, tensors) -> None:
@@ -155,7 +159,7 @@ class PerChannelSTE(torch.autograd.Function):
             tensors (list(torch.Tensor)): List of tensors to save.
         """
         ctx.save_for_backward(*tensors)
-        
+
     @staticmethod
     def backward(ctx, grad_output):
         """
@@ -234,10 +238,21 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
             qint_h,
             qint_dtype,
         ) = PerChannelSTE_PTnative.calc_qparams(
-            num_bits, clip_valn, clip_val, symmetric, qlevel_lowering,
+            num_bits,
+            clip_valn,
+            clip_val,
+            symmetric,
+            qlevel_lowering,
         )
         output = PerChannelSTE_PTnative.linear_quantization(
-            input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize, axis
+            input_tensor,
+            scale,
+            zero_point,
+            qint_l,
+            qint_h,
+            qint_dtype,
+            dequantize,
+            axis,
         )
         return output
 
@@ -353,7 +368,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
                     scale.float(),
                     zero_point,
                     axis=axis,
-                    dtype=qint_dtype
+                    dtype=qint_dtype,
                 )
                 .int_repr()
                 .clamp(qint_l, qint_h)
@@ -375,6 +390,7 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
         """
         return grad_output, None, None, None, None, None, None
 
+
 class PerChannelSTESAWB(PerChannelSTE):
     """
     PerChannelSTE Base for SAWB
@@ -382,6 +398,7 @@ class PerChannelSTESAWB(PerChannelSTE):
     Extends:
         PerChannelSTE
     """
+
     @staticmethod
     def forward(
         ctx,
@@ -488,7 +505,8 @@ class PerChannelSTESAWB(PerChannelSTE):
         else:
             raise ValueError("SAWB has non-symmetric Qscheme")
         return output
-    
+
+
 class PerChannelSTESAWB_PTnative(PerChannelSTE_PTnative):
     """Base class for customized forward/backward functions.
     There's a family of non-learnable quantizers, such as SAWB, MinMax,
@@ -552,10 +570,21 @@ class PerChannelSTESAWB_PTnative(PerChannelSTE_PTnative):
             qint_h,
             qint_dtype,
         ) = PerChannelSTESAWB_PTnative.calc_qparams(
-            num_bits, clip_valn, clip_val, symmetric, qlevel_lowering,
+            num_bits,
+            clip_valn,
+            clip_val,
+            symmetric,
+            qlevel_lowering,
         )
         output = PerChannelSTE_PTnative.linear_quantization(
-            input_tensor, scale, zero_point, qint_l, qint_h, qint_dtype, dequantize, axis
+            input_tensor,
+            scale,
+            zero_point,
+            qint_l,
+            qint_h,
+            qint_dtype,
+            dequantize,
+            axis,
         )
         return output
 
@@ -595,7 +624,7 @@ class PerChannelSTESAWB_PTnative(PerChannelSTE_PTnative):
         )
         # Note: fake_quantize_per_channel_affine does not need matching dimensions for scale/zp to tensor
         return n_levels, scale, zero_point, qint_l, qint_h, qint_dtype
-    
+
     @classmethod
     def qint_bounds(
         cls,

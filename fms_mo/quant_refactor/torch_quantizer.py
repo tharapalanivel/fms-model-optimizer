@@ -19,7 +19,6 @@ Used for testing as the reference result.
 Tests implement FMS functional in set_base_options() and set_other_options().
 """
 
-
 # Standard
 import logging
 
@@ -40,6 +39,7 @@ qscheme_per_tensor = Qscheme(
     single_sided=False,
     qlevel_lowering=False,
 )
+
 
 # Create a Torch Quanitizer class that returns  float + int quantized tensors
 class TorchQuantizer(torch.nn.Module):
@@ -74,11 +74,13 @@ class TorchQuantizer(torch.nn.Module):
         )
         # turn clips into tensors (from python float)
         self.clip_low = (
-            torch.Tensor([clip_low]) if not isinstance(clip_low, torch.Tensor)
+            torch.Tensor([clip_low])
+            if not isinstance(clip_low, torch.Tensor)
             else clip_low
         )
         self.clip_high = (
-            torch.Tensor([clip_high]) if not isinstance(clip_high, torch.Tensor)
+            torch.Tensor([clip_high])
+            if not isinstance(clip_high, torch.Tensor)
             else clip_high
         )
         self.symmetric_zp0 = False
@@ -288,9 +290,9 @@ class TorchQuantizer(torch.nn.Module):
         Returns:
             torch.FloatTensor: Quantized or dequantized tensor.
         """
-        
+
         if self.dequantize:
-            if self.qscheme.Nch: # Per Channel
+            if self.qscheme.Nch:  # Per Channel
                 output = torch.fake_quantize_per_channel_affine(
                     tensor,
                     self.scale.float(),
@@ -299,9 +301,9 @@ class TorchQuantizer(torch.nn.Module):
                     self.quant_min,
                     self.quant_max,
                 )
-            elif self.qscheme.Ngrp: # Per Group
+            elif self.qscheme.Ngrp:  # Per Group
                 pass
-            else: # Per Tensor
+            else:  # Per Tensor
                 output = torch.fake_quantize_per_tensor_affine(
                     tensor,
                     self.scale,
@@ -321,8 +323,10 @@ class TorchQuantizer(torch.nn.Module):
                         dtype,
                     )
                 elif self.qscheme.q_unit == "perGrp":
-                    raise RuntimeError("TorchQuantizer forward not implemented for perGrp")
-                else: # Per Tensor
+                    raise RuntimeError(
+                        "TorchQuantizer forward not implemented for perGrp"
+                    )
+                else:  # Per Tensor
                     output = torch.quantize_per_tensor(
                         tensor,
                         self.scale,

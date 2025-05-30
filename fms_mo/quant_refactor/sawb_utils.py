@@ -20,6 +20,7 @@ Raises:
     ValueError: SAWB code is not implemented
 """
 
+# Standard
 from typing import Tuple
 
 # Third Party
@@ -118,7 +119,7 @@ def sawb_params_code(
             mu = torch.mean(input_tensor.abs(), dim=reduce_dim)
             std = torch.mean(input_tensor**2, dim=reduce_dim).sqrt()
             clip_val_vec = coeff[1] * mu + coeff[0] * std
-            
+
             # Overwrite negative clip_vals with abs.max
             neg_clip_idx = clip_val_vec < 0.0
             if torch.any(neg_clip_idx):

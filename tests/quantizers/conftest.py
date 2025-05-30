@@ -15,6 +15,7 @@
 """
 Fixtures for quantization testing
 """
+
 # Third Party
 import pytest
 import torch
@@ -126,6 +127,7 @@ for num_bits in torch.tensor([8, 4]):
                 }
             )
 
+
 @pytest.fixture(scope="session", params=quantizer_symmetric_params)
 def quantizer_symmetric(request):
     """
@@ -138,6 +140,7 @@ def quantizer_symmetric(request):
         dict: Tuple for quantizer args
     """
     return request.param
+
 
 # Per channel symmetric params
 # clip_high, Nch will be computed at test level from tensor
@@ -155,7 +158,7 @@ for qunit in ["perCh"]:
                                 symmetric=symmetric,
                                 single_sided=single_sided,
                                 qlevel_lowering=qlevel_lowering,
-                                Nch=1, # temp value
+                                Nch=1,  # temp value
                                 axis=axis,
                             )
                         )
@@ -235,12 +238,13 @@ def quantizer_asymmetric(request):
     """
     return request.param
 
+
 # Create random clip vals for Per Channel ; must be accompanied by the same tensor
 clip_low_perCh = []
 clip_high_perCh = []
 for tensor_size in tensor_sizes:
-    clip_low_row = -torch.rand(tensor_size) - 2.5 # [-3.5, -2.5]
-    clip_high_row = torch.rand(tensor_size) + 2.5 # [2.5, 3.5]
+    clip_low_row = -torch.rand(tensor_size) - 2.5  # [-3.5, -2.5]
+    clip_high_row = torch.rand(tensor_size) + 2.5  # [2.5, 3.5]
     clip_low_perCh.append(clip_low_row)
     clip_high_perCh.append(clip_high_row)
 
@@ -258,6 +262,7 @@ for num_bits in torch.tensor([8, 4]):
                     }
                 )
 
+
 @pytest.fixture(scope="session", params=quantizer_asymmetric_perCh_params)
 def quantizer_asymmetric_perCh(request):
     """
@@ -270,6 +275,7 @@ def quantizer_asymmetric_perCh(request):
         dict: Tuple for quantizer args
     """
     return request.param
+
 
 # Single-Sided
 qschemes_single_sided_params = []
@@ -303,6 +309,7 @@ for num_bits in torch.tensor([8, 4]):
                     "scheme": scheme,
                 }
             )
+
 
 # Create tuple to send to quantizers for single-sided clipping
 @pytest.fixture(scope="session", params=quantizer_single_sided_params)
@@ -368,6 +375,7 @@ def torch_quantizer_symmetric(quantizer_symmetric):
         qscheme=quantizer_symmetric["scheme"],
     )
 
+
 @pytest.fixture
 def torch_quantizer_symmetric_perCh(quantizer_symmetric_perCh):
     """
@@ -386,6 +394,7 @@ def torch_quantizer_symmetric_perCh(quantizer_symmetric_perCh):
         qscheme=quantizer_symmetric_perCh["scheme"],
     )
 
+
 @pytest.fixture
 def torch_quantizer_asymmetric(quantizer_asymmetric):
     """
@@ -403,6 +412,7 @@ def torch_quantizer_asymmetric(quantizer_asymmetric):
         clip_high=quantizer_asymmetric["clip_high"],
         qscheme=quantizer_asymmetric["scheme"],
     )
+
 
 @pytest.fixture
 def torch_quantizer_asymmetric_perCh(quantizer_asymmetric_perCh):
@@ -611,6 +621,7 @@ def sawb_quantizer_symmetric(quantizer_symmetric):
         # init_clip_val=quantizer_symmetric["clip_high"],
         # qscheme=quantizer_symmetric["scheme"],
     )
+
 
 @pytest.fixture
 def sawb_quantizer_symmetric_perCh(quantizer_symmetric_perCh):

@@ -16,21 +16,22 @@
 Qmax Quantizers and STEs
 """
 
+# Standard
 from typing import Tuple
 
 # Third Party
 import torch
 
 # Local
-from fms_mo.quant_refactor.base_quant import Quantizer, Qscheme
+from fms_mo.quant_refactor.base_quant import Qscheme, Quantizer
 from fms_mo.quant_refactor.per_tensor_ste import (
     PerTensorSTE_PTnative,
     PerTensorSTEQmax,
     PerTensorSTEQmax_PTnative,
 )
 
-clip_valn_default = torch.tensor(-8.0)
-clip_val_default = torch.tensor(8.0)
+clip_valn_default = torch.FloatTensor(-8.0)
+clip_val_default = torch.FloatTensor(8.0)
 qscheme_per_tensor = Qscheme(
     unit="perT",
     symmetric=False,
@@ -39,6 +40,7 @@ qscheme_per_tensor = Qscheme(
     single_sided=False,
     qlevel_lowering=False,
 )
+
 
 class Qmax_new(Quantizer):
     """
@@ -195,8 +197,9 @@ class Qmax_new(Quantizer):
                     input_tensor.abs().reshape(self.perGrp), dim=1
                 ).values
                 clip_valn_new = -clip_val_new
-            assert len(clip_val_new) == (
-                input_tensor.shape[0] * input_tensor.shape[1] // self.perGrp[1]
+            assert (
+                len(clip_val_new)
+                == (input_tensor.shape[0] * input_tensor.shape[1] // self.perGrp[1])
             ), f"dimension error, input{input_tensor.shape}, clip_val{clip_val_new.shape}"
         elif self.extend_act_range:
             if input_tensor.max() >= input_tensor.min().abs():
@@ -225,7 +228,6 @@ class Qmax_new(Quantizer):
                 self.clip_valn.copy_(clip_valn_new)
 
         if self.training:
-
             output = self.quantizer.apply(
                 input_tensor,
                 self.num_bits,
@@ -355,8 +357,9 @@ class QmaxExtendRangeSTE_new(torch.autograd.Function):
         Returns:
             torch.Tensor: Dequantized or Quantized output tensor.
         """
-        clip_val, clip_valn = clip_val.to(input_tensor.dtype), clip_valn.to(
-            input_tensor.dtype
+        clip_val, clip_valn = (
+            clip_val.to(input_tensor.dtype),
+            clip_valn.to(input_tensor.dtype),
         )
 
         scale = clip_val / (2 ** (num_bits - 1) - 1)

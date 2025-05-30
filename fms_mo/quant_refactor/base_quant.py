@@ -103,9 +103,7 @@ class Qscheme:
                     assert Nch > 0, "Provided Nch is negative"
                     self.Nch = Nch
                 else:
-                    raise RuntimeError(
-                        "perCh was selected without specifying Nch."
-                    )
+                    raise RuntimeError("perCh was selected without specifying Nch.")
                 if axis is not None and issubclass(type(axis), int):
                     self.axis = axis
                 else:
@@ -220,7 +218,9 @@ class Quantizer(torch.nn.Module):
         self.align_zero = align_zero
         self.clipSTE = clipSTE
 
-        temp_clipvals = torch.ones(self.qscheme.Nch) if self.perCh else torch.Tensor([1.0])
+        temp_clipvals = (
+            torch.ones(self.qscheme.Nch) if self.perCh else torch.Tensor([1.0])
+        )
         self.register_parameter("clip_val", torch.nn.Parameter(temp_clipvals.clone()))
         # Keep clip_valn as positive 1.0 to allow simpler multiplication with
         #   negative numbers (clip_valn.data *= clip_valn)
