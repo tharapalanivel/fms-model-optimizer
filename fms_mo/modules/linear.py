@@ -1501,7 +1501,6 @@ class QLinearCutlassI8I32NT(QLinearCublasI8I32NT):
 
 try:
     # Third Party
-    from exllama_kernels import prepare_buffers, set_tuning_params
     from gptqmodel.nn_modules.qlinear.exllama import (
         ExllamaQuantLinear as QLinearExllamaV1,
     )
@@ -1509,6 +1508,7 @@ try:
         ExllamaV2QuantLinear as QLinearExllamaV2,
     )
     from gptqmodel.nn_modules.qlinear.exllamav2 import ext_gemm_half_q_half
+    from gptqmodel_exllama_kernels import prepare_buffers, set_tuning_params
     from transformers.pytorch_utils import Conv1D
 
     class QLinearExv1WI4AF16(QLinearExllamaV1):

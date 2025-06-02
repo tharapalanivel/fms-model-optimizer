@@ -64,8 +64,8 @@ ignore-patterns=^\.#
 # and thus existing member attributes cannot be deduced by static analysis). It
 # supports qualified module names, as well as Unix pattern matching.
 ignored-modules=gptqmodel,                
-                exllama_kernels,
-                exllamav2_kernels,
+                gptqmodel_exllama_kernels,
+                gptqmodel_exllamav2_kernels,
                 llmcompressor,
                 cutlass_mm,
                 pygraphviz,

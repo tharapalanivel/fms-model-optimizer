@@ -22,8 +22,8 @@ import torch
 
 optional_packages = [
     "gptqmodel",
-    "exllama_kernels",
-    "exllamav2_kernels",
+    "gptqmodel_exllama_kernels",
+    "gptqmodel_exllamav2_kernels",
     "llmcompressor",
     "mx",
     "matplotlib",
