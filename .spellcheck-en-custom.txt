@@ -32,6 +32,7 @@ gptq
 GPTQ
 GPTQArguments
 GPTQModel
+gptqmodel
 graphviz
 hyperparameters
 Inductor
