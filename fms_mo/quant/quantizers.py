@@ -428,7 +428,7 @@ class SAWB(nn.Module):
             else:
                 self.quantizer = SAWBSTE
 
-    def forward(self, input_tensor):
+    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         input_tensor = self.quantizer.apply(
             input_tensor,
             self.num_bits,
@@ -3183,9 +3183,7 @@ class QmaxPerChSTE(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(
-        ctx, input_tensor, num_bits, _dequantize, inplace, cv, _cvn, align_zero
-    ):
+    def forward(ctx, input_tensor, num_bits, dequantize, inplace, cv, _cvn, align_zero):
         if inplace:
             ctx.mark_dirty(input_tensor)
         scale = (2**num_bits - 2) if align_zero else (2**num_bits - 1)
@@ -3206,6 +3204,9 @@ class QmaxPerChSTE(torch.autograd.Function):
             quant_min=int_l,
             quant_max=int_u,
         ).to(input_tensor.dtype)
+
+        if not dequantize:
+            return (output.t() / scale).t()
         return output
 
     @staticmethod

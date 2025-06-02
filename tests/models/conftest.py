@@ -25,13 +25,16 @@ import os
 from torchvision.io import read_image
 from torchvision.models import ResNet50_Weights, ViT_B_16_Weights, resnet50, vit_b_16
 from transformers import BertModel, BertTokenizer
+import numpy as np
 import pytest
 import torch
+import torch.nn.functional as F
 
 # Local
 # fms_mo imports
 from fms_mo import qconfig_init
-from fms_mo.modules import QLSTM, QConv2d, QConvTranspose2d, QLinear
+from fms_mo.modules import QLSTM, QBmm, QConv2d, QConvTranspose2d, QLinear
+from fms_mo.utils.qconfig_utils import get_mx_specs_defaults, set_mx_specs
 
 ########################
 # check_config Fixtures #
@@ -308,6 +311,44 @@ def not_which2patch_contextmanager_settings():
         list: invalid which2patch_contextmanager list
     """
     return ["torch.vmm", "torch.natnul", "None"]
+
+
+@pytest.fixture(scope="session")
+def bad_mx_specs_settings():
+    """
+    Get list of invalid mx_spec key,value pairs
+
+    Returns:
+        list: invalid mx_spec list
+    """
+    return [
+        ("w_elem_format", "fp8_e5m3"),
+        ("a_elem_format", "fp8_m4e3"),
+        ("scale_bits", False),
+        ("block_size", "32"),
+        ("bfloat", [16]),
+        ("round", "bankers"),
+        ("custom_cuda", "yes"),
+    ]
+
+
+@pytest.fixture(scope="session")
+def bad_mx_config_settings():
+    """
+    Get list of invalid mx config key,value pairs for config and mx_specs
+
+    Returns:
+        list: invalid mx_spec list
+    """
+    return [
+        ("qw_mode", "w_elem_format", "mx_fp8_e5m3", "fp8_e5m3"),
+        ("qa_mode", "a_elem_format", "mx_fp8_m4e3", "fp8_m4e3"),
+        ("mx_scale_bits", "scale_bits", False, False),
+        ("mx_block_size", "block_size", "32", "32"),
+        ("mx_bfloat", "bfloat", {16}, {16}),
+        ("mx_round", "round", "bankers", "bankers"),
+        ("mx_custom_cuda", "custom_cuda", "yes", "yes"),
+    ]
 
 
 ################################
@@ -655,12 +696,12 @@ def model_half(request):
 ###################################
 sample_input_fp32_params = [
     torch.randn(1, 3, 3, 3),
-    torch.zeros(1, 3, 3, 3),
+    torch.randn(1, 3, 3, 3)*.001,
     torch.ones(1, 3, 3, 3),
 ]
 sample_input_fp16_params = [
     torch.randn(1, 3, 3, 3).half(),
-    torch.zeros(1, 3, 3, 3).half(),
+    (torch.randn(1, 3, 3, 3)*.001).half(),
     torch.ones(1, 3, 3, 3).half(),
 ]
 
@@ -765,6 +806,7 @@ def num_bits_weight_fp16(request):
 # Note: All configs require deepcopy, as we will be modifying them for various tests
 
 default_config_params = [qconfig_init()]
+mx_config_params = [qconfig_init(use_mx=True)]
 
 
 @pytest.fixture(scope="function", params=default_config_params)
@@ -783,6 +825,59 @@ def config_fp32(request):
 
 
 @pytest.fixture(scope="function", params=default_config_params)
+def config_fp32_mx(request):
+    """
+    Create fp32 qconfig w/ mx_specs vars set in qconfig.
+
+    Args:
+        request (dict): qconfig_init
+
+    Returns:
+        dict: qconfig_init
+    """
+    qconfig = deepcopy(request.param)
+    mx_specs = get_mx_specs_defaults()
+
+    # Set config vars prefixed w/ "mx_"
+    for key, val in mx_specs.items():
+        qconfig["mx_" + key] = val
+
+    # Only 1 variable that has "mx_" prefix from MX lib
+    qconfig["mx_flush_fp32_subnorms"] = qconfig["mx_mx_flush_fp32_subnorms"]
+    del qconfig["mx_mx_flush_fp32_subnorms"]
+
+    # Move x_elem_format to q_modes and delete mx_x_elem_format
+    # Needs prefix settings to avoid collision w/ fms_mo modes
+    qconfig["qa_mode"] = "mx_" + qconfig["mx_a_elem_format"]
+    qconfig["qw_mode"] = "mx_" + qconfig["mx_w_elem_format"]
+    del qconfig["mx_a_elem_format"]
+    del qconfig["mx_w_elem_format"]
+
+    return qconfig
+
+
+@pytest.fixture(scope="function", params=mx_config_params)
+def config_fp32_mx_specs(request):
+    """
+    Create fp32 qconfig w/ mx_specs.
+
+
+    Args:
+        request (dict): qconfig_init
+
+    Returns:
+        dict: qconfig_init
+    """
+    qconfig = deepcopy(request.param)
+    qconfig["mx_specs"] = get_mx_specs_defaults()
+
+    # Set mx_specs as if we ran qconfig_init
+    set_mx_specs(qconfig)
+
+    return qconfig
+
+
+@pytest.fixture(scope="function", params=default_config_params)
 def config_fp16(request):
     """
     Create fp16 qconfig
@@ -798,6 +893,36 @@ def config_fp16(request):
     qconfig["nbits_w"] = 16
     return qconfig
 
+keys_to_save_params = [
+    ["qa_mode", "qw_mode", "nbits_a", "nbits_w", "qskip_layer_name"],
+]
+@pytest.fixture(scope="session", params=keys_to_save_params)
+def save_list(request):
+    """
+    Generate a save list for testing user-requested save config.
+
+    Args:
+        request (list): List of variables to save in a quantized config.
+
+    Returns:
+        list: List of variables to save in a quantized config.
+    """
+    return request.param
+
+wrong_recipe_name_params = ["qat_int7", "pzq_int8"]
+
+@pytest.fixture(scope="session", params=wrong_recipe_name_params)
+def wrong_recipe_name(request):
+    """
+    Get a bad recipe json file name in fms_mo/recipes
+
+    Args:
+        request (str): Bad recipe name in fms_mo/recipes
+
+    Returns:
+        str: Bad recipe name
+    """
+    return request.param
 
 # Create QAT/PTQ int8 config fixture.
 config_params = ["qat_int8", "ptq_int8"]
@@ -923,7 +1048,7 @@ def bad_pair(request):
 
 wanted_pair_params = [
     ("nbits_a", 32),
-    ("qw_mode", "sawb"),
+    ("qw_mode", "sawb+"),
     ("extend_act_range", False),
     ("qspecial_layers", {}),
 ]
@@ -950,22 +1075,11 @@ required_pair_params = [
     (
         "mapping",
         {
-            torch.nn.Conv2d: {
-                "from": torch.nn.Conv2d,
-                "to": QConv2d,
-                "otherwise": QConv2d,
-            },
-            torch.nn.ConvTranspose2d: {
-                "from": torch.nn.ConvTranspose2d,
-                "to": QConvTranspose2d,
-                "otherwise": QConvTranspose2d,
-            },
-            torch.nn.Linear: {
-                "from": torch.nn.Linear,
-                "to": QLinear,
-                "otherwise": QLinear,
-            },
-            torch.nn.LSTM: {"from": torch.nn.LSTM, "to": QLSTM, "otherwise": QLSTM},
+            torch.nn.Conv2d: QConv2d,
+            torch.nn.ConvTranspose2d: QConvTranspose2d,
+            torch.nn.Linear: QLinear,
+            torch.nn.LSTM: QLSTM,
+            "matmul_or_bmm": QBmm,
         },
     ),
     ("checkQerr_frequency", False),
@@ -1105,3 +1219,83 @@ def model_bert_eager():
     return BertModel.from_pretrained(
         "google-bert/bert-base-uncased", torchscript=True, attn_implementation="eager"
     )
+
+
+# MX reference class for quantization
+if torch.cuda.is_available():
+
+    class ResidualMLP(torch.nn.Module):
+        """
+        Test Linear model for MX library
+        """
+
+        def __init__(self, hidden_size, device="cuda"):
+            super().__init__()
+
+            self.layernorm = torch.nn.LayerNorm(hidden_size, device=device)
+            self.dense_4h = torch.nn.Linear(hidden_size, 4 * hidden_size, device=device)
+            self.dense_h = torch.nn.Linear(4 * hidden_size, hidden_size, device=device)
+            self.dummy = torch.nn.Linear(hidden_size, hidden_size, device=device)
+            # add a dummy layer because by default we skip 1st/last,
+            # if there are only 2 layers, all will be skipped
+
+        def forward(self, inputs):
+            """
+            Forward function for Residual MLP
+
+            Args:
+                inputs (torch.tensor): Input tensor
+
+            Returns:
+                torch.tensor: Output tensor
+            """
+            norm_outputs = self.layernorm(inputs)
+
+            # MLP
+            proj_outputs = self.dense_4h(norm_outputs)
+            # pylint: disable=not-callable
+            proj_outputs = F.gelu(proj_outputs)
+            mlp_outputs = self.dense_h(proj_outputs)
+            mlp_outputs = self.dummy(mlp_outputs)
+
+            # Residual Connection
+            outputs = inputs + mlp_outputs
+
+            return outputs
+
+
+mx_format_params = ["int8", "int4", "fp8_e4m3", "fp8_e5m2", "fp4_e2m1"]
+
+
+@pytest.fixture(scope="session", params=mx_format_params)
+def mx_format(request):
+    """
+    Get a MX element format to test
+
+    Returns:
+        str: MX element format name
+    """
+    return request.param
+
+
+@pytest.fixture(scope="function")
+def input_residualMLP():
+    """
+    Get a random input for a residual MLP model
+
+    Returns:
+        torch.FloatTensor: Random 16x128 tensor
+    """
+    x = np.random.randn(16, 128)
+    return torch.tensor(x, dtype=torch.float32, device="cuda")
+
+
+@pytest.fixture(scope="function")
+def model_residualMLP():
+    """
+    Get a ResidualMLP model
+
+    Returns:
+        torch.nn.Module: _description_
+    """
+    return ResidualMLP(128)

@@ -26,7 +26,7 @@ import torch
 
 # Local
 from fms_mo.quant.ptq import cache_block0_inputs, get_blocks
-from fms_mo.utils.utils import patch_torch_bmm
+from fms_mo.utils.utils import move_to, patch_torch_bmm
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +35,13 @@ logger = logging.getLogger(__name__)
 def eval_llm_1GPU(qcfg, model, test_dataset, pre_cache_func=None, **kwargs):  # pylint: disable=unused-argument
     """
     Evaluate causal LLM with 1GPU, return perplexity
-    Note: currently taking test_dataset as dict (instead of dataloader)
-    Used for models that cannot fit into a 1 GPU.
+    Note:
+    1. currently taking test_dataset as dict (instead of dataloader)
+    2. Used for models that cannot fit into a 1 GPU. Will need to move modules back and forth.
+    3. Keep hid_state on device to reduce uncessary data transfer.
     """
     model.eval()
-    dev = "cuda:0"  # cuda:0 is used for PTQ
+    dev = "cuda"
     qcfg["batch_size"] = 1  # for dataloading, always use batch_size of 1
     qcfg["dtype"] = next(iter(model.parameters())).dtype
     seq_len = qcfg["seq_len"]
@@ -63,7 +65,14 @@ def eval_llm_1GPU(qcfg, model, test_dataset, pre_cache_func=None, **kwargs):  # 
     # Phase 1: compute blocks and last linear layer
     pbar = tqdm(blocks, desc="evaluation: compute blocks")
 
-    qcfg["cached_input"] = [inp.clone().detach() for inp in qcfg["cached_block0_input"]]
+    qcfg["cached_input"] = [
+        inp.clone().detach().to(dev) for inp in qcfg["cached_block0_input"]
+    ]
+    kw_to_use = {
+        kw_org: kw_new
+        for kw_org, kw_new in qcfg["kw_to_cache"].items()
+        if len(qcfg[kw_new]) == len(qcfg["cached_input"])
+    }
     for block_id, m in enumerate(pbar):  # pylint: disable=unused-variable
         m.to(dev)
         for i in range(qcfg["n_samples"]):
@@ -74,16 +83,14 @@ def eval_llm_1GPU(qcfg, model, test_dataset, pre_cache_func=None, **kwargs):  # 
                     "alibi": qcfg["cached_alibi"][i].unsqueeze(0).to(dev),
                 }
             else:
-                cached_inp_prev_lay = qcfg["cached_input"][i].to(dev)
+                cached_inp_prev_lay = qcfg["cached_input"][i]
                 data_mb = {
-                    "attention_mask": qcfg["cached_mask"][i].to(dev)
-                    if len(qcfg["cached_mask"]) > 0
-                    else None,
-                    "position_ids": qcfg["position_ids"][i].to(dev),
+                    kw_org: move_to(qcfg[kw_new][i], dev)
+                    for kw_org, kw_new in kw_to_use.items()
                 }
 
-            with torch.no_grad(), patch_torch_bmm(qcfg):
-                qcfg["cached_input"][i] = m(cached_inp_prev_lay, **data_mb)[0].cpu()
+            with patch_torch_bmm(qcfg):
+                qcfg["cached_input"][i] = m(cached_inp_prev_lay, **data_mb)[0]
 
         m.cpu()
         torch.cuda.empty_cache()
