@@ -62,10 +62,10 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 
     ```
                     layer     mem (MB)
-    dtype                            
-    torch.float16    224   109.051904
-    torch.float32     67  4203.757568
-    torch.int32      672  3521.904640
+    dtype
+    torch.bfloat16     67  2101.878784
+    torch.float16     224   109.051904
+    torch.int32       672  3521.904640
     ```
 
 4. **Evaluate the quantized model**'s performance on a selected task using `lm-eval` library, the command below will run evaluation on [`lambada_openai`](https://huggingface.co/datasets/EleutherAI/lambada_openai) task and show the perplexity/accuracy at the end.
@@ -82,29 +82,23 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 ## Example Test Results
 
 - Unquantized Model
-```bash
-    |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value |   |Stderr|
-    |------------|--------------|------:|------|-----:|----------|---|-----:|---|-----:|
-    | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.7103|±  |0.0063|
-    |            |              |       |none  |     5|perplexity|↓  |3.7915|±  |0.0727|
-```
+|Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value |   |Stderr|
+|------------|--------------|------:|------|-----:|----------|---|-----:|---|-----:|
+| LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.7103|±  |0.0063|
+|            |              |       |none  |     5|perplexity|↓  |3.7915|±  |0.0727|
 
 - Quantized model with the settings showed above (`desc_act` default to False.)
-```bash
-    |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
-    |------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
-    | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.4271 |±  |0.0069|
-    |            |              |       |none  |     5|perplexity|↓  |39.2316|±  |2.2090|
-```
-
+|Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
+|------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
+| LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6365 |±  |0.0067|
+|            |              |       |none  |     5|perplexity|↓  |5.9307 |±  |0.1830|
 
 - Quantized model with `desc_act` set to `True` (could improve the model quality, but at the cost of inference speed.)
-```bash
-    |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
-    |------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
-    | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6193 |±  |0.0068|
-    |            |              |       |none  |     5|perplexity|↓  |5.8879 |±  |0.1546|
-```
+|Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
+|------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
+| LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6193 |±  |0.0068|
+|            |              |       |none  |     5|perplexity|↓  |5.8879 |±  |0.1546|
+
 > [!NOTE]
 > There is some randomness in generating the model and data, the resulting accuracy may vary ~$\pm$ 0.05.
 
