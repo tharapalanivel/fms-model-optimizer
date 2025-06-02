@@ -127,8 +127,7 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
 
     # Third Party
     from gptqmodel import GPTQModel, QuantizeConfig
-    from gptqmodel.models._const import SUPPORTED_MODELS
-    from gptqmodel.models.auto import MODEL_MAP
+    from gptqmodel.models.auto import MODEL_MAP, SUPPORTED_MODELS
     from gptqmodel.utils.backend import BACKEND
 
     # Local
