@@ -6,7 +6,6 @@ AIU
 Spyre
 spyre
 Args
-AutoGPTQ
 autoregressive
 backpropagation
 bmm
@@ -38,8 +37,9 @@ frac
 gptq
 GPTQ
 GPTQArguments
+GPTQModel
+gptqmodel
 graphviz
-GPTQ
 hyperparameters
 Inductor
 inferenced

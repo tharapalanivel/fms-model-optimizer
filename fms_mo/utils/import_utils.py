@@ -21,9 +21,9 @@ from transformers.utils.import_utils import _is_package_available
 import torch
 
 optional_packages = [
-    "auto_gptq",
-    "exllama_kernels",
-    "exllamav2_kernels",
+    "gptqmodel",
+    "gptqmodel_exllama_kernels",
+    "gptqmodel_exllamav2_kernels",
     "llmcompressor",
     "mx",
     "matplotlib",
