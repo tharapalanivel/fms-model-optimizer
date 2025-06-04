@@ -613,7 +613,7 @@ def exllama_ops_load_and_reg(qcfg=None, run_unit_test=False):
                 (x.shape[0], q4_width), dtype=torch.float16, device=x.device
             )
 
-            gptqmodel.exllamav2_kernels.gemm_half_q_half(
+            gptqmodel_exllamav2_kernels.gemm_half_q_half(
                 x, q_handle, output, force_cuda
             )
             return output.view(outshape)
