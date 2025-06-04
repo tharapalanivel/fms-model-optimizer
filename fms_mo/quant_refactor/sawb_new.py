@@ -36,8 +36,8 @@ from fms_mo.quant_refactor.per_tensor_ste import (
 # from fms_mo.quant_refactor.linear_utils import linear_dequantize, linear_quantize
 from fms_mo.quant_refactor.sawb_utils import sawb_params, sawb_params_code
 
-clip_valn_default = torch.tensor(-8.0)
-clip_val_default = torch.tensor(8.0)
+clip_valn_default = torch.tensor([-8.0])
+clip_val_default = torch.tensor([8.0])
 qscheme_per_tensor = Qscheme(
     unit="perT",
     symmetric=False,

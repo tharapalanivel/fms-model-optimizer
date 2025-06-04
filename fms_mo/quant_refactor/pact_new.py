@@ -23,8 +23,8 @@ import torch
 from fms_mo.quant_refactor.base_quant import Qscheme, Quantizer
 from fms_mo.quant_refactor.per_tensor_ste import PerTensorSTE, PerTensorSTE_PTnative
 
-clip_valn_default = torch.tensor(0.0)
-clip_val_default = torch.tensor(8.0)
+clip_valn_default = torch.tensor([0.0])
+clip_val_default = torch.tensor([8.0])
 qscheme_per_tensor = Qscheme(
     unit="perT",
     symmetric=False,

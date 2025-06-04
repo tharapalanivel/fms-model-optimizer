@@ -30,8 +30,8 @@ from fms_mo.quant_refactor.per_tensor_ste import (
     PerTensorSTEQmax_PTnative,
 )
 
-clip_valn_default = torch.FloatTensor(-8.0)
-clip_val_default = torch.FloatTensor(8.0)
+clip_valn_default = torch.Tensor([-8.0])
+clip_val_default = torch.Tensor([8.0])
 qscheme_per_tensor = Qscheme(
     unit="perT",
     symmetric=False,
