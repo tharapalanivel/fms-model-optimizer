@@ -60,7 +60,7 @@ def test_large_outlier_bert(
     # Third Party
     import torch
 
-    # Break every tensor channel with a large magnitude outlier
+    # Break every tensor channel with a large magnitude outlier - should work for per tensor too
     for k, v in model_tiny_bert.state_dict().items():
         if k.endswith(".weight") and any(n in k for n in bert_linear_names):
             v[:, 0] = 1.21
@@ -69,11 +69,15 @@ def test_large_outlier_bert(
     qcfg_bert["recompute_narrow_weights"] = True
     qmodel_prep(model_tiny_bert, input_tiny, qcfg_bert, use_dynamo=True)
 
+    # Reduce perCh or perTensor
+    stddev_dim = -1 if "perCh" in qcfg_bert["qw_mode"] else None
+
     # Qmax should break the quantization with an outlier to have skinny distribution
     layer2stdev: dict[str, torch.Tensor] = {}
     for k, v in model_tiny_bert.state_dict().items():
         if k.endswith(".weight") and any(n in k for n in bert_linear_names):
-            layer2stdev[k] = v.to(torch.float32).std(dim=-1)
+            # Collect perCh or perTensor std dev
+            layer2stdev[k] = v.to(torch.float32).std(dim=stddev_dim)
 
     save_for_aiu(model_tiny_bert, qcfg=qcfg_bert, verbose=True)
     state_dict = load_state_dict()
@@ -82,8 +86,9 @@ def test_large_outlier_bert(
     for k, v in state_dict.items():
         if k.endswith(".weight") and any(n in k for n in bert_linear_names):
             perCh_stdev_model = layer2stdev.get(k)
-            perCh_stdev_loaded = v.to(torch.float32).std(dim=-1)
+            perCh_stdev_loaded = v.to(torch.float32).std(dim=stddev_dim)
 
+            # SAWB stddev should be at least as good as Qmax stddev w/ outlier
             assert torch.all(perCh_stdev_loaded >= perCh_stdev_model)
 
 
