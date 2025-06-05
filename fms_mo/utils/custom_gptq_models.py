@@ -49,6 +49,6 @@ class GraniteMoeGPTQForCausalLM(BaseGPTQModel):
 #       config.json). Make sure you cover the ones in the model family you want to use, as they may
 #       not be under the same model_type. See Granite as an example.
 custom_gptq_classes = {
-    "granite": GraniteGPTQForCausalLM,
+    # "granite": GraniteGPTQForCausalLM,
     "granitemoe": GraniteMoeGPTQForCausalLM,
 }

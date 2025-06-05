@@ -144,6 +144,12 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
 
     # Add custom model_type mapping to gptqmodel LUT so GPTQModel can recognize them.
     for mtype, cls in custom_gptq_classes.items():
+        if mtype in MODEL_MAP:
+            logger.info(
+                f"Custom GPTQ model type {mtype} already exists in default MODEL_MAP.\n"
+                "The mapping for this type is overwritten by user defined type now."
+                "Please make sure this is the behavior you'd like to have."
+            )
         SUPPORTED_MODELS.append(mtype)
         MODEL_MAP[mtype] = cls
 
