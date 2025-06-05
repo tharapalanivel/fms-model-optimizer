@@ -227,14 +227,15 @@ def check_linear_dtypes(state_dict: dict, linear_names: list):
     """
     assert state_dict is not None
 
-    # Check all quantized linear layers are int8 and everything else is fp16
-    assert all(
-        v.dtype == torch.int8
-        for k, v in state_dict.items()
-        if any(n in k for n in linear_names) and k.endswith(".weight")
-    )
-    assert all(
-        v.dtype == torch.float16
-        for k, v in state_dict.items()
-        if all(n not in k for n in linear_names) or not k.endswith(".weight")
-    )
+    for k, v in state_dict.items():
+        # If k is a quantized layer, check weighs (int8), zero_point(fp32)
+        if any(n in k for n in linear_names):
+            if k.endswith(".weight"):
+                assert v.dtype == torch.int8
+            elif k.endswith(".zero_point"):
+                assert v.dtype == torch.float32
+            else:
+                assert v.dtype == torch.float16
+        else:
+            # Everything else should be fp16
+            assert v.dtype == torch.float16
