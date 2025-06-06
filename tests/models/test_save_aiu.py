@@ -85,11 +85,11 @@ def test_large_outlier_bert(
     # Loaded model w/ recomputed SAWB should have widened channel quantization stdev
     for k, v in state_dict.items():
         if k.endswith(".weight") and any(n in k for n in bert_linear_names):
-            perCh_stdev_model = layer2stdev.get(k)
-            perCh_stdev_loaded = v.to(torch.float32).std(dim=stddev_dim)
+            stddev_model = layer2stdev.get(k)
+            stddev_loaded = v.to(torch.float32).std(dim=stddev_dim)
 
             # SAWB stddev should be at least as good as Qmax stddev w/ outlier
-            assert torch.all(perCh_stdev_loaded >= perCh_stdev_model)
+            assert torch.all(stddev_loaded >= stddev_model)
 
 
 def test_clip_vals_zero_bert(
