@@ -462,8 +462,20 @@ def save_sd_for_aiu(
         logger.info(
             "Attention: saving state dictionary without specifying a quantization "
             "configuration (qcfg) performs no recomputation for narrow weight "
-            "distributions and assumes the weight quantizer used was per-tensor."
+            "distributions and assumes the weight quantizer used was 8-bit per-tensor."
         )
+    else:
+        nbits_w = qcfg.get("nbits_w", None)
+        if nbits_w is None:
+            logger.info(
+                "Number of bits for weight quantization is not set in qcfg. "
+                "Assuming default (nbits_w=8)."
+            )
+        elif nbits_w != 8:
+            raise ValueError(
+                "Saving checkpoint in AIU-compliant format only supports INT8 "
+                f"quantization for now, but found {nbits_w=} in qcfg."
+            )
 
     converted_sd = convert_sd_for_aiu(
         model=model,
