@@ -72,7 +72,7 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 
     ```bash
     lm_eval --model hf \
-            --model_args pretrained="Meta-Llama-3-8B-GPTQ,dtype=float16,autogptq=True,enforce_eager=True" \
+            --model_args pretrained="Meta-Llama-3-8B-GPTQ,dtype=float16,gptqmodel=True=True,enforce_eager=True" \
             --tasks lambada_openai \
             --num_fewshot 5 \
             --device cuda:0 \
@@ -82,18 +82,21 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 ## Example Test Results
 
 - Unquantized Model
+- 
 |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value |   |Stderr|
 |------------|--------------|------:|------|-----:|----------|---|-----:|---|-----:|
 | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.7103|±  |0.0063|
 |            |              |       |none  |     5|perplexity|↓  |3.7915|±  |0.0727|
 
 - Quantized model with the settings showed above (`desc_act` default to False.)
+- 
 |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
 |------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
 | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6365 |±  |0.0067|
 |            |              |       |none  |     5|perplexity|↓  |5.9307 |±  |0.1830|
 
 - Quantized model with `desc_act` set to `True` (could improve the model quality, but at the cost of inference speed.)
+- 
 |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
 |------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
 | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6193 |±  |0.0068|
