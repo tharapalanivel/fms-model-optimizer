@@ -261,7 +261,7 @@ class QLinear(nn.Linear):
             scale = torch.tensor([1.0]).to(x.dtype).to(x.device)
 
         # pylint: disable = access-member-before-definition
-        if self.calib_counter:
+        if self.calib_counter > 0:
             with torch.no_grad():
                 qinput = self.quantize_calib_feature(x / scale)
                 qweight = self.quantize_calib_weight(self.weight * scale)
@@ -733,6 +733,8 @@ class QLinearINT8Deploy(nn.Linear):
             chunk_size: some HW may have specific chunk size (BLOCK SIZE, especially in k-dim) for
                         the reason to avoid overflow/underflow problem. This can be simulated using
                         PyTorch (break a matmul into serial smaller matmuls, slow) or Triton kernel
+            useDynMaxQfunc: [-1, -2] indicates reduce_dim, 0< val <64 indicates artificial
+                        zero-shift, False -> use normal static quantization.
 
         Returns:
             A QLinearINT8Deploy object initialized with the weights and biases from the
@@ -761,7 +763,11 @@ class QLinearINT8Deploy(nn.Linear):
         )
         qlin_int.usePTnativeQfunc = kwargs.get("use_PT_native_Qfunc", False)
         qlin_int.useDynMaxQfunc = kwargs.get("use_dynamic_max_act_Qfunc", False)
-        qlin_int.useSymAct = "sym" in fms_mo_qlinear.qa_mode
+        qlin_int.useSymAct = (
+            "sym" in fms_mo_qlinear.qa_mode
+            or fms_mo_qlinear.qa_mode in ["pertokenmax", "max"]
+            # these are the symmetric quantizers with no "sym" in their names
+        )
         qlin_int.max_acc_bits = kwargs.get("max_acc_bits", 32)
         qlin_int.accminmax = (
             -(1 << (qlin_int.max_acc_bits - 1)),
@@ -778,26 +784,49 @@ class QLinearINT8Deploy(nn.Linear):
         with torch.no_grad():
             Qa = fms_mo_qlinear.quantize_feature
             Qw = fms_mo_qlinear.quantize_weight
+            # if no calibration has been run before swapping, clipvals stored in Qw will be the
+            # original one, e.g. per-tensor. If want to experiment with new quantizers, need to run
+            # at least one fwd, which will update the clipvals.
+            Qw(fms_mo_qlinear.weight)
             w_cv = Qw.clip_val
-            if qlin_int.useDynMaxQfunc in [-1, -2]:  # [-1, -2] indicates reduce_dim
-                # dynamic Qmax has no clipvals, reg fake ones, won't be used in real calc
-                Qa.register_buffer("clip_val", torch.tensor(8.0, device=tar_dev))
-                Qa.register_buffer("clip_valn", torch.tensor(-8.0, device=tar_dev))
-            a_cv = Qa.clip_val
-            a_cvn = Qa.clip_valn
+            a_cv = getattr(Qa, "clip_val", torch.tensor(8.0, device=tar_dev))
+            a_cvn = getattr(Qa, "clip_valn", torch.tensor(-8.0, device=tar_dev))
             # Store original cv_a and cv_w in python floats (instead of tensors) will be more
             # accurate, but not compatible for per-ch and per-token.
-            qlin_int.cvs = [a_cv, a_cvn, w_cv]  # TODO remove the need of this.
+            qlin_int.cvs = [a_cv, a_cvn, w_cv]  # TODO remove the need of this?
 
-            # may need to trigger Qw.clipval re-calc for SAWB here, (if needed?)
+            # prepare smoothQuant scale, = (smQ_a_scale ^ alpha)/(smQ_w_scale ^ (1-alpha) )
+            smq_scale = torch.tensor([1.0], device=tar_dev, dtype=fms_mo_w_dtype)
+            if getattr(fms_mo_qlinear, "smoothq", False):
+                smq_a_scale = fms_mo_qlinear.smoothq_act_scale
+                smq_w_scale = (
+                    fms_mo_qlinear.weight.abs()
+                    .max(dim=0, keepdim=True)[0]
+                    .clamp(min=1e-5)
+                )
+                smq_alpha = fms_mo_qlinear.smoothq_alpha
+                if torch.all(smq_a_scale != 0).item():
+                    smq_scale = (
+                        (smq_a_scale**smq_alpha / smq_w_scale ** (1.0 - smq_alpha))
+                        .clamp(min=1e-5)
+                        .to(smq_a_scale.dtype)
+                    )
+
+            # could trigger Qw.clipval re-calc for SAWB here, if needed
+            input_scale = torch.tensor(1.0, device=tar_dev)
+            w_scale = w_cv * 2 / w_levels
+            qlin_int.use_fake_zero_shift = False
             if qlin_int.useDynMaxQfunc in [-1, -2]:
-                input_scale = torch.tensor(1.0, device=tar_dev)
-                input_zero_point = torch.tensor(128, dtype=torch.int, device=tar_dev)
-                w_scale = w_cv * 2 / w_levels
+                input_zero_point = torch.tensor(
+                    128 - qlin_int.useSymAct, device=tar_dev
+                )
+            elif 0 < qlin_int.useDynMaxQfunc < 65:
+                # introduce fake zero-shift, input_scale will be calc dynamically
+                qlin_int.use_fake_zero_shift = True
+                input_zero_point = torch.tensor(qlin_int.useDynMaxQfunc, device=tar_dev)
             elif qlin_int.usePTnativeQfunc:
                 input_scale = torch.tensor([(a_cv - a_cvn) / a_levels], device=tar_dev)
-                input_zero_point = torch.round(-a_cvn / input_scale).to(torch.int)
-                w_scale = w_cv * 2 / w_levels
+                input_zero_point = torch.round(-a_cvn / input_scale)
             else:
                 # fms_mo formula is a bit different from conventional PT formula
                 quant_scale = a_levels / torch.tensor([a_cv - a_cvn], device=tar_dev)
@@ -812,48 +841,70 @@ class QLinearINT8Deploy(nn.Linear):
                 qlin_int.register_buffer("quant_zero_point", quant_zero_point)
             w_zp = torch.zeros_like(w_scale, dtype=torch.int)
 
+            input_zero_point = input_zero_point.to(torch.int)  # note 2 in pre-compute
             qlin_int.register_buffer("input_scale", input_scale)
             qlin_int.register_buffer("input_zp", input_zero_point)
             qlin_int.register_buffer("w_scale", w_scale)
             qlin_int.register_buffer("w_zp", w_zp)
+            qlin_int.register_buffer("smq_scale", smq_scale)
 
             # NOTE:
             # 1. Keep W transposed to prevent confusion, hence (W.t()/scale).t()
-            # 2. only a few quantizer have .dequantize working correctly
+            # 2. only a few quantizer have .dequantize working correctly, e.g. SAWB
+            # 3. smooth_quant factor is included in the W here, will also include it in the forward
             if isinstance(Qw, SAWB):
                 Qw.dequantize = False
-                w_int8 = Qw(fms_mo_qlinear.weight.float())
+                w_int8 = Qw(fms_mo_qlinear.weight.float() * smq_scale)
             else:
                 w_int8 = (
-                    torch.round(fms_mo_qlinear.weight.t() / w_scale)
+                    torch.round((fms_mo_qlinear.weight * smq_scale).t() / w_scale)
                     .clamp(-w_levels / 2, w_levels / 2)
                     .t()
                 )
-
+            w_int8 = w_int8.to(
+                torch.int
+            )  # stored as int32 as correction term needs sum()
             qlin_int.weight = nn.Parameter(w_int8.to(torch.int8), requires_grad=False)
 
-            corr_term = (
-                (input_zero_point - 128 + qlin_int.useSymAct)
-                * (w_int8.sum(dim=1))
-                * w_scale.float()
-                * input_scale.float()
-            )
-            # dim=1 because w_int is in [out,in], after sum shape=[out,], same as w_scale and bias.
-            # (zp-128)*w_int8.sum(dim=1) can be >> fp16.max, use fp32 scales
-            # to make sure dtype is large enough
-            qlin_int.register_buffer("corr_term", corr_term.half())  # [DEBUG only]
-            if fms_mo_qlinear.bias is not None:
-                qlin_int.bias = nn.Parameter(
-                    (fms_mo_qlinear.bias - corr_term).to(fms_mo_w_dtype),
-                    requires_grad=False,
-                )
-
-                qlin_int.org_model_has_bias = True
+            # Pre-compute the "correction term" for zero-shift for asym activation quantizers
+            # NOTE:
+            # 1. sym act should have corr_term=0, unless we want to introduce fake zero-shift
+            # 2. sum to reduce dim=1 because w_int is in [out,in], after sum shape=[out,], same as
+            #    w_scale (per-Ch) and bias.
+            # 3. calc INT part, i.e. (zp-128)*w_int8.sum(dim=1), first in INT32. because it can be
+            #    >> fp16.max (~65535 only) easily, make sure not to cast INT32 to FP16 during calc,
+            #    simply cast scales to FP32
+            # 4. for the "fake zero-shift case", input_scale will be max/(127-fake_zero_shift)
+            #    instead of max/127, see qa_dyn_max_fake_zero_shift()
+            # 5. Combine correction term into linear.bias for non-dynamic cases. For dyn quant,
+            #    input_scale is a placehold for now and will be calc'ed on the fly later.
+            if qlin_int.useSymAct:
+                corr_term_int = 0
+                if qlin_int.use_fake_zero_shift:
+                    # one exception, fake zero-shift
+                    corr_term_int = input_zero_point * (w_int8.sum(dim=1))
             else:
-                delattr(qlin_int, "bias")
-                # even if bias is None, reg_buffer() is still unhappy about it
-                qlin_int.register_buffer("bias", -corr_term.to(fms_mo_w_dtype))
-                qlin_int.org_model_has_bias = False
+                corr_term_int = (input_zero_point - 128) * (w_int8.sum(dim=1))
+
+            qlin_int.register_buffer(
+                "corr_term", corr_term_int * w_scale.float() * input_scale.float()
+            )  # keep in FP32, cast at the end
+
+            qlin_int.org_model_has_bias = fms_mo_qlinear.bias is not None
+            # Combine correction term into linear.bias when possible. NOTE the magnitude of these 2
+            # terms could vary a lot. use fp32 in case of underflow and lose accuracy.
+            if qlin_int.org_model_has_bias:
+                new_bias = fms_mo_qlinear.bias.float() - qlin_int.corr_term
+            else:
+                new_bias = -qlin_int.corr_term
+
+            if qlin_int.use_fake_zero_shift:
+                # dyn sym act but with fake zp, remove corr_term from bias
+                new_bias += qlin_int.corr_term
+
+            delattr(qlin_int, "bias")
+            # sometimes reg_buffer() is unhappy about existing bias
+            qlin_int.register_buffer("bias", new_bias.to(fms_mo_w_dtype))
 
         # redundant variables to be cleaned up
         # qlin_int.register_buffer("Qa_clip_val", Qa.clip_val.detach())
@@ -1039,8 +1090,24 @@ class QLinearINT8Deploy(nn.Linear):
         """
         amax = x.abs().max(dim=self.useDynMaxQfunc, keepdim=True)[0]
         levels = 2 ** (self.nbits_a - 1) - 1
+        self.cvs[0] = amax
+        self.cvs[1] = -amax
         self.input_scale = amax.clamp(min=1e-5).div(levels)
         return torch.round(x / self.input_scale).to(torch.int8)
+
+    def qa_dyn_max_fake_zero_shift(self, x):
+        """Dynamic max quantizer with fake zero-shift in order to accommodate "zero-centered"
+        activations. "partial" correction term has been pre-computed in from_fms_mo() but still need
+        to multiply input_scale. (Assuming per-tensor, can shift left or right)
+        """
+        amax = x.abs().max()
+        shift_dir = 1 if amax == x.max() else -1
+        levels = 2 ** (self.nbits_a - 1) - 1 - self.input_zp
+        self.cvs[0] = amax
+        self.cvs[1] = -amax
+        self.input_scale = amax.clamp(min=1e-5) / levels
+        xq = torch.round(x / self.input_scale) + self.input_zp
+        return xq.to(torch.int8)
 
     def iaddmm_int(self, bias, m1, m2):
         """
@@ -1061,11 +1128,14 @@ class QLinearINT8Deploy(nn.Linear):
 
         if self.useDynMaxQfunc in [-1, -2]:
             m1 = self.qa_dynamic_max_qfunc(m1)
+        elif self.use_fake_zero_shift:
+            m1 = self.qa_dyn_max_fake_zero_shift(m1)
         elif self.usePTnativeQfunc:
             m1 = self.qa_raw_qfunc(m1)
         else:
             m1 = self.qa_fmo_mo_qfunc(m1)
 
+        # NOTE simulate chunk behavior in pytorch is serial and slow, use triton when possible
         if m1.shape[1] > self.chunk_size and self.use_int_kernel != "triton":
             idx = list(range(0, m1.shape[1], self.chunk_size))
             Nchunk = len(idx)
@@ -1099,11 +1169,19 @@ class QLinearINT8Deploy(nn.Linear):
                 accumulator
                 * (trun_scale * self.input_scale * self.w_scale)  # .to(torch.float16)
                 + bias
-            ).to(self.acc_dtype)
-        # The safest casting, i32 -> f32
+            ).to(self.acc_dtype)  # safest casting would be i32 -> f32
+
         imm_out = torch.ops.fms_mo.imatmul(m1, m2)
+
+        updated_bias = bias
+        if self.use_fake_zero_shift:
+            # Do NOT change the stored self.corr_term and self.bias
+            updated_bias = bias - self.input_scale * self.corr_term
+
+        # cast to fp16 could be modified based on real HW behavior/design
         return (
-            imm_out.float() * (self.input_scale * self.w_scale).to(torch.float16) + bias
+            imm_out.float() * (self.input_scale * self.w_scale).to(torch.float16)
+            + updated_bias
         ).to(self.acc_dtype)
 
     def iaddmm_FP(self, bias, m1, m2):
@@ -1247,9 +1325,12 @@ class QLinearINT8Deploy(nn.Linear):
                 self.weight.shape[0],
             )  # W.shape=[out,in]
 
-            x = self.iaddmm(self.bias, x.view(re_shape), self.weight.t()).reshape(
-                tar_shape
-            )
+            if torch.all(self.smq_scale != 1).item():
+                x = x.view(re_shape) / self.smq_scale
+            else:
+                x = x.view(re_shape)
+
+            x = self.iaddmm(self.bias, x, self.weight.t()).reshape(tar_shape)
 
         return x.to(org_dtype)
 
