@@ -8,13 +8,15 @@
 
 <!-- For example: "Closes #1234" or "Fixes bug introduced in #5678 -->
 
-### (Optional) List any documentation or testing added
+### How to verify the PR
 
-<!-- Describe which features were documented/tested -->
+<!-- Please provide instruction or screenshots on how to verify the PR if unit tests do not provide coverage.-->
 
-### (Optional) How to verify the contribution
+### Was the PR tested
 
-<!-- Provide instructions on how to verify your contribution if unit tests do not provide coverage -->
+<!-- Describe how PR was tested -->
+- [ ] I have added >=1 unit test(s) for every new method I have added (if that coverage is difficult, please briefly explain the reason)
+- [ ] I have ensured all unit tests pass
 
 ### Checklist for passing CI/CD:
 
