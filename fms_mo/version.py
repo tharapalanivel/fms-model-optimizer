@@ -15,8 +15,8 @@
 
 try:
     # Local
-    from ._version import __version__, __version_tuple__
-except Exception as e:
+    from ._version import __version__
+except ImportError as e:
     # Standard
     import warnings
 
