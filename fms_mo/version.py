@@ -15,7 +15,10 @@
 
 try:
     # Local
-    from ._version import __version__
+    from ._version import (  # pylint: disable=unused-import
+        __version__,
+        __version_tuple__,
+    )
 except ImportError as e:
     # Standard
     import warnings
