@@ -262,10 +262,10 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     if fms_mo_args.aiu_sim_triton:
         lower_qmodel_triton(
             model,
-            use_dyn_max_act=-1,
-            max_acc_bits=24,
-            num_lsb_to_truncate=8,
-            chunk_size=32,
+            use_dyn_max_act=-1 if qcfg["qa_mode"] == "pertokenmax" else False,
+            max_acc_bits=qcfg.get("max_acc_bits", 32),
+            num_lsb_to_truncate=qcfg.get("lsb_trun_bits", 0),
+            chunk_size=qcfg.get("chunk_size", 1024),
         )
 
     if fms_mo_args.eval_ppl:

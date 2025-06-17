@@ -269,7 +269,6 @@ class QLinear(nn.Linear):
             if self.calib_counter == 0:
                 self.quantize_calib_feature = None
                 self.quantize_calib_weight = None
-                self.calib_counter = None  # [optional] this should release the memory
 
         elif self.ptqmode == "fp32_out":
             if self.W_fp is None:
@@ -1101,7 +1100,6 @@ class QLinearINT8Deploy(nn.Linear):
         to multiply input_scale. (Assuming per-tensor, can shift left or right)
         """
         amax = x.abs().max()
-        shift_dir = 1 if amax == x.max() else -1
         levels = 2 ** (self.nbits_a - 1) - 1 - self.input_zp
         self.cvs[0] = amax
         self.cvs[1] = -amax
@@ -2059,6 +2057,167 @@ class LinearFPxAcc(torch.nn.Linear):
             f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
             f"trun_bits={self.trun_bits},fp8_dyn={self.fp8_dyn},chunk_size={self.chunk_size}"
         )
+
+
+class LinearFuncINT8FwdFP32Bwd(torch.autograd.Function):
+    """[Experimental] Linear autograd function using INT matmul/accumulation to simulate HW behavior
+    during QAT, in order to adjust weights for specific HW design.
+    Args:
+        activation x: FP tensor, need to be reshaped to 2D and quantized to INT8.
+        weight: FP 2D tensor, W.shape = [out, in].
+        bias: bias from original Linear, does not include INT ZP correction term yet.
+    NOTE:
+    1. main purpose is to utilize triton INT kernel to simulate MSB/LSB truncation in FWD.
+    2. BWD simply uses torch.matmul.
+    3. *Max per-Ch* for weights and *dynamic max per-Token* for activations.
+    """
+
+    @staticmethod
+    def forward(
+        ctx,
+        x,
+        weight,
+        bias=None,
+        lsb_trun_bits=0,
+        chunk_size=64,
+        max_acc_bits=32,
+    ):
+        assert x.dtype in [torch.float, torch.bfloat16, torch.float16]
+        # input can be 2D or 3D, need to reshape before tl_matmul
+        org_dtype = x.dtype
+        target_shape_output = x.shape[:-1] + (weight.shape[0],)
+        x = x.reshape(-1, x.shape[-1])
+
+        if bias is not None:
+            ctx.has_bias = True
+            ctx.bias_dtype = bias.dtype
+        else:
+            ctx.has_bias = False
+
+        ctx.save_for_backward(x, weight)  # x, W are saved in their original dtype
+
+        # max per_token for input -> reduce_dim = -1
+        # per_channel for W but W.shape = [out, in] -> reduce_dim = -1
+        # sym activation -> correction term = 0
+        x_scale = x.abs().amax(dim=-1, keepdim=True) / 127
+        w_scale = weight.abs().amax(dim=-1, keepdim=True) / 127
+
+        x_i8 = torch.round(x / x_scale).to(torch.int8)
+        w_i8 = torch.round(weight / w_scale).to(torch.int8)
+
+        # triton kernel accepts 2d int8 then return int32
+        output = tl_matmul(
+            x_i8,
+            w_i8.t(),
+            chunk_trun_bits=lsb_trun_bits,
+            chunk_size=chunk_size,
+            max_acc_bits=max_acc_bits,
+        )
+        output = (
+            (output.to(torch.float) * x_scale * w_scale.t())
+            .reshape(target_shape_output)
+            .to(org_dtype)
+        )
+        if bias is not None:
+            output = output + bias.to(org_dtype)
+
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # load x and W from context, x is 2D already. no quant.
+        # option 1: use compute dtype = x.dtype
+        # option 2: compute in fp32 for best results.
+        x, weight = ctx.saved_tensors  # x, W are saved in original dtype
+        out_dim = weight.shape[0]
+        in_dim = weight.shape[1]
+        dtype_grad = x.dtype  # torch.float
+        # grad_input and grad_output could be 3D as x
+        target_shape_grad_input = grad_output.shape[:-1] + (in_dim,)
+        grad_output_2D = grad_output.reshape(-1, out_dim).to(dtype_grad)
+
+        # Compute grad_weight, shape = [out, in]
+        grad_weight = torch.matmul(
+            grad_output_2D.transpose(0, 1).contiguous(),
+            x.to(dtype_grad),
+        ).to(weight.dtype)
+        # Compute grad_input in 2D then reshape to target shape, could be 3D or 2D
+        grad_input = (
+            torch.matmul(
+                grad_output_2D,
+                weight.to(dtype_grad),
+            )
+            .reshape(target_shape_grad_input)
+            .to(x.dtype)
+        )
+
+        if not ctx.has_bias:
+            grad_bias = None
+        else:
+            grad_bias = grad_output_2D.sum(0).to(ctx.bias_dtype)
+
+        return grad_input, grad_weight, grad_bias, None, None, None
+
+
+class QLinearINT8Train(torch.nn.Linear):
+    """QLinear layer wrapper that simulates INT8 HW behavior, e.g. MSB/LSB truncation, in forward
+    and FP32 in backward.
+    """
+
+    @classmethod
+    def from_fms_mo(cls, nnlin, lsb_trun_bits=0, **kwargs):
+        """Converts a torch.nn.Linear or QLinear module to QLinearINT8Train
+
+        Args:
+            cls (class): The class to be created.
+            nnlin (torch.nn.Linear or QLinear): The Linear module to be converted.
+            lsb_trun_bits (int): INT8 LSB truncation, [0 to 16].
+            chunk_size (int): usually >= 64 for INT8, based on HW design.
+            max_acc_bits: accumulator max bits, <=32, based on HW design.
+
+        Returns:
+            LinearFPxAcc: The converted linear layer.
+        """
+
+        target_device = kwargs.get(
+            "target_device", kwargs.get("device", next(nnlin.parameters()).device)
+        )
+
+        lin_int8fwd = cls(
+            nnlin.in_features,
+            nnlin.out_features,
+            bias=nnlin.bias is not None,
+            device="meta",  # target_device,
+        )
+
+        lin_int8fwd.weight = nnlin.weight
+        lin_int8fwd.lsb_trun_bits = lsb_trun_bits
+        lin_int8fwd.chunk_size = kwargs.get("chunk_size", 64)
+        lin_int8fwd.max_acc_bits = kwargs.get("max_acc_bits", 32)
+
+        if nnlin.bias is not None:
+            lin_int8fwd.bias = nnlin.bias
+        return lin_int8fwd.to(target_device)
+
+    def forward(self, inputs):
+        return LinearFuncINT8FwdFP32Bwd.apply(
+            inputs,
+            self.weight,
+            self.bias,
+            self.lsb_trun_bits,
+            self.chunk_size,
+            self.max_acc_bits,
+        )
+
+    def extra_repr(self) -> str:
+        """Returns an alternative string representation of the object."""
+        repr_str = f"{self.in_features},{self.out_features}"
+        repr_str += f",bias={self.bias is not None},chunk_size={self.chunk_size}"
+        if self.lsb_trun_bits > 0:
+            repr_str += f",lsb_trun={self.lsb_trun_bits}"
+        if self.max_acc_bits < 32:
+            repr_str += f",max_acc_bits={self.max_acc_bits}"
+        return repr_str
 
 
 if available_packages["mx"]:
