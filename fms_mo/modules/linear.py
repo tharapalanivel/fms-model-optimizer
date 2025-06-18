@@ -784,9 +784,11 @@ class QLinearINT8Deploy(nn.Linear):
             Qa = fms_mo_qlinear.quantize_feature
             Qw = fms_mo_qlinear.quantize_weight
             # if no calibration has been run before swapping, clipvals stored in Qw will be the
-            # original one, e.g. per-tensor. If want to experiment with new quantizers, need to run
-            # at least one fwd, which will update the clipvals.
-            Qw(fms_mo_qlinear.weight)
+            # ones from ckpt or default. But if want to experiment with new quantizers different
+            # from the ckpt, need to run one quantizer.fwd() to update the clipvals.
+            # NOTE currently it will recalc by default, but user can choose to turn it off
+            if kwargs.get("recalc_clipvals", True):
+                Qw(fms_mo_qlinear.weight)
             w_cv = Qw.clip_val
             a_cv = getattr(Qa, "clip_val", torch.tensor(8.0, device=tar_dev))
             a_cvn = getattr(Qa, "clip_valn", torch.tensor(-8.0, device=tar_dev))
