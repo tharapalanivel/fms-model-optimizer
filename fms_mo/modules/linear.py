@@ -795,20 +795,23 @@ class QLinearINT8Deploy(nn.Linear):
             qlin_int.cvs = [a_cv, a_cvn, w_cv]  # TODO remove the need of this?
 
             # prepare smoothQuant scale, = (smQ_a_scale ^ alpha)/(smQ_w_scale ^ (1-alpha) )
-            smq_scale = torch.tensor([1.0], device=tar_dev, dtype=fms_mo_w_dtype)
+            smoothq_scale = torch.tensor([1.0], device=tar_dev, dtype=fms_mo_w_dtype)
             if getattr(fms_mo_qlinear, "smoothq", False):
-                smq_a_scale = fms_mo_qlinear.smoothq_act_scale
-                smq_w_scale = (
+                smoothq_a_scale = fms_mo_qlinear.smoothq_act_scale
+                smoothq_w_scale = (
                     fms_mo_qlinear.weight.abs()
                     .max(dim=0, keepdim=True)[0]
                     .clamp(min=1e-5)
                 )
-                smq_alpha = fms_mo_qlinear.smoothq_alpha
-                if torch.all(smq_a_scale != 0).item():
-                    smq_scale = (
-                        (smq_a_scale**smq_alpha / smq_w_scale ** (1.0 - smq_alpha))
+                smoothq_alpha = fms_mo_qlinear.smoothq_alpha
+                if torch.all(smoothq_a_scale != 0).item():
+                    smoothq_scale = (
+                        (
+                            smoothq_a_scale**smoothq_alpha
+                            / smoothq_w_scale ** (1.0 - smoothq_alpha)
+                        )
                         .clamp(min=1e-5)
-                        .to(smq_a_scale.dtype)
+                        .to(smoothq_a_scale.dtype)
                     )
 
             # could trigger Qw.clipval re-calc for SAWB here, if needed
@@ -845,7 +848,7 @@ class QLinearINT8Deploy(nn.Linear):
             qlin_int.register_buffer("input_zp", input_zero_point)
             qlin_int.register_buffer("w_scale", w_scale)
             qlin_int.register_buffer("w_zp", w_zp)
-            qlin_int.register_buffer("smq_scale", smq_scale)
+            qlin_int.register_buffer("smoothq_scale", smoothq_scale)
 
             # NOTE:
             # 1. Keep W transposed to prevent confusion, hence (W.t()/scale).t()
@@ -853,10 +856,10 @@ class QLinearINT8Deploy(nn.Linear):
             # 3. smooth_quant factor is included in the W here, will also include it in the forward
             if isinstance(Qw, SAWB):
                 Qw.dequantize = False
-                w_int8 = Qw(fms_mo_qlinear.weight.float() * smq_scale)
+                w_int8 = Qw(fms_mo_qlinear.weight.float() * smoothq_scale)
             else:
                 w_int8 = (
-                    torch.round((fms_mo_qlinear.weight * smq_scale).t() / w_scale)
+                    torch.round((fms_mo_qlinear.weight * smoothq_scale).t() / w_scale)
                     .clamp(-w_levels / 2, w_levels / 2)
                     .t()
                 )
@@ -1323,8 +1326,8 @@ class QLinearINT8Deploy(nn.Linear):
                 self.weight.shape[0],
             )  # W.shape=[out,in]
 
-            if torch.all(self.smq_scale != 1).item():
-                x = x.view(re_shape) / self.smq_scale
+            if torch.all(self.smoothq_scale != 1).item():
+                x = x.view(re_shape) / self.smoothq_scale
             else:
                 x = x.view(re_shape)
 
