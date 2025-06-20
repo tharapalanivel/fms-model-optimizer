@@ -272,6 +272,42 @@ def test_vit_dynamo(
     qmodule_error(model_vit, 2, 36)
 
 
+def test_resnet18(
+    model_resnet18,
+    batch_resnet18,
+    config_int8: dict,
+):
+    """
+    Perform int8 quantization on ResNet-18 w/ Dynamo tracer
+
+    Args:
+        model_resnet18 (AutoModelForImageClassification): Resnet18 model + weights
+        batch_resnet18 (torch.FloatTensor): Batch image data for Resnet18
+        config (dict): Recipe Config w/ int8 settings
+    """
+    # Run qmodel_prep w/ Dynamo tracer
+    qmodel_prep(model_resnet18, batch_resnet18, config_int8, use_dynamo=True)
+    qmodule_error(model_resnet18, 4, 17)
+
+
+def test_vit_base(
+    model_vit_base,
+    batch_vit_base,
+    config_int8: dict,
+):
+    """
+    Perform int8 quantization on ViT-base w/ Dynamo tracer
+
+    Args:
+        model_vit_base (AutoModelForImageClassification): Resnet18 model + weights
+        batch_vit_base (torch.FloatTensor): Batch image data for Resnet18
+        config (dict): Recipe Config w/ int8 settings
+    """
+    # Run qmodel_prep w/ Dynamo tracer
+    qmodel_prep(model_vit_base, batch_vit_base, config_int8, use_dynamo=True)
+    qmodule_error(model_vit_base, 1, 73)
+
+
 def test_bert_dynamo(
     model_bert: transformers.models.bert.modeling_bert.BertModel,
     input_bert: torch.FloatTensor,

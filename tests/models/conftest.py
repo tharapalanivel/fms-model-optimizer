@@ -22,8 +22,11 @@ from copy import deepcopy
 import os
 
 # Third Party
+from PIL import Image  # pylint: disable=import-error
 from torch.utils.data import DataLoader, TensorDataset
 from transformers import (
+    AutoImageProcessor,
+    AutoModelForImageClassification,
     BertConfig,
     BertModel,
     BertTokenizer,
@@ -1198,6 +1201,81 @@ if available_packages["torchvision"]:
             torchvision.models.vision_transformer.VisionTransformer: ViT model
         """
         return vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+
+
+img = Image.open(
+    os.path.realpath(
+        os.path.join(os.path.dirname(__file__), "grace_hopper_517x606.jpg")
+    )
+).convert("RGB")
+
+
+def process_img(
+    pretrained_model: str,
+    input_img: Image.Image,
+):
+    """
+    Process an image w/ AutoImageProcessor
+
+    Args:
+        processor (AutoImageProcessor): Processor weights for pretrained model
+        pretrained_model (str): Weight object
+        input_img (Image.Image): Image data
+
+    Returns:
+        torch.FloatTensor: Processed image
+    """
+    img_processor = AutoImageProcessor.from_pretrained(pretrained_model)
+    batch_dict = img_processor(images=input_img, return_tensor="pt", use_fast=False)
+    # Data is {pixel_values: numpy_array[0]=data} w/ tensor.shape [C,W,H]
+    # Needs to be [1,C,W,H] -> unsqueeze(0)
+    return torch.from_numpy(batch_dict["pixel_values"][0]).unsqueeze(0)
+
+
+@pytest.fixture(scope="function")
+def batch_resnet18():
+    """
+    Preprocess an image w/ ms resnet18 processor
+
+    Returns:
+        torch.FloatTensor: Preprocessed image
+    """
+    return process_img("microsoft/resnet-18", img)
+
+
+@pytest.fixture(scope="function")
+def model_resnet18():
+    """
+    Create MS ResNet18 model + weights
+
+    Returns:
+        AutoModelForImageClassification: Resnet18 model
+    """
+    return AutoModelForImageClassification.from_pretrained("microsoft/resnet-18")
+
+
+@pytest.fixture(scope="function")
+def batch_vit_base():
+    """
+    Preprocess an image w/ Google ViT-base processor
+
+    Returns:
+        torch.FloatTensor: Preprocessed image
+    """
+    return process_img("google/vit-base-patch16-224", img)
+
+
+@pytest.fixture(scope="function")
+def model_vit_base():
+    """
+    Create Google ViT-base model + weights
+
+    Returns:
+        AutoModelForImageClassification: Google ViT-base model
+    """
+    return AutoModelForImageClassification.from_pretrained(
+        "google/vit-base-patch16-224"
+    )
 
 
 #######################
