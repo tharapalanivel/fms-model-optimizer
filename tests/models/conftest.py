@@ -1226,7 +1226,7 @@ def process_img(
         torch.FloatTensor: Processed image
     """
     img_processor = AutoImageProcessor.from_pretrained(pretrained_model)
-    batch_dict = img_processor(images=input_img, return_tensor="pt", use_fast=False)
+    batch_dict = img_processor(images=input_img, return_tensor="pt")
     # Data is {pixel_values: numpy_array[0]=data} w/ tensor.shape [C,W,H]
     # Needs to be [1,C,W,H] -> unsqueeze(0)
     return torch.from_numpy(batch_dict["pixel_values"][0]).unsqueeze(0)
