@@ -19,13 +19,13 @@ Test qmodel_prep functionality on Toy Models, Resnet50, Vision Transformer, and 
 # Third Party
 import pytest
 import torch
-import torchvision
 import transformers
 
 # Local
 # fms_mo imports
 from fms_mo import qconfig_init, qmodel_prep
 from fms_mo.prep import has_quantized_module
+from fms_mo.utils.import_utils import available_packages
 from fms_mo.utils.utils import patch_torch_bmm
 from tests.models.test_model_utils import count_qmodules, delete_file, qmodule_error
 
@@ -159,8 +159,12 @@ def test_config_fp32_qmodes(
 ###########################
 
 
+@pytest.mark.skipif(
+    not available_packages["torchvision"],
+    reason="Requires torchvision",
+)
 def test_resnet50_torchscript(
-    model_resnet: torchvision.models.resnet.ResNet,
+    model_resnet,
     batch_resnet: torch.FloatTensor,
     config_int8: dict,
 ):
@@ -177,8 +181,12 @@ def test_resnet50_torchscript(
     qmodule_error(model_resnet, 6, 48)
 
 
+@pytest.mark.skipif(
+    not available_packages["torchvision"],
+    reason="Requires torchvision",
+)
 def test_resnet50_dynamo(
-    model_resnet: torchvision.models.resnet.ResNet,
+    model_resnet,
     batch_resnet: torch.FloatTensor,
     config_int8: dict,
 ):
@@ -195,8 +203,12 @@ def test_resnet50_dynamo(
     qmodule_error(model_resnet, 6, 48)
 
 
+@pytest.mark.skipif(
+    not available_packages["torchvision"],
+    reason="Requires torchvision",
+)
 def test_resnet50_dynamo_layers(
-    model_resnet: torchvision.models.resnet.ResNet,
+    model_resnet,
     batch_resnet: torch.FloatTensor,
     config_int8: dict,
 ):
@@ -216,8 +228,12 @@ def test_resnet50_dynamo_layers(
 
 
 # Vision Transformer tests
+@pytest.mark.skipif(
+    not available_packages["torchvision"],
+    reason="Requires torchvision",
+)
 def test_vit_torchscript(
-    model_vit: torchvision.models.vision_transformer.VisionTransformer,
+    model_vit,
     batch_vit: torch.FloatTensor,
     config_int8: dict,
 ):
@@ -234,8 +250,12 @@ def test_vit_torchscript(
     qmodule_error(model_vit, 2, 36)
 
 
+@pytest.mark.skipif(
+    not available_packages["torchvision"],
+    reason="Requires torchvision",
+)
 def test_vit_dynamo(
-    model_vit: torchvision.models.vision_transformer.VisionTransformer,
+    model_vit,
     batch_vit: torch.FloatTensor,
     config_int8: dict,
 ):

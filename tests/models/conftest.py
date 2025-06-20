@@ -23,8 +23,6 @@ import os
 
 # Third Party
 from torch.utils.data import DataLoader, TensorDataset
-from torchvision.io import read_image
-from torchvision.models import ResNet50_Weights, ViT_B_16_Weights, resnet50, vit_b_16
 from transformers import (
     BertConfig,
     BertModel,
@@ -43,6 +41,7 @@ import torch.nn.functional as F
 # fms_mo imports
 from fms_mo import qconfig_init
 from fms_mo.modules import QLSTM, QBmm, QConv2d, QConvTranspose2d, QLinear
+from fms_mo.utils.import_utils import available_packages
 from fms_mo.utils.qconfig_utils import get_mx_specs_defaults, set_mx_specs
 
 ########################
@@ -1123,75 +1122,82 @@ def required_pair(request):
 # Vision Model Fixtures #
 #########################
 
-# Create img
-# downloaded from torchvision github (vision/test/assets/encoder_jpeg/ directory)
-img = read_image(
-    os.path.realpath(
-        os.path.join(os.path.dirname(__file__), "grace_hopper_517x606.jpg")
+
+if available_packages["torchvision"]:
+    # Third Party
+    # pylint: disable = import-error
+    from torchvision.io import read_image
+    from torchvision.models import (
+        ResNet50_Weights,
+        ViT_B_16_Weights,
+        resnet50,
+        vit_b_16,
     )
-)
 
+    # Create img
+    # downloaded from torchvision github (vision/test/assets/encoder_jpeg/ directory)
+    img_tv = read_image(
+        os.path.realpath(
+            os.path.join(os.path.dirname(__file__), "grace_hopper_517x606.jpg")
+        )
+    )
 
-# Create resnet/vit batch fixtures from weights
-def prepocess_img(image, weights):
-    """
-    Preprocess an image w/ a weights.transform()
+    # Create resnet/vitbatch fixtures from weights
+    def prepocess_img(image, weights):
+        """
+        Preprocess an image w/ a weights.transform()
 
-    Args:
-        img (torch.FloatTensor): Image data
-        weights (torchvision.models): Weight object
+        Args:
+            img_tv (torch.FloatTensor): Image data
+            weights (torchvision.models): Weight object
 
-    Returns:
-        torch.FloatTensor: Preprocessed image
-    """
-    preprocess = weights.transforms()
-    batch = preprocess(image).unsqueeze(0)
-    return batch
+        Returns:
+            torch.FloatTensor: Preprocessed image
+        """
+        preprocess = weights.transforms()
+        batch = preprocess(image).unsqueeze(0)
+        return batch
 
+    @pytest.fixture(scope="session")
+    def batch_resnet():
+        """
+        Preprocess an image w/ Resnet weights.transform()
 
-@pytest.fixture(scope="session")
-def batch_resnet():
-    """
-    Preprocess an image w/ Resnet weights.transform()
+        Returns:
+            torch.FloatTensor: Preprocessed image
+        """
+        return prepocess_img(img_tv, ResNet50_Weights.IMAGENET1K_V2)
 
-    Returns:
-        torch.FloatTensor: Preprocessed image
-    """
-    return prepocess_img(img, ResNet50_Weights.IMAGENET1K_V2)
+    @pytest.fixture(scope="session")
+    def batch_vit():
+        """
+        Preprocess an image w/ ViT weights.transform()
 
+        Returns:
+            torch.FloatTensor: Preprocessed image
+        """
+        return prepocess_img(img_tv, ViT_B_16_Weights.IMAGENET1K_V1)
 
-@pytest.fixture(scope="session")
-def batch_vit():
-    """
-    Preprocess an image w/ ViT weights.transform()
+    # Create resnet/vit model fixtures from weights
+    @pytest.fixture(scope="function")
+    def model_resnet():
+        """
+        Create Resnet50 model + weights
 
-    Returns:
-        torch.FloatTensor: Preprocessed image
-    """
-    return prepocess_img(img, ViT_B_16_Weights.IMAGENET1K_V1)
+        Returns:
+            torchvision.models.resnet.ResNet: Resnet50 model
+        """
+        return resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
 
+    @pytest.fixture(scope="function")
+    def model_vit():
+        """
+        Create ViT model + weights
 
-# Create resnet/vit model fixtures from weights
-@pytest.fixture(scope="function")
-def model_resnet():
-    """
-    Create Resnet50 model + weights
-
-    Returns:
-        torchvision.models.resnet.ResNet: Resnet50 model
-    """
-    return resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
-
-
-@pytest.fixture(scope="function")
-def model_vit():
-    """
-    Create ViT model + weights
-
-    Returns:
-        torchvision.models.vision_transformer.VisionTransformer: ViT model
-    """
-    return vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+        Returns:
+            torchvision.models.vision_transformer.VisionTransformer: ViT model
+        """
+        return vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
 
 
 #######################
