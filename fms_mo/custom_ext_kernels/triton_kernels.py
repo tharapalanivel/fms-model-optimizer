@@ -17,7 +17,7 @@
 # Third Party
 import torch
 
-# First Party
+# Local
 from fms_mo.utils.import_utils import available_packages
 
 # Assume any calls to the file are requesting triton
@@ -27,10 +27,10 @@ if not available_packages["triton"]:
     )
 
 # Third Party
+# pylint: disable=wrong-import-position
 from triton.language.extra import libdevice
 import triton
 import triton.language as tl
-
 
 DTYPE_I8 = [torch.int8]
 DTYPE_F8 = [torch.float8_e4m3fn, torch.float8_e5m2]
