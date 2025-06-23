@@ -232,7 +232,7 @@ def check_linear_dtypes(state_dict: dict, linear_names: list):
         if any(n in k for n in linear_names):
             if k.endswith(".weight"):
                 assert v.dtype == torch.int8
-            elif k.endswith(".zero_point"):
+            elif k.endswith(".zero_point") or k.endswith(".zero_shift"):
                 assert v.dtype == torch.float32
             else:
                 assert v.dtype == torch.float16

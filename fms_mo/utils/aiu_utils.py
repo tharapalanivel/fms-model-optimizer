@@ -288,7 +288,7 @@ def process_zero_shift(
             a_cvn = model.state_dict()[a_cvn_name]
 
         # compute "zero_shift" correction factor only for asymmetric activations
-        if a_cv and a_cvn and a_cv != -a_cvn:
+        if a_cv is not None and a_cvn is not None and torch.equal(a_cv, -a_cvn):
             if weight_int is None:
                 logger.info(
                     f"As weights appear to be not quantized, zero shift for {k} "
