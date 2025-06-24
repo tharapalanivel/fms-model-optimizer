@@ -106,6 +106,7 @@ The following optional dependencies are available:
 - `opt`: Shortcut for `fp8`, `gptq`, and `mx` installs
 - `torchvision`: `torch` package for image recognition training and inference
 - `triton`: `triton` package for matrix multiplication kernels
+- `examples`: Dependencies needed for examples
 - `visualize`: Dependencies for visualizing models and performance data
 - `test`: Dependencies needed for unit testing
 - `dev`: Dependencies needed for development
