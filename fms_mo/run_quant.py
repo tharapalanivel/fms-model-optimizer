@@ -34,7 +34,6 @@ import traceback
 
 # Third Party
 from datasets import load_from_disk
-from huggingface_hub.errors import HFValidationError
 from torch.cuda import OutOfMemoryError
 from transformers import AutoTokenizer
 import torch
@@ -352,12 +351,6 @@ def main():
     except FileNotFoundError as e:
         logger.error(traceback.format_exc())
         write_termination_log(f"Unable to load file: {e}")
-        sys.exit(USER_ERROR_EXIT_CODE)
-    except HFValidationError as e:
-        logger.error(traceback.format_exc())
-        write_termination_log(
-            f"There may be a problem with loading the model. Exception: {e}"
-        )
         sys.exit(USER_ERROR_EXIT_CODE)
     except (TypeError, ValueError, EnvironmentError) as e:
         logger.error(traceback.format_exc())
