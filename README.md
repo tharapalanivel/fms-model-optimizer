@@ -98,6 +98,26 @@ cd fms-model-optimizer
 pip install -e .
 ```
 
+#### Optional Dependencies
+The following optional dependencies are available:
+- `fp8`: `llmcompressor` package for fp8 quantization
+- `gptq`: `GPTQModel` package for W4A16 quantization
+- `mx`: `microxcaling` package for MX quantization
+- `opt`: Shortcut for `fp8`, `gptq`, and `mx` installs
+- `torchvision`: `torch` package for image recognition training and inference
+- `visualize`: Dependencies for visualizing models and performance data
+- `test`: Dependencies needed for unit testing
+- `dev`: Dependencies needed for development
+
+To install an optional dependency, modify the `pip install` commands above with a list of these names enclosed in brackets.  The example below installs `llm-compressor` and `torchvision` with FMS Model Optimizer:
+
+```shell
+pip install fms-model-optimizer[fp8,torchvision]
+
+pip install -e .[fp8,torchvision]
+```
+If you have already installed FMS Model Optimizer, then only the optional packages will be installed.
+
 ### Try It Out!
 
 To help you get up and running as quickly as possible with the FMS Model Optimizer framework, check out the following resources which demonstrate how to use the framework with different quantization techniques:
