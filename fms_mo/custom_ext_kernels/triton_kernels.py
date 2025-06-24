@@ -15,8 +15,20 @@
 """This file contains external kernels for FP and INT8 matmul written in triton."""
 
 # Third Party
-from triton.language.extra import libdevice
 import torch
+
+# Local
+from fms_mo.utils.import_utils import available_packages
+
+# Assume any calls to the file are requesting triton
+if not available_packages["triton"]:
+    raise ImportError(
+        "triton python package is not avaialble, please check your installation."
+    )
+
+# Third Party
+# pylint: disable=wrong-import-position
+from triton.language.extra import libdevice
 import triton
 import triton.language as tl
 

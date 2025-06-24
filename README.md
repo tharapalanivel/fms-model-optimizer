@@ -105,6 +105,7 @@ The following optional dependencies are available:
 - `mx`: `microxcaling` package for MX quantization
 - `opt`: Shortcut for `fp8`, `gptq`, and `mx` installs
 - `torchvision`: `torch` package for image recognition training and inference
+- `triton`: `triton` package for matrix multiplication kernels
 - `visualize`: Dependencies for visualizing models and performance data
 - `test`: Dependencies needed for unit testing
 - `dev`: Dependencies needed for development

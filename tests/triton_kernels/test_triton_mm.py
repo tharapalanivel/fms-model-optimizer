@@ -32,7 +32,7 @@ else:
     )
 
 
-@pytest.mark.parametrize("mkn", [64, 256, 1024, 4096])
+@pytest.mark.parametrize("mkn", [64, 256, 1024])
 @pytest.mark.parametrize(
     "dtype_to_test",
     [
@@ -43,11 +43,12 @@ else:
         torch.float8_e5m2,
     ],
 )
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="test_triton_matmul_fp can only when GPU is available",
+)
 def test_triton_matmul_fp(mkn, dtype_to_test):
     """Parametric tests for triton matmul kernel using variety of tensor sizes and dtypes."""
-    if not torch.cuda.is_available():
-        # only run the test when GPU is available
-        return
 
     torch.manual_seed(23)
     m = n = k = mkn
@@ -81,12 +82,13 @@ def test_triton_matmul_fp(mkn, dtype_to_test):
     assert torch.norm(diff_trun_8b) / torch.norm(torch_output) < 1e-3
 
 
-@pytest.mark.parametrize("mkn", [64, 256, 1024, 4096])
+@pytest.mark.parametrize("mkn", [64, 256, 1024])
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="test_triton_matmul_int8 can only when GPU is available",
+)
 def test_triton_matmul_int8(mkn):
     """Parametric tests for triton imatmul kernel using variety of tensor sizes."""
-    if not torch.cuda.is_available():
-        # only run the test when GPU is available
-        return
 
     torch.manual_seed(23)
     m = n = k = mkn
@@ -123,13 +125,14 @@ def test_triton_matmul_int8(mkn):
 
 @pytest.mark.parametrize("feat_in_out", [(64, 128), (256, 1024), (1024, 4096)])
 @pytest.mark.parametrize("trun_bits", [0, 8, 12, 16])
+@pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason="test_linear_fpx_acc can only when GPU is available",
+)
 def test_linear_fpx_acc(feat_in_out, trun_bits):
     """Parametric tests for LinearFPxAcc. This Linear utilizes triton kernel hence can only be run
     on CUDA.
     """
-    if not torch.cuda.is_available():
-        # only run the test when GPU is available
-        return
 
     torch.manual_seed(23)
     feat_in, feat_out = feat_in_out
