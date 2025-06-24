@@ -47,7 +47,7 @@ opt = ["fms-model-optimizer[fp8, gptq, mx]"]
 torchvision = ["torchvision>=0.17"]
 flash-attn = ["flash-attn>=2.5.3,<3.0"]
 triton = ["triton>=3.0,<3.4"]
-visualize = ["matplotlib", "graphviz", "pygraphviz"]
+visualize = ["matplotlib", "graphviz", "pygraphviz", "tensorboard", "notebook"]
 dev = ["pre-commit>=3.0.4,<5.0"]
 test = ["pytest", "pillow"]
 
