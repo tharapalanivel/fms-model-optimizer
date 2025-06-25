@@ -30,7 +30,6 @@ import random
 import sys
 
 # Third Party
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
@@ -1449,49 +1448,57 @@ def ptq_mod_optim_lm(_model, m, layers, qcfg, optim_mode="both", **kwargs):
                 # show loss on pbar
                 pbar2.set_description(pbar_desc + f"{PTQloss:.6f}")
 
-            if isinstance(qcfg["tb_writer"], SummaryWriter) and isOutput:
-                scalars2log = {}
-                hist2log = {}
+            if available_packages["tensorboard"]:
+                # Third Party
+                from torch.utils.tensorboard import SummaryWriter
 
-                for k, v in loss4plot.items():  # plot loss
-                    scalars2log[f"{mod_name}/PTQloss_{k}"] = v
-                for k, v in m.named_buffers():  # plot cv, delta, zp, alpha, and lr
-                    if any(kb in k for kb in ["delta", "zero_point", "clip_val"]):
-                        if len(v.shape) > 0 and v.shape[0] > 1:  # perCh
-                            hist2log[f"{mod_name}/{k}"] = v
-                        else:
-                            scalars2log[f"{mod_name}/{k}"] = v
-                for p, pname in zip(
-                    optim_a.param_groups[0]["params"], param_names[1]
-                ):  # cva
-                    scalars2log[f"{mod_name}/{pname}"] = p.item()
-                    scalars2log[f"{mod_name}/LR_cv_a"] = optim_a.param_groups[0]["lr"]
-                for p, pname in zip(
-                    optim_w.param_groups[0]["params"], param_names[0]
-                ):  # weights
-                    hist2log[f"{mod_name}/{pname}"] = p
-                    scalars2log[f"{mod_name}/LR_w"] = optim_w.param_groups[0]["lr"]
-                for p, pname in zip(
-                    optim_w.param_groups[1]["params"], param_names[2]
-                ):  # cvw
-                    if "alpha" in pname:
-                        hist2log[f"{mod_name}/{pname}"] = p
-                    else:
+                if isinstance(qcfg["tb_writer"], SummaryWriter) and isOutput:
+                    scalars2log = {}
+                    hist2log = {}
+
+                    for k, v in loss4plot.items():  # plot loss
+                        scalars2log[f"{mod_name}/PTQloss_{k}"] = v
+                    for k, v in m.named_buffers():  # plot cv, delta, zp, alpha, and lr
+                        if any(kb in k for kb in ["delta", "zero_point", "clip_val"]):
+                            if len(v.shape) > 0 and v.shape[0] > 1:  # perCh
+                                hist2log[f"{mod_name}/{k}"] = v
+                            else:
+                                scalars2log[f"{mod_name}/{k}"] = v
+                    for p, pname in zip(
+                        optim_a.param_groups[0]["params"], param_names[1]
+                    ):  # cva
                         scalars2log[f"{mod_name}/{pname}"] = p.item()
-                    scalars2log[f"{mod_name}/LR_cvw"] = optim_w.param_groups[1]["lr"]
-                if "adaround" in qcfg["qw_mode"]:
-                    scalars2log[f"{mod_name}/AdaR_beta"] = (
-                        loss_func.temp_decay.curr_beta
-                    )
-                    for lidx, l in enumerate(layers):
-                        if not hasattr(l, "quantize_m1"):
-                            hist2log[f"{mod_name}/W{lidx}"] = l.weight
+                        scalars2log[f"{mod_name}/LR_cv_a"] = optim_a.param_groups[0][
+                            "lr"
+                        ]
+                    for p, pname in zip(
+                        optim_w.param_groups[0]["params"], param_names[0]
+                    ):  # weights
+                        hist2log[f"{mod_name}/{pname}"] = p
+                        scalars2log[f"{mod_name}/LR_w"] = optim_w.param_groups[0]["lr"]
+                    for p, pname in zip(
+                        optim_w.param_groups[1]["params"], param_names[2]
+                    ):  # cvw
+                        if "alpha" in pname:
+                            hist2log[f"{mod_name}/{pname}"] = p
+                        else:
+                            scalars2log[f"{mod_name}/{pname}"] = p.item()
+                        scalars2log[f"{mod_name}/LR_cvw"] = optim_w.param_groups[1][
+                            "lr"
+                        ]
+                    if "adaround" in qcfg["qw_mode"]:
+                        scalars2log[f"{mod_name}/AdaR_beta"] = (
+                            loss_func.temp_decay.curr_beta
+                        )
+                        for lidx, l in enumerate(layers):
+                            if not hasattr(l, "quantize_m1"):
+                                hist2log[f"{mod_name}/W{lidx}"] = l.weight
 
-                # write every in one shot will mess up the folder, better write them one by one
-                for n, v in scalars2log.items():
-                    qcfg["tb_writer"].add_scalar(n, v, Niter)
-                for n, v in hist2log.items():
-                    qcfg["tb_writer"].add_histogram(n, v, Niter)
+                    # write every in one shot will mess up the folder, better write them one by one
+                    for n, v in scalars2log.items():
+                        qcfg["tb_writer"].add_scalar(n, v, Niter)
+                    for n, v in hist2log.items():
+                        qcfg["tb_writer"].add_histogram(n, v, Niter)
 
         for s in scheduler:
             s.step()  # we set up scheduler based on Nouterloop, not inner
