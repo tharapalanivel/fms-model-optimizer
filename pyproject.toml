@@ -30,7 +30,6 @@ dependencies = [
 "datasets>=3.0.0,<4.0",
 "pandas",
 "safetensors",
-
 "pkginfo>1.10",
 ]
 
