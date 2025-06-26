@@ -114,6 +114,7 @@ def matmul_kernel(
     stride_cn,
     chunk_trun_bits,
     max_acc_bits,  # pylint: disable=unused-argument
+    clamp_acc_to_dl16,
     truncate_then_accumulate,
     # Meta-parameters
     BLOCK_SIZE_M: tl.constexpr,
@@ -182,6 +183,8 @@ def matmul_kernel(
         ## ------ add chunky LSB rounding/masking --------
         if chunk_trun_bits > 0:
             accumulator_inner = round_and_trun(accumulator_inner, round_bit, trun_mask)
+        if clamp_acc_to_dl16:
+            accumulator = fp32_clamp_to_dl16(accumulator)
         ## ---------------------------------------------------------
         if truncate_then_accumulate:
             accumulator += accumulator_inner
@@ -226,6 +229,7 @@ def imatmul_kernel(
     stride_cn,
     chunk_trun_bits,
     max_acc_bits,
+    clamp_acc_to_dl16,  # pylint: disable=unused-argument
     truncate_then_accumulate,
     # Meta-parameters
     BLOCK_SIZE_M: tl.constexpr,
@@ -324,6 +328,7 @@ def matmul_kernel_DABC(
     stride_cn,
     chunk_trun_bits,
     max_acc_bits,  # pylint: disable=unused-argument
+    clamp_acc_to_dl16,
     truncate_then_accumulate,
     # Meta-parameters
     BLOCK_SIZE_M: tl.constexpr,
@@ -405,6 +410,8 @@ def matmul_kernel_DABC(
         ## ------ add chunky LSB rounding/masking --------
         if chunk_trun_bits > 0:
             accumulator_inner = round_and_trun(accumulator_inner, round_bit, trun_mask)
+        if clamp_acc_to_dl16:
+            accumulator = fp32_clamp_to_dl16(accumulator)
         ## ---------------------------------------------------------
         if truncate_then_accumulate:
             accumulator += accumulator_inner
@@ -438,6 +445,28 @@ def round_and_trun(x, round_bit, trun_mask):
     return libdevice.uint_as_float((libdevice.float_as_uint(x) + round_bit) & trun_mask)
 
 
+@triton.jit
+def fp32_clamp_to_dl16(x):
+    """clamp FP32 (1-8-23) TENSOR x to DL16 (1-6-9) range."""
+    # 1. rounding, add round bit to full uint representation
+    x = libdevice.float_as_uint(x)
+    round_bit = 1 << (23 - 9 - 1)
+    x = libdevice.uint_as_float(x + round_bit)
+
+    # 2. clamp to min/max:
+    #   max = 2^32 * 1.(1111 1111 0)_base2 => 2^32*1.(1111 1111 1) will become inf
+    #         (32 + 127) << 23 | (0xFF8 << (23 - 12)) in FP32 is 8581545984.0
+    #   min = 2^-31 * 1.(0000 0000 1)_base2 => set to 0 for those smaller than this
+    #         (-31 + 127) << 23 | (1 << (23 - 9)) in FP32 is 4.665707820095122e-10
+    dl16_max = 8581545984.0
+    dl16_min = 4.665707820095122e-10
+    x = tl.where(x >= dl16_max, float("inf"), x)
+    x = tl.where(x <= -dl16_max, float("-inf"), x)
+    x = tl.where(tl.abs(x) < dl16_min, 0, x)
+
+    return x
+
+
 def tl_matmul_chunk_truncate(
     a,
     b,
@@ -448,6 +477,7 @@ def tl_matmul_chunk_truncate(
     max_acc_bits=32,
     truncate_then_accumulate=True,
     cast_output_to_input_dtype=None,
+    clamp_acc_to_dl16=False,
 ):
     """Triton matmul for HW behavior simulation. Supports float and int8.
     i. variable chunk size (i.e., BLOCK_SIZE_K)
@@ -461,7 +491,8 @@ def tl_matmul_chunk_truncate(
         chunk_size (int, optional): BLOCK_SIZE_K, some HW has specific chunk size. must >= 16.
         max_acc_bits (int, optional): num of bits for the accumulator, e.g. if INT24 is used, will
                                         clamp each chunk of a*b to [-2**23-1, 2**23].
-                                        (assuming no inf when overflow)
+                                        (only used by INT)
+        clamp_acc_to_dl16(bool): Only used by FP8, whether to clamp local accumulator (FP32) to DL16
         truncate_then_accumulate (bool, optional): if True, c = truncate(a*b) + c, otherwise
                                                     c = truncate(a*b+c)
         cast_output_to_input_dtype (bool, optional): accumulator has higher prec than input, usually
@@ -473,7 +504,7 @@ def tl_matmul_chunk_truncate(
 
     NOTE:
     use empirical way to determine BLOCK sizes, may not be optimal. But need to avoid autotune for
-    real model inference. otherwise auto-tune will be triggered in every forward call.
+    real model inference. otherwise auto-tune may be triggered in every forward call.
     """
 
     # Check constraints.
@@ -584,6 +615,7 @@ def tl_matmul_chunk_truncate(
         c.stride(1),
         chunk_trun_bits=chunk_trun_bits,
         max_acc_bits=max_acc_bits,
+        clamp_acc_to_dl16=clamp_acc_to_dl16,
         truncate_then_accumulate=truncate_then_accumulate,
         ACTIVATION=activation,
         **kernel_config,  # if using auto-tune, comment this line out.

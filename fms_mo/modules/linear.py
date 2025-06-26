@@ -1899,7 +1899,16 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, x, weight, bias=None, trun_bits=0, chunk_size=16, fp8_dyn=False):
+    def forward(
+        ctx,
+        x,
+        weight,
+        bias=None,
+        trun_bits=0,
+        chunk_size=16,
+        fp8_dyn=False,
+        clamp_acc_to_dl16=False,
+    ):
         assert x.dtype in [torch.float, torch.bfloat16, torch.float16]
         # input can be 2D or 3D, need to reshape before tl_matmul
         org_dtype = x.dtype
@@ -1916,6 +1925,7 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
         ctx.trun_bits = trun_bits
         ctx.chunk_size = chunk_size
         ctx.fp8_dyn = fp8_dyn
+        ctx.clamp_acc_to_dl16 = clamp_acc_to_dl16
 
         if fp8_dyn:
             # use Q/dQ simulation for now, meaning still compute in fp16/bf16
@@ -1936,6 +1946,7 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
             weight.t().to(org_dtype),
             chunk_trun_bits=trun_bits,
             chunk_size=chunk_size,
+            clamp_acc_to_dl16=clamp_acc_to_dl16,
         ).reshape(target_shape_output)
 
         if bias is not None:
@@ -1976,6 +1987,7 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
             x,
             chunk_trun_bits=trun_bits,
             chunk_size=chunk_size,
+            clamp_acc_to_dl16=ctx.clamp_acc_to_dl16,
         ).to(weight.dtype)
         # Compute grad_input in 2D then reshape to target shape, could be 3D or 2D
         grad_input = (
@@ -1984,6 +1996,7 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
                 weight.to(dtype_input),
                 chunk_trun_bits=trun_bits,
                 chunk_size=chunk_size,
+                clamp_acc_to_dl16=ctx.clamp_acc_to_dl16,
             )
             .reshape(target_shape_grad_input)
             .to(dtype_input)
@@ -1994,7 +2007,7 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
         else:
             grad_bias = grad_output_2D.sum(0).to(ctx.bias_dtype)
 
-        return grad_input, grad_weight, grad_bias, None, None, None
+        return grad_input, grad_weight, grad_bias, None, None, None, None
 
 
 class LinearFPxAcc(torch.nn.Linear):
@@ -2016,6 +2029,10 @@ class LinearFPxAcc(torch.nn.Linear):
             cls (class): The class to be created.
             nnlin (torch.nn.Linear): The original torch.nn.Linear module.
             trun_bits (int): truncate [0 to 22] LSBs from FP32 accumulation.
+            dynamic_fp8: whether to use dynamic quantization for fp8 activations, available options
+                        are ["per_tensor", "per_token", False]
+            clamp_acc_to_dl16: clamp local accumulator into DL16 range, to simulate the effect of
+                                this special dtype
             **kwargs: Additional keyword arguments.
 
         Returns:
@@ -2037,7 +2054,7 @@ class LinearFPxAcc(torch.nn.Linear):
         lin24acc.trun_bits = trun_bits
         lin24acc.chunk_size = kwargs.get("chunk_size", False)
         lin24acc.fp8_dyn = kwargs.get("dynamic_fp8", False)
-        # available options are ["per_tensor", "per_token"]
+        lin24acc.clamp_acc_to_dl16 = kwargs.get("clamp_acc_to_dl16", False)
 
         if nnlin.bias is not None:
             lin24acc.bias = nnlin.bias
@@ -2052,6 +2069,7 @@ class LinearFPxAcc(torch.nn.Linear):
             self.trun_bits,
             self.chunk_size,
             self.fp8_dyn,
+            self.clamp_acc_to_dl16,
         )
 
     def extra_repr(self) -> str:

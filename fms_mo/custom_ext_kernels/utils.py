@@ -870,14 +870,15 @@ def lower_qmodel_triton(
     model: torch.nn.Module,
     use_dyn_max_act=False,
     max_acc_bits=32,
+    clamp_acc_to_dl16=False,
     num_lsb_to_truncate=0,
     chunk_size=32,
 ):
     """
-    Examplar GPU lowering function using triton. Only swap Qlinears in transformers, nothing else.
+    Examplar GPU lowering function using triton. Only swap Linear/Qlinear in transformers.
     Triton kernel can be used to:
     1. test INT8 or FP8 HW performance (kernel is not optimized)
-    2. simulate MSB/LSB truncation effect
+    2. simulate MSB/LSB truncation effect or special dtype (DL16) accumulation
 
     Args:
         model: nn.Module. should be a fms_mo Qmodel, will do inplace layer swapping, no deepcopy
@@ -888,6 +889,8 @@ def lower_qmodel_triton(
                         efficiency at the expense of higher chance of accumulation "overflow".
                         For example, an INT24 accumulator can only hold values ranged from -2^23 to
                         2^23 -1, as opposed to typical range -2^31 to -2^31 -1.
+        clamp_acc_to_dl16: clamp local accumulator to DL16 (1-6-9) range. To simulate this special
+                        dtype effect on accumulation.
         num_lsb_to_truncate: number of bits to truncate from LSB side. For example, given fp32 is
                         s1e8m23, if we choose to truncate 13 mantissa bits from right most side,
                         i.e. LSB, the resulting number will be s1e8m10, which is TF32.
@@ -900,25 +903,47 @@ def lower_qmodel_triton(
     from torch.ao.quantization.utils import _parent_name
 
     # Local
-    from fms_mo.modules.linear import QLinear, QLinearINT8Deploy
+    from fms_mo.modules.linear import LinearFPxAcc, QLinear, QLinearINT8Deploy
+
+    # Currently QLinearINT8 has more options in dynamic quantization than LinearFP. Here we resolve
+    # the differences as a patch solution (will unify the codes in future release)
+    linFP_dyn_code = (
+        "per_token"
+        if use_dyn_max_act in [-1, -2]
+        else "per_tensor"
+        if use_dyn_max_act
+        else False
+    )
 
     for name, m in model.named_modules():
-        if not isinstance(m, QLinear):
+        if not isinstance(m, (QLinear, torch.nn.Linear)):
             continue
         parent_name, module_name = _parent_name(name)
         parent_mod = model.get_submodule(parent_name)
-        qmod = getattr(parent_mod, module_name)
-        setattr(
-            parent_mod,
-            module_name,
-            QLinearINT8Deploy.from_fms_mo(
-                qmod,
+
+        # Only support simulations of 1) QLinear -> INT8, 2) nnLinear->FP8 for now
+        if isinstance(m, QLinear):
+            new_lin = QLinearINT8Deploy.from_fms_mo(
+                m,
                 use_int_kernel="triton",
                 use_dynamic_max_act_Qfunc=use_dyn_max_act,
                 max_acc_bits=max_acc_bits,
                 truncate_lsb=num_lsb_to_truncate,
                 chunk_size=chunk_size,
-            ),
+            )
+        else:
+            new_lin = LinearFPxAcc.from_nn(
+                m,
+                trun_bits=max_acc_bits,
+                chunk_size=chunk_size,
+                dynamic_fp8=linFP_dyn_code,
+                clamp_acc_to_dl16=clamp_acc_to_dl16,
+            )
+
+        setattr(
+            parent_mod,
+            module_name,
+            new_lin,
         )
 
     logger.info(f"\nModel lowering with triton kernel is done.\n{model}")
