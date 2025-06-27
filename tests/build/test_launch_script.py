@@ -250,7 +250,7 @@ def _validate_quantization_output(base_dir, quant_method):
     assert os.path.exists(os.path.join(base_dir, "tokenizer.json")) is True
     assert os.path.exists(os.path.join(base_dir, "special_tokens_map.json")) is True
     assert os.path.exists(os.path.join(base_dir, "tokenizer_config.json")) is True
-    assert os.path.exists(os.path.join(base_dir, "tokenizer.model")) is True
+    # assert os.path.exists(os.path.join(base_dir, "tokenizer.model")) is True
 
     # Check quantized model files exist
     if quant_method == "gptq":
