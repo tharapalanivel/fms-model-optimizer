@@ -2076,10 +2076,17 @@ class LinearFPxAcc(torch.nn.Linear):
         """
         Returns an alternative string representation of the object.
         """
-        return (
-            f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
-            f"trun_bits={self.trun_bits},fp8_dyn={self.fp8_dyn},chunk_size={self.chunk_size}"
-        )
+        repr_str = f"{self.in_features},{self.out_features}"
+        if self.bias is not None:
+            repr_str += f",bias={self.bias is not None}"
+        if self.trun_bits > 0:
+            repr_str += f",trun_bits={self.trun_bits}"
+        if self.fp8_dyn:
+            repr_str += f",fp8_dyn={self.fp8_dyn}"
+        if self.clamp_acc_to_dl16:
+            repr_str += f",use_DL16_acc"
+        repr_str += f",chunk_size={self.chunk_size}"
+        return repr_str
 
 
 class LinearFuncINT8FwdFP32Bwd(torch.autograd.Function):
