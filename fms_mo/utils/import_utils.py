@@ -16,9 +16,17 @@
 Utils for storing what optional dependencies are available
 """
 
+# Standard
+import pkgutil
+import sys
+
 # Third Party
 from transformers.utils.import_utils import _is_package_available
 import torch
+
+all_available_modules = []
+for finder, name, ispkg in pkgutil.iter_modules(sys.path):
+    all_available_modules.append(name)
 
 optional_packages = [
     "gptqmodel",
@@ -37,7 +45,9 @@ optional_packages = [
 
 available_packages = {}
 for package in optional_packages:
-    available_packages[package] = _is_package_available(package)
+    available_packages[package] = (
+        _is_package_available(package) or package in all_available_modules
+    )
 
 # cutlass is detected through torch.ops.cutlass_gemm
 available_packages["cutlass"] = hasattr(torch.ops, "cutlass_gemm") and hasattr(
