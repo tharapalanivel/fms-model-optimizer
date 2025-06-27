@@ -938,7 +938,7 @@ def lower_qmodel_triton(
         else:
             new_lin = LinearFPxAcc.from_nn(
                 m,
-                trun_bits=max_acc_bits,
+                trun_bits=num_lsb_to_truncate,
                 chunk_size=chunk_size,
                 dynamic_fp8=linFP_dyn_code,
                 clamp_acc_to_dl16=clamp_acc_to_dl16,

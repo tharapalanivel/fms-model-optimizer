@@ -2047,7 +2047,7 @@ class LinearFPxAcc(torch.nn.Linear):
             nnlin.in_features,
             nnlin.out_features,
             bias=nnlin.bias is not None,
-            device=target_device,
+            device="meta",
         )
 
         lin24acc.weight = nnlin.weight
