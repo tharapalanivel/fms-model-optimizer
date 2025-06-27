@@ -184,7 +184,7 @@ def matmul_kernel(
         if chunk_trun_bits > 0:
             accumulator_inner = round_and_trun(accumulator_inner, round_bit, trun_mask)
         if clamp_acc_to_dl16:
-            accumulator = fp32_clamp_to_dl16(accumulator)
+            accumulator_inner = fp32_clamp_to_dl16(accumulator_inner)
         ## ---------------------------------------------------------
         if truncate_then_accumulate:
             accumulator += accumulator_inner
@@ -411,7 +411,7 @@ def matmul_kernel_DABC(
         if chunk_trun_bits > 0:
             accumulator_inner = round_and_trun(accumulator_inner, round_bit, trun_mask)
         if clamp_acc_to_dl16:
-            accumulator = fp32_clamp_to_dl16(accumulator)
+            accumulator_inner = fp32_clamp_to_dl16(accumulator_inner)
         ## ---------------------------------------------------------
         if truncate_then_accumulate:
             accumulator += accumulator_inner
