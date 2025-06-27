@@ -21,7 +21,7 @@ import torch
 # abstract op must be registered with specific I/O, even if not in use by the op function
 
 
-@torch.library.custom_op("sendnn::scaled_bmm", mutates_args=())
+@torch.library.custom_op("spyre::scaled_bmm", mutates_args=())
 def sendnn_scaled_bmm(
     mat1: Tensor,
     mat2: Tensor,
@@ -38,17 +38,8 @@ def sendnn_scaled_bmm(
     assert (
         mat1.shape[:-2] == mat2.shape[:-2]
     ), "batch dimensions must match for mat1 and mat2"
-    assert (
-        mat1.shape[:-2] == scale1.shape[:-2]
-    ), "batch dimensions must match for mat1 and scale1"
-    assert (
-        mat2.shape[:-2] == scale2.shape[:-2]
-    ), "batch dimensions must match for mat2 and scale2"
-
     mat1 = mat1.view(-1, *mat1.shape[-2:])
     mat2 = mat2.view(-1, *mat2.shape[-2:])
-    scale1 = scale1.view(-1, *scale1.shape[-2:])
-    scale2 = scale2.view(-1, *scale2.shape[-2:])
     out = torch.empty(
         (mat1.shape[0], mat1.shape[1], mat2.shape[2]),
         dtype=out_dtype,
@@ -58,12 +49,12 @@ def sendnn_scaled_bmm(
         out[b_idx] = torch._scaled_mm(
             mat1[b_idx],
             mat2[b_idx],
-            scale1[b_idx],
-            scale2[b_idx],
-            out_dtype,
-            use_fast_accum,
+            scale1,
+            scale2,
+            out_dtype=out_dtype,
+            use_fast_accum=use_fast_accum,
         )
-    return out
+    return out.view(*mat1.shape[:-2], mat1.shape[1], mat2.shape[2])
 
 
 @sendnn_scaled_bmm.register_fake

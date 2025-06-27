@@ -14,7 +14,6 @@
 """FMS registration of attention BMM operation using torch-registered scaled BMM."""
 
 # Standard
-from importlib.util import find_spec
 from typing import NotRequired, Unpack
 import math
 
@@ -24,79 +23,44 @@ from fms.modules.attention import (
     _sdpa_update_attn_kwargs,
     register_attention_op,
 )
-from torch import Tensor
 import torch
 
 # Local
-import fms_mo.aiu_addons.fp8.fp8_aiu_op  # pylint: disable=unused-import
-
-if find_spec("torchao"):
-    TORCHAO_INSTALLED = True
-    # Third Party
-    from torchao.dtypes.affine_quantized_tensor import AffineQuantizedTensor
-    from torchao.dtypes.floatx.float8_layout import (
-        Float8AQTTensorImpl,
-        Float8Layout,
-        Float8MMConfig,
-    )
-    from torchao.quantization.granularity import PerTensor
-    from torchao.quantization.observer import get_block_size
-    from torchao.quantization.quant_primitives import ZeroPointDomain
-else:
-    TORCHAO_INSTALLED = False
+from fms_mo.aiu_addons.fp8.fp8_utils import ScaledTensor
+import fms_mo.aiu_addons.fp8.fp8_spyre_op  # pylint: disable=unused-import
 
 
 class MathFP8AttentionKwargs(AttentionKwargs):
     """TypedDict for FP8 attention."""
 
-    mask: NotRequired[Tensor]
+    mask: NotRequired[torch.Tensor]
     do_scale_q: bool
     is_causal_mask: bool
 
 
-# TODO: Doesn't quite work yet, more discussion needed
+# TODO: Figure out better scales for AIU? These come from vLLM
 Q_RANGE = 200.0
 K_RANGE = 200.0
 V_RANGE = 100.0
 
 
-def _construct_fp8_cache(
-    tensor: Tensor, scale: Tensor, orig_dtype: torch.dtype
-) -> AffineQuantizedTensor:
-    """Construct the torchao tensor to save kv cache with its scales."""
-
-    weight_granularity = PerTensor()
-    fp8_layout = Float8Layout(Float8MMConfig(use_fast_accum=True))
-    return AffineQuantizedTensor(
-        Float8AQTTensorImpl.from_plain(
-            tensor,
-            scale,
-            None,
-            fp8_layout,
-        ),
-        get_block_size(tensor.shape, weight_granularity),
-        tensor.shape,
-        zero_point_domain=ZeroPointDomain.NONE,
-        dtype=orig_dtype,
-    )
+def _construct_fp8_cache(tensor: torch.Tensor, scale: torch.Tensor) -> ScaledTensor:
+    """Construct the custom object to save KV cache with its scales."""
+    return ScaledTensor(tensor, scale)
 
 
 def _math_fp8_store_op(
-    keys: Tensor,  # pylint: disable=unused-argument
-    values: Tensor,
-    key_cache: Tensor | None,
-    value_cache: Tensor | None,
+    keys: torch.Tensor,  # pylint: disable=unused-argument
+    values: torch.Tensor,
+    key_cache: torch.Tensor | None,
+    value_cache: torch.Tensor | None,
     **attn_kwargs: Unpack[MathFP8AttentionKwargs],
-) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+) -> tuple[ScaledTensor, ScaledTensor, ScaledTensor, ScaledTensor]:
     """Implement math of KV cache storing."""
 
-    orig_dtype = keys.dtype
-
-    if isinstance(key_cache, AffineQuantizedTensor) and isinstance(
-        value_cache, AffineQuantizedTensor
-    ):
-        k_scale = key_cache.tensor_impl.scale
-        v_scale = value_cache.tensor_impl.scale
+    if isinstance(key_cache, ScaledTensor) and isinstance(value_cache, ScaledTensor):
+        k_scale = key_cache._scale
+        v_scale = value_cache._scale
     else:
         k_scale = (torch.abs(keys).max() / K_RANGE).to(dtype=torch.float32)
         v_scale = (torch.abs(values).max() / V_RANGE).to(dtype=torch.float32)
@@ -105,36 +69,35 @@ def _math_fp8_store_op(
     values = (values / v_scale).to(torch.float8_e4m3fn).transpose(2, 1)
 
     if (
-        isinstance(key_cache, AffineQuantizedTensor)
-        and isinstance(value_cache, AffineQuantizedTensor)
+        isinstance(key_cache, ScaledTensor)
+        and isinstance(value_cache, ScaledTensor)
         and value_cache.numel() > 0
     ):
-        key_cache = torch.cat((key_cache.tensor_impl.float8_data, keys), dim=2)
-        value_cache = torch.cat((value_cache.tensor_impl.float8_data, values), dim=2)
-        key_cache = _construct_fp8_cache(key_cache, k_scale, orig_dtype)
-        value_cache = _construct_fp8_cache(value_cache, v_scale, orig_dtype)
+        key_cache = torch.cat((key_cache._data, keys), dim=2)
+        value_cache = torch.cat((value_cache._data, values), dim=2)
+        key_cache = _construct_fp8_cache(key_cache, k_scale)
+        value_cache = _construct_fp8_cache(value_cache, v_scale)
         return (
             key_cache,
             value_cache,
             key_cache,
             value_cache,
         )
-
-    keys = _construct_fp8_cache(keys, k_scale, orig_dtype)
-    values = _construct_fp8_cache(values, v_scale, orig_dtype)
+    keys = _construct_fp8_cache(keys.contiguous(), k_scale)
+    values = _construct_fp8_cache(values.contiguous(), v_scale)
     return (keys, values, keys, values)
 
 
 def _math_fp8_compute_op(
-    query: Tensor,
-    key_cache: Tensor,
-    value_cache: Tensor,
+    query: torch.Tensor,
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
     nheads: int,
     kvheads: int,
     p_dropout: float,
     scale_factor: float | None,
     **attn_kwargs: Unpack[MathFP8AttentionKwargs],
-) -> Tensor:
+) -> torch.Tensor:
     """Implement computation of attention BMM, leveraging the custom scaled attention
     BMM op that was pre-registered for torch.compile."""
 
@@ -147,13 +110,11 @@ def _math_fp8_compute_op(
 
     query = query.to(torch.float8_e4m3fn).transpose(2, 1)
 
-    if isinstance(key_cache, AffineQuantizedTensor) and isinstance(
-        value_cache, AffineQuantizedTensor
-    ):
-        k_scale = key_cache.tensor_impl.scale
-        v_scale = value_cache.tensor_impl.scale
-        key_cache = key_cache.tensor_impl.float8_data
-        value_cache = value_cache.tensor_impl.float8_data
+    if isinstance(key_cache, ScaledTensor) and isinstance(value_cache, ScaledTensor):
+        k_scale = key_cache._scale
+        v_scale = value_cache._scale
+        key_cache = key_cache._data
+        value_cache = value_cache._data
     else:
         k_scale = (torch.abs(key_cache).max() / K_RANGE).to(dtype=torch.float32)
         v_scale = (torch.abs(value_cache).max() / V_RANGE).to(dtype=torch.float32)
