@@ -2084,7 +2084,7 @@ class LinearFPxAcc(torch.nn.Linear):
         if self.fp8_dyn:
             repr_str += f",fp8_dyn={self.fp8_dyn}"
         if self.clamp_acc_to_dl16:
-            repr_str += f",use_DL16_acc"
+            repr_str += ",use_DL16_acc"
         repr_str += f",chunk_size={self.chunk_size}"
         return repr_str
 

@@ -873,7 +873,7 @@ def lower_qmodel_triton(
     clamp_acc_to_dl16=False,
     num_lsb_to_truncate=0,
     chunk_size=32,
-    layer_to_exclude=[],
+    layer_to_exclude=None,
 ):
     """
     Examplar GPU lowering function using triton. Only swap Linear/Qlinear in transformers.
@@ -915,6 +915,9 @@ def lower_qmodel_triton(
         if use_dyn_max_act
         else False
     )
+
+    if layer_to_exclude is None:
+        layer_to_exclude = []
 
     for name, m in model.named_modules():
         if not isinstance(m, (QLinear, torch.nn.Linear)) or name in layer_to_exclude:
