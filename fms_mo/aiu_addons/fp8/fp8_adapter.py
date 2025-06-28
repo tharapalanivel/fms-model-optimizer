@@ -21,6 +21,10 @@ from fms.modules.linear import get_linear_type
 from fms.utils import serialization
 from fms.utils.config import ModelConfig
 
+# pylint: disable=unused-argument
+# Retaining kwargs input arguments for consistency.
+
+
 # NOTE: this adapter step must be registered before the adapter that uses it (such as
 # the llama adapter in fms.models.llama)
 # TODO: may be shared with gptq llama

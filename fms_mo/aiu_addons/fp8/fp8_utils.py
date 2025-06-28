@@ -59,7 +59,7 @@ class ScaledTensor(torch.Tensor):
             device=data.device,
         )
 
-    def __init__(
+    def __init__(  # pylint: disable=super-init-not-called
         self,
         data: torch.Tensor,
         scale: torch.Tensor,
@@ -96,12 +96,16 @@ class ScaledTensor(torch.Tensor):
 
 
 def _infer_quantization_config(quant_config: dict) -> dict | None:
-    # There's many quantization packages compatible with HF
-    # We initially focus on llm-compressor as it is the one used in FMS-MO
+    """Construct linear_config dictionary carrying FP8 configuration for FMS.
 
-    # llm-compressor saves its checkpoints with quant_method = compressed-tensors
-    # quantization_status tells us whether the model has already been quantized
-    #   We only support loading already quantized models (compressed status)
+    There's many quantization packages compatible with HF
+    We initially focus on llm-compressor as it is the one used in FMS-MO
+
+    llm-compressor saves its checkpoints with quant_method = compressed-tensors
+    quantization_status tells us whether the model has already been quantized
+    We only support loading already quantized models (compressed status)
+    """
+
     if (
         quant_config["quant_method"] == "compressed-tensors"
         and quant_config["quantization_status"] == "compressed"
