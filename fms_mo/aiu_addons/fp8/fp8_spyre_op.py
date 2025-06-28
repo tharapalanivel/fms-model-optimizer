@@ -32,7 +32,7 @@ def sendnn_scaled_bmm(
 ) -> Tensor:
     """Implement a custom scaled attention BMM op: a batched version of _scaled_mm.
     The operations that are part of this function are not exposed to the computational
-    graph, but are invoked when running on non-AIU devices.
+    graph, but are invoked when running on non-Spyre devices.
     """
 
     assert (
