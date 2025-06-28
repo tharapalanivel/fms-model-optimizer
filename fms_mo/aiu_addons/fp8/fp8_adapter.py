@@ -22,7 +22,7 @@ from fms.utils import serialization
 from fms.utils.config import ModelConfig
 
 # pylint: disable=unused-argument
-# Retaining kwargs input arguments for consistency.
+# Retaining kwargs input arguments for consistency with other adapter steps.
 
 
 # NOTE: this adapter step must be registered before the adapter that uses it (such as

@@ -33,31 +33,31 @@ import torch
 # open issue in PyLint: https://github.com/pytorch/pytorch/issues/119482
 
 
-### FP8 linear layers
+# Gated torchao imports for FP8 implementation
 if find_spec("torchao"):
     TORCHAO_INSTALLED = True
 
     # Third Party
-    from torchao.dtypes.affine_quantized_tensor import (  # type: ignore
+    from torchao.dtypes.affine_quantized_tensor import (
         AffineQuantizedTensor,
         to_affine_quantized_floatx,
         to_affine_quantized_floatx_static,
     )
-    from torchao.dtypes.floatx.float8_layout import (  # type: ignore
+    from torchao.dtypes.floatx.float8_layout import (
         Float8AQTTensorImpl,
         Float8Layout,
         Float8MMConfig,
         preprocess_data,
         preprocess_scale,
     )
-    from torchao.dtypes.utils import get_out_shape  # type: ignore
-    from torchao.float8.inference import (  # type: ignore
+    from torchao.dtypes.utils import get_out_shape
+    from torchao.float8.inference import (
         _is_rowwise_scaled,
         addmm_float8_unwrapped_inference,
     )
-    from torchao.quantization.granularity import PerRow, PerTensor  # type: ignore
-    from torchao.quantization.observer import get_block_size  # type: ignore
-    from torchao.quantization.quant_primitives import ZeroPointDomain  # type: ignore
+    from torchao.quantization.granularity import PerRow, PerTensor
+    from torchao.quantization.observer import get_block_size
+    from torchao.quantization.quant_primitives import ZeroPointDomain
 else:
     TORCHAO_INSTALLED = False
 
@@ -177,7 +177,8 @@ class FP8Linear(torch.nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """If input quantization is active, compute FP8xFP8 addmm."""
+        """If input quantization is active, compute FP8xFP8 addmm leveraging torchao
+        functionalities. Otherwise compute non-quantized addmm."""
 
         # fp8 weight tensor for torchao
         qweight: AffineQuantizedTensor = self._construct_qweight_structure()
@@ -282,6 +283,7 @@ def shard_fp8_linear(
               | input_scale    |  Y/N  | 0/- |
               | bias           |   0   |  -  |
     """
+
     param_sharding_info: dict[str, dict[str, LinearParameterShardingInfo]] = {}
     for module_name, module_info in module_sharding_info.items():
         linear_mod: torch.nn.Module = module_info.linear_module
