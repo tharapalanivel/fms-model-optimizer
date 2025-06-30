@@ -251,9 +251,9 @@ def _spyre_scaled_paged_compute_op(
     query: torch.Tensor,
     key_cache: torch.Tensor,
     value_cache: torch.Tensor,
-    nheads: int,
-    kvheads: int,
-    p_dropout: float,
+    nheads: int,  # pylint: disable=unused-argument
+    kvheads: int,  # pylint: disable=unused-argument
+    p_dropout: float,  # pylint: disable=unused-argument
     scale_factor: Optional[float],
     **attn_kwargs,
 ) -> torch.Tensor:

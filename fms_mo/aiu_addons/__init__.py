@@ -20,6 +20,9 @@ def _infer_quantization_config(quant_config: dict) -> dict | None:
             quant_config["config_groups"]["group_0"]["weights"]["type"] == "float"
             and quant_config["config_groups"]["group_0"]["weights"]["num_bits"] == 8
         ):
+            # First, import required FP8 linear classes from fms-mo
+            import fms_mo.aiu_addons.fp8.fp8_linear  # pylint: disable=unused-import
+            import fms_mo.aiu_addons.fp8.fp8_adapter  # pylint: disable=unused-import
             # This is used by get_linear to decide whether a linear layer
             # will be quantized or not inside the model
             def fp8_linear_type(name: str) -> str:

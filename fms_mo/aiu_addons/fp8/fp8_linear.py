@@ -193,7 +193,7 @@ if available_packages["torchao"]:
                     )
                 qx = self._input_activation_quant_func_fp8(x, **input_quant_kwargs)
 
-                # Copied from torchao _linear_fp8_act_fp8_weight_impl 
+                # Copied from torchao _linear_fp8_act_fp8_weight_impl
                 # (with changes to support fp8 out)
                 scaled_mm_config = Float8MMConfig(use_fast_accum=True)
                 out_shape = get_out_shape(qx.shape, qweight.shape)
