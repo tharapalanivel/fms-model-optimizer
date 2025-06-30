@@ -16,9 +16,14 @@
 # Third Party
 from torch import Tensor
 import torch
+import torch.nn.functional as F
 
 # pylint: disable=unused-argument
 # abstract op must be registered with specific I/O, even if not in use by the op function
+
+# pylint: disable=not-callable
+# torch.nn.functional.scaled_dot_product_attention not recognized as callable
+# open issue in PyLint: https://github.com/pytorch/pytorch/issues/119482
 
 
 @torch.library.custom_op("spyre::scaled_bmm", mutates_args=())
@@ -73,3 +78,144 @@ def _(
         dtype=out_dtype,
         device=mat1.device,
     )
+
+
+@torch.library.custom_op(
+    "spyre::scaled_paged_attn_store", mutates_args=(), device_types="cpu"
+)
+def scaled_paged_attn_store(
+    key: Tensor,
+    value: Tensor,
+    key_cache: Tensor,
+    value_cache: Tensor,
+    key_scale: Tensor,
+    value_scale: Tensor,
+    slot_mapping: Tensor,
+) -> tuple[Tensor, Tensor]:
+    """
+    FP8 CPU implementation of the Paged Attn store operation.
+    Scales key and value tensors, and stores them to the paged KV cache
+    using the same schema as vLLM.
+    """
+    result_key_cache = key_cache.clone()
+    result_value_cache = value_cache.clone()
+    for seq_i, slot_mapping_seq in enumerate(slot_mapping):
+        for tok_i, slot in enumerate(slot_mapping_seq):
+            block_number = slot.item() // 64
+            position = slot.item() % 64
+
+            result_key_cache[block_number, position, :, :] = (
+                key[seq_i, tok_i, :, :] / key_scale
+            ).to(dtype=torch.float8_e4m3fn)
+            result_value_cache[block_number, position, :, :] = (
+                value[seq_i, tok_i, :, :] / value_scale
+            ).to(dtype=torch.float8_e4m3fn)
+    return result_key_cache, result_value_cache
+
+
+@scaled_paged_attn_store.register_fake
+def scaled_paged_attn_store_meta(
+    key: Tensor,
+    value: Tensor,
+    key_cache: Tensor,
+    value_cache: Tensor,
+    key_scale: Tensor,
+    value_scale: Tensor,
+    slot_mapping: Tensor,
+) -> tuple[Tensor, Tensor]:
+    """
+    Fake tensor implementation of the FP8 Paged Attn store operation.
+    """
+    return key_cache, value_cache
+
+
+@torch.library.custom_op(
+    "spyre::scaled_paged_attn_compute", mutates_args={}, device_types="cpu"
+)
+def scaled_paged_attn_compute(
+    query: Tensor,
+    key_cache: Tensor,
+    value_cache: Tensor,
+    key_scale: Tensor,
+    value_scale: Tensor,
+    scale: float,
+    current_tkv_mask: Tensor,
+    left_padded_prompt_mask: Tensor,
+    block_table: Tensor,
+) -> Tensor:
+    """
+    FP8 CPU implementation of the Paged Attn compute operation.
+    Implements a CPU fallback to run the kernel that has been confirmed
+    to match the vLLM fused kernel.
+    """
+    # torch.zeros(NUM_BLOCKS, BLOCK_SIZE, kvheads, head_size, dtype=model_dtype),
+    output = torch.zeros_like(query)
+    num_query_heads = query.shape[2]
+    num_kv_heads = value_cache.shape[2]
+    head_size = value_cache.shape[3]
+    block_size = value_cache.shape[1]
+    num_seqs = query.shape[0]
+
+    block_tables_lst = block_table.cpu().tolist()
+
+    seq_lens_lst = current_tkv_mask.cpu().tolist()
+    for i in range(num_seqs):
+        q = query[i]
+        block_table = block_tables_lst[i]
+        start_pos = int(left_padded_prompt_mask[i].item())
+        seq_len = int(seq_lens_lst[i])
+
+        keys_lst: list[torch.Tensor] = []
+        values_lst: list[torch.Tensor] = []
+        for j in range(start_pos, seq_len):
+            block_number = int(block_table[j // block_size])
+            block_offset = j % block_size
+
+            k = key_cache[block_number, block_offset, :, :]
+            k = k.reshape(num_kv_heads, head_size)
+            keys_lst.append(k)
+
+            v = value_cache[block_number, block_offset, :, :]
+            values_lst.append(v)
+        keys = torch.stack(keys_lst, dim=0)
+        values = torch.stack(values_lst, dim=0)
+        if num_kv_heads > 1:
+            # Handle MQA and GQA
+            keys = torch.repeat_interleave(keys, num_query_heads // num_kv_heads, dim=1)
+            values = torch.repeat_interleave(
+                values, num_query_heads // num_kv_heads, dim=1
+            )
+
+        out = F.scaled_dot_product_attention(  # noqa: E1102
+            q.transpose(0, 1).unsqueeze(0),  # format for sdpa
+            (keys.transpose(0, 1).unsqueeze(0).to(dtype=q.dtype) * key_scale).to(
+                dtype=q.dtype
+            ),  # format for sdpa
+            (values.transpose(0, 1).unsqueeze(0).to(dtype=q.dtype) * value_scale).to(
+                dtype=q.dtype
+            ),  # format for sdpa
+            is_causal=False,  # decode assumes no causal mask
+            scale=scale,
+        )
+
+        out = out.view(num_query_heads, head_size)
+        output[i].copy_(out, non_blocking=True)
+    return output
+
+
+@scaled_paged_attn_compute.register_fake
+def scaled_paged_attn_compute_meta(
+    query: Tensor,
+    key_cache: Tensor,
+    value_cache: Tensor,
+    key_scale: Tensor,
+    value_scale: Tensor,
+    scale: float,
+    current_tkv_mask: Tensor,
+    left_padded_prompt_mask: Tensor,
+    block_table: Tensor,
+) -> Tensor:
+    """
+    Fake tensor implementation of the FP8 Paged Attn compute operation.
+    """
+    return torch.zeros_like(query)

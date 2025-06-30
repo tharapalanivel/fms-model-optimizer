@@ -14,7 +14,7 @@
 """FMS registration of attention BMM operation using torch-registered scaled BMM."""
 
 # Standard
-from typing import NotRequired, Unpack
+from typing import NotRequired, Optional, Unpack
 import math
 
 # Third Party
@@ -22,6 +22,10 @@ from fms.modules.attention import (
     AttentionKwargs,
     _sdpa_update_attn_kwargs,
     register_attention_op,
+)
+from fms.utils.spyre.paged import (
+    SpyrePagedAttentionKwargs,
+    __spyre_paged_validate_attn_kwargs_op,
 )
 import torch
 
@@ -46,7 +50,7 @@ V_RANGE = 100.0
 
 def _construct_fp8_cache(tensor: torch.Tensor, scale: torch.Tensor) -> ScaledTensor:
     """Construct the custom object to save KV cache with its scales."""
-    return ScaledTensor(tensor, scale)
+    return ScaledTensor(tensor, scale, True)
 
 
 def _math_fp8_store_op(
@@ -58,6 +62,7 @@ def _math_fp8_store_op(
 ) -> tuple[ScaledTensor, ScaledTensor, ScaledTensor, ScaledTensor]:
     """Implement math of KV cache storing."""
 
+    # Grab scale from kv-cache if already there, compute dynamically otherwise
     if isinstance(key_cache, ScaledTensor) and isinstance(value_cache, ScaledTensor):
         k_scale = key_cache._scale
         v_scale = value_cache._scale
@@ -65,6 +70,7 @@ def _math_fp8_store_op(
         k_scale = (torch.abs(keys).max() / K_RANGE).to(dtype=torch.float32)
         v_scale = (torch.abs(values).max() / V_RANGE).to(dtype=torch.float32)
 
+    # Scale kv tensors for storage
     keys = (keys / k_scale).to(torch.float8_e4m3fn).transpose(2, 1)
     values = (values / v_scale).to(torch.float8_e4m3fn).transpose(2, 1)
 
@@ -83,6 +89,7 @@ def _math_fp8_store_op(
             key_cache,
             value_cache,
         )
+    # If it's a new kv cache, ensure it's contiguous for spyre use cases
     keys = _construct_fp8_cache(keys.contiguous(), k_scale)
     values = _construct_fp8_cache(values.contiguous(), v_scale)
     return (keys, values, keys, values)
@@ -98,11 +105,12 @@ def _math_fp8_compute_op(
     scale_factor: float | None,
     **attn_kwargs: Unpack[MathFP8AttentionKwargs],
 ) -> torch.Tensor:
-    """Implement computation of attention BMM, leveraging the custom scaled attention
-    BMM op that was pre-registered for torch.compile."""
+    """Implement computation of scaled dot product attention, leveraging
+    the custom scaled BMM op that was pre-registered for torch.compile."""
 
     orig_dtype = query.dtype
 
+    # Scaling the Q tensor is optional
     q_scale = torch.tensor(1.0, dtype=torch.float32, device=query.device)
     if attn_kwargs.get("do_scale_q", False):
         q_scale.copy_(torch.abs(query).max() / Q_RANGE)
@@ -110,23 +118,27 @@ def _math_fp8_compute_op(
 
     query = query.to(torch.float8_e4m3fn).transpose(2, 1)
 
+    # Grab kv cache and deal with cases where no store op was run
     if isinstance(key_cache, ScaledTensor) and isinstance(value_cache, ScaledTensor):
+        # Store op was run
         k_scale = key_cache._scale
         v_scale = value_cache._scale
         key_cache = key_cache._data
         value_cache = value_cache._data
     else:
+        # Store op wasn't run (e.g. encoders, use_cache=False)
         k_scale = (torch.abs(key_cache).max() / K_RANGE).to(dtype=torch.float32)
         v_scale = (torch.abs(value_cache).max() / V_RANGE).to(dtype=torch.float32)
         key_cache = (key_cache / k_scale).to(torch.float8_e4m3fn)
         value_cache = (value_cache / v_scale).to(torch.float8_e4m3fn)
 
-    # no longer transposing prior to store, so need to check this in case of no cache
+    # If store wasn't run, we need to transpose the tensors here
     # TODO: Refactor FMS to avoid edge cases where this fails; add use_cache param here
     if key_cache.shape[1] != kvheads and key_cache.shape[2] == kvheads:
         key_cache = key_cache.transpose(2, 1)
         value_cache = value_cache.transpose(2, 1)
 
+    # Most of the code that follows is a copy of Pytorch SDPA, with fp8 additions
     mask = attn_kwargs.get("mask", None)
     if mask is not None:
         # Our expected mask format is bs x q_len x k_len, so to make it broadcastable
@@ -186,4 +198,87 @@ register_attention_op(
     _math_fp8_store_op,
     _math_fp8_compute_op,
     update_attn_kwargs_op=_sdpa_update_attn_kwargs,
+)
+
+
+def _spyre_scaled_paged_store_op(
+    keys: torch.Tensor,
+    values: torch.Tensor,
+    key_cache: Optional[torch.Tensor],
+    value_cache: Optional[torch.Tensor],
+    **attn_kwargs: Unpack[SpyrePagedAttentionKwargs],
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    # For paged store, we must have pre-allocated the kv-cache
+    assert key_cache is not None and isinstance(
+        key_cache, ScaledTensor
+    ), "kv cache must be preallocated"
+    assert value_cache is not None and isinstance(
+        value_cache, ScaledTensor
+    ), "kv cache must be preallocated"
+    if not key_cache._scaled:
+        key_cache._scale = (torch.abs(keys).max() / 200.0).to(dtype=torch.float32)
+        value_cache._scale = (torch.abs(values).max() / 100.0).to(dtype=torch.float32)
+
+    result_key_cache_data, result_value_cache_data = (
+        torch.ops.spyre.scaled_paged_attn_store(
+            keys,
+            values,
+            key_cache._data,
+            value_cache._data,
+            key_cache._scale,
+            value_cache._scale,
+            attn_kwargs["slot_mapping"],
+        )
+    )
+
+    result_key_cache = _construct_fp8_cache(result_key_cache_data, key_cache._scale)
+    result_value_cache = _construct_fp8_cache(
+        result_value_cache_data, value_cache._scale
+    )
+
+    # for prefill, we want to return the original keys/values
+    if attn_kwargs.get("block_table", None) is None:
+        return keys, values, result_key_cache, result_value_cache
+    return (
+        result_key_cache,
+        result_value_cache,
+        result_key_cache,
+        result_value_cache,
+    )
+
+
+def _spyre_scaled_paged_compute_op(
+    query: torch.Tensor,
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
+    nheads: int,
+    kvheads: int,
+    p_dropout: float,
+    scale_factor: Optional[float],
+    **attn_kwargs,
+) -> torch.Tensor:
+    assert isinstance(key_cache, ScaledTensor), "kv cache must be scaled"
+    assert isinstance(value_cache, ScaledTensor), "kv cache must be scaled"
+    if scale_factor is None:
+        scale_factor = 1 / math.sqrt(query.shape[-1])
+    return torch.ops.spyre.scaled_paged_attn_compute(
+        query,
+        key_cache._data,
+        value_cache._data,
+        key_cache._scale,
+        value_cache._scale,
+        scale_factor,
+        attn_kwargs["current_tkv_mask"],
+        attn_kwargs["left_padded_prompt_mask"],
+        attn_kwargs["block_table"],
+    )
+
+
+register_attention_op(
+    "spyre_paged_attn_fp8",
+    _spyre_scaled_paged_store_op,
+    compute_op=_math_fp8_compute_op,
+    is_prefill_op=lambda **attn_kwargs: attn_kwargs.get("block_table", None) is None,
+    compute_decode_op=_spyre_scaled_paged_compute_op,
+    validate_attn_kwargs_op=__spyre_paged_validate_attn_kwargs_op,
 )

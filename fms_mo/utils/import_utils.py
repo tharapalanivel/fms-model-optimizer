@@ -32,6 +32,7 @@ optional_packages = [
     "fms",
     "triton",
     "torchvision",
+    "torchao",
 ]
 
 available_packages = {}
