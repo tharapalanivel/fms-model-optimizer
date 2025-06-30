@@ -173,7 +173,7 @@ def _math_fp8_compute_op(
         )
 
     attn_weight = (
-        torch.ops.sendnn.scaled_bmm(
+        torch.ops.spyre.scaled_bmm(
             query,
             key_cache.transpose(-2, -1),
             q_scale,

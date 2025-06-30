@@ -72,7 +72,7 @@ class ScaledTensor(torch.Tensor):
         self._scaled = scaled
 
     def __tensor_flatten__(self):
-        ctx = {"scaled", self._scaled}
+        ctx = {"scaled": self._scaled}
         return ["_data", "_scale"], ctx
 
     @staticmethod

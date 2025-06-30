@@ -27,7 +27,7 @@ import torch.nn.functional as F
 
 
 @torch.library.custom_op("spyre::scaled_bmm", mutates_args=())
-def sendnn_scaled_bmm(
+def spyre_scaled_bmm(
     mat1: Tensor,
     mat2: Tensor,
     scale1: Tensor,
@@ -43,6 +43,8 @@ def sendnn_scaled_bmm(
     assert (
         mat1.shape[:-2] == mat2.shape[:-2]
     ), "batch dimensions must match for mat1 and mat2"
+    assert scale1.numel() == 1, "only per-tensor scales supported"
+    assert scale2.numel() == 1, "only per-tensor scales supported"
     mat1 = mat1.view(-1, *mat1.shape[-2:])
     mat2 = mat2.view(-1, *mat2.shape[-2:])
     out = torch.empty(
@@ -62,7 +64,7 @@ def sendnn_scaled_bmm(
     return out.view(*mat1.shape[:-2], mat1.shape[1], mat2.shape[2])
 
 
-@sendnn_scaled_bmm.register_fake
+@spyre_scaled_bmm.register_fake
 def _(
     mat1: Tensor,
     mat2: Tensor,
