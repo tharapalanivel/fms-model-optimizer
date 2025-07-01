@@ -31,7 +31,7 @@ import torch
 from fms_mo.prep import available_packages
 
 # pylint: disable=not-callable
-# torch.nn.functional.scaled_dot_product_attention not recognized as callable
+# torch.nn.functional.linear not recognized as callable
 # open issue in PyLint: https://github.com/pytorch/pytorch/issues/119482
 
 # Gated torchao imports for FP8 implementation

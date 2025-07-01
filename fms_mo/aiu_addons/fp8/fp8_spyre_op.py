@@ -99,6 +99,7 @@ def scaled_paged_attn_store(
     Scales key and value tensors, and stores them to the paged KV cache
     using the same schema as vLLM.
     """
+    print("Should never hit")
     result_key_cache = key_cache.clone()
     result_value_cache = value_cache.clone()
     for seq_i, slot_mapping_seq in enumerate(slot_mapping):
@@ -150,6 +151,7 @@ def scaled_paged_attn_compute(
     Implements a CPU fallback to run the kernel that has been confirmed
     to match the vLLM fused kernel.
     """
+    print("Should never hit")
     # torch.zeros(NUM_BLOCKS, BLOCK_SIZE, kvheads, head_size, dtype=model_dtype),
     output = torch.zeros_like(query)
     num_query_heads = query.shape[2]
