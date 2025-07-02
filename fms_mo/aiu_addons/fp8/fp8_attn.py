@@ -42,6 +42,7 @@ if available_packages["fms"]:
 
         mask: NotRequired[torch.Tensor]
         do_scale_q: bool
+        do_scaled_bmm: bool
         is_causal_mask: bool
 
     # TODO: Figure out better scales for AIU? These come from vLLM
@@ -110,14 +111,17 @@ if available_packages["fms"]:
         the custom scaled BMM op that was pre-registered for torch.compile."""
 
         orig_dtype = query.dtype
+        do_scaled_bmm = attn_kwargs.get("do_scaled_bmm", False)
 
-        # Scaling the Q tensor is optional
-        q_scale = torch.tensor(1.0, dtype=torch.float32, device=query.device)
-        if attn_kwargs.get("do_scale_q", False):
-            q_scale.copy_(torch.abs(query).max() / Q_RANGE)
-            query = query / q_scale
+        if do_scaled_bmm:
+            # Scaling the Q tensor is optional
+            q_scale = torch.tensor(1.0, dtype=torch.float32, device=query.device)
+            if attn_kwargs.get("do_scale_q", False):
+                q_scale.copy_(torch.abs(query).max() / Q_RANGE)
+                query = query / q_scale
 
-        query = query.to(torch.float8_e4m3fn).transpose(2, 1)
+            query = query.to(torch.float8_e4m3fn)
+        query = query.transpose(2, 1)
 
         # Grab kv cache and deal with cases where no store op was run
         if isinstance(key_cache, ScaledTensor) and isinstance(
@@ -175,17 +179,22 @@ if available_packages["fms"]:
                 query.size(-3) // value_cache.size(-3), -3
             )
 
-        attn_weight = (
-            torch.ops.spyre.scaled_bmm(
-                query,
-                key_cache.transpose(-2, -1),
-                q_scale,
-                k_scale,
-                out_dtype=orig_dtype,
-                use_fast_accum=True,
+        if do_scaled_bmm:
+            attn_weight = (
+                torch.ops.spyre.scaled_bmm(
+                    query,
+                    key_cache.transpose(-2, -1),
+                    q_scale,
+                    k_scale,
+                    out_dtype=orig_dtype,
+                    use_fast_accum=True,
+                )
+                * scale_factor
             )
-            * scale_factor
-        )
+        else:
+            key_t = (key_cache.to(dtype=orig_dtype) * k_scale).transpose(-2, -1)
+            attn_weight = query @ key_t
+            attn_weight *= scale_factor
         attn_weight += attn_bias
         attn_weight = torch.softmax(attn_weight, dim=-1)
         attn_weight = torch.dropout(attn_weight, p_dropout, train=True)
