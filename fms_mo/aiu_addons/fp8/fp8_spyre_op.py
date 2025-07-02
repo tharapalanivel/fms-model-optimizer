@@ -13,6 +13,9 @@
 # limitations under the License.
 """Torch registration of FP8xFP8 operation for attention BMMs."""
 
+# Standard
+from typing import Optional
+
 # Third Party
 from torch import Tensor
 import torch
@@ -24,6 +27,31 @@ import torch.nn.functional as F
 # pylint: disable=not-callable
 # torch.nn.functional.scaled_dot_product_attention not recognized as callable
 # open issue in PyLint: https://github.com/pytorch/pytorch/issues/119482
+
+
+aten = torch.ops.aten
+DispatchKey = torch._C.DispatchKey  # type: ignore[attr-defined]
+
+
+@torch.library.register_kernel("aten::_scaled_mm", "cpu")
+def _scaled_mm_cpu(
+    mat1: Tensor,
+    mat2: Tensor,
+    scale1: Tensor,
+    scale2: Tensor,
+    bias: Optional[Tensor] = None,
+    scale_result: Optional[Tensor] = None,
+    out_dtype: Optional[torch.dtype] = None,
+    use_fast_accum: bool = False,
+) -> Tensor:
+    if out_dtype is None:
+        out_dtype = torch.float32
+    mat1 = (mat1.to(dtype=out_dtype) * scale1).to(dtype=out_dtype)
+    mat2 = (mat2.to(dtype=out_dtype) * scale2).to(dtype=out_dtype)
+
+    if bias is not None:
+        return torch.addmm(bias, mat1, mat2).to(dtype=out_dtype)
+    return torch.mm(mat1, mat2).to(dtype=out_dtype)
 
 
 @torch.library.custom_op("spyre::scaled_bmm", mutates_args=())
