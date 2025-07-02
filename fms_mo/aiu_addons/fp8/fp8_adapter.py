@@ -17,54 +17,57 @@
 from typing import Any, Mapping
 import functools
 
-# Third Party
-from fms.modules.linear import get_linear_type
-from fms.utils import serialization
-from fms.utils.config import ModelConfig
+# Local
+from fms_mo.prep import available_packages
 
-# pylint: disable=unused-argument
-# Retaining kwargs input arguments for consistency with other adapter steps.
+if available_packages["fms"]:
+    # Third Party
+    from fms.modules.linear import get_linear_type
+    from fms.utils import serialization
+    from fms.utils.config import ModelConfig
 
+    # pylint: disable=unused-argument
+    # Retaining kwargs input arguments for consistency with other adapter steps.
+    # TODO: may be shared with gptq llama
+    def _hf_fp8_check(
+        input_sd: Mapping[str, Any],
+        model_config: ModelConfig | None = None,
+        checkpoint_is_fused: bool = False,
+        **kwargs,
+    ) -> Mapping[str, Any]:
+        """Implementation of adapter step for FMS: ensure that when FP8 quantization
+        is in use, weights are fused like the model checkpoint.
+        """
 
-# TODO: may be shared with gptq llama
-def _hf_fp8_check(
-    input_sd: Mapping[str, Any],
-    model_config: ModelConfig | None = None,
-    checkpoint_is_fused: bool = False,
-    **kwargs,
-) -> Mapping[str, Any]:
-    """Implementation of adapter step for FMS: ensure that when FP8 quantization
-    is in use, weights are fused like the model checkpoint.
-    """
+        has_fused_weights = True
+        linear_type = "torch_linear"
+        if model_config:
+            if not model_config.fused_weights:
+                has_fused_weights = False
+            if model_config.linear_config:
+                linear_type = model_config.linear_config["linear_type"]
+                if callable(linear_type):
+                    # Calling this function with "any" guarantees "fp8" to be returned
+                    # when loading an HF fp8 checkpoint, and never in any other condition
+                    linear_type = get_linear_type(model_config.linear_config, "any")
 
-    has_fused_weights = True
-    linear_type = "torch_linear"
-    if model_config:
-        if not model_config.fused_weights:
-            has_fused_weights = False
-        if model_config.linear_config:
-            linear_type = model_config.linear_config["linear_type"]
-            if callable(linear_type):
-                # Calling this function with "any" guarantees "fp8" to be returned
-                # when loading an HF fp8 checkpoint, and never in any other condition
-                linear_type = get_linear_type(model_config.linear_config, "any")
+        if "fp8" in linear_type and has_fused_weights != checkpoint_is_fused:
+            raise ValueError(
+                "FP8 HF llama checkpoints cannot be loaded into a model with fused weights"
+            )
 
-    if "fp8" in linear_type and has_fused_weights != checkpoint_is_fused:
-        raise ValueError(
-            "FP8 HF llama checkpoints cannot be loaded into a model with fused weights"
-        )
+        return input_sd
 
-    return input_sd
+    serialization.register_adapter_step(
+        "llama",
+        "hf_fp8_check",
+        functools.partial(_hf_fp8_check, checkpoint_is_fused=False),
+    )
+    serialization.extend_adapter("llama", "hf", ["hf_fp8_check"])
 
-
-serialization.register_adapter_step(
-    "llama", "hf_fp8_check", functools.partial(_hf_fp8_check, checkpoint_is_fused=False)
-)
-serialization.extend_adapter("llama", "hf", ["hf_fp8_check"])
-
-serialization.register_adapter_step(
-    "granite",
-    "hf_fp8_check",
-    functools.partial(_hf_fp8_check, checkpoint_is_fused=False),
-)
-serialization.extend_adapter("granite", "hf", ["hf_fp8_check"])
+    serialization.register_adapter_step(
+        "granite",
+        "hf_fp8_check",
+        functools.partial(_hf_fp8_check, checkpoint_is_fused=False),
+    )
+    serialization.extend_adapter("granite", "hf", ["hf_fp8_check"])

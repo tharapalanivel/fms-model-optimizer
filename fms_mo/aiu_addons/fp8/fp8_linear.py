@@ -17,14 +17,6 @@
 from typing import Any, Mapping
 
 # Third Party
-from fms.modules.linear import (
-    LinearModuleShardingInfo,
-    LinearParameterShardingInfo,
-    register_linear_type_to_module_map,
-    register_linear_type_to_sharding_map,
-    shard_base_linear,
-)
-from fms.modules.tp import ShardType, TPModule
 import torch
 
 # Local
@@ -35,8 +27,16 @@ from fms_mo.prep import available_packages
 # open issue in PyLint: https://github.com/pytorch/pytorch/issues/119482
 
 # Gated torchao imports for FP8 implementation
-if available_packages["torchao"]:
+if available_packages["fms"] and available_packages["torchao"]:
     # Third Party
+    from fms.modules.linear import (
+        LinearModuleShardingInfo,
+        LinearParameterShardingInfo,
+        register_linear_type_to_module_map,
+        register_linear_type_to_sharding_map,
+        shard_base_linear,
+    )
+    from fms.modules.tp import ShardType, TPModule
     from torchao.dtypes.affine_quantized_tensor import (
         AffineQuantizedTensor,
         to_affine_quantized_floatx,
