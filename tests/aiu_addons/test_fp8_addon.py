@@ -18,6 +18,7 @@ import pytest
 import torch
 
 # Local
+from fms_mo.prep import available_packages
 import fms_mo.aiu_addons.fp8.fp8_spyre_op  # pylint: disable=unused-import
 
 
@@ -33,6 +34,10 @@ def test_fp8_registration() -> None:
 
 
 # This test requires an H100 or higher GPU to run
+@pytest.mark.skipif(
+    not available_packages["torchao"] or not available_packages["fms"],
+    reason="FMS and torchao required to run this test",
+)
 @pytest.mark.skipif(
     not torch.cuda.is_available()
     or (torch.cuda.is_available() and torch.cuda.get_device_capability() < (8, 9)),
