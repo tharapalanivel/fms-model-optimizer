@@ -198,8 +198,9 @@ def run_fp8(model_args, data_args, opt_args, fp8_args):
     """
 
     # Third Party
+    from llmcompressor import oneshot
     from llmcompressor.modifiers.quantization import QuantizationModifier
-    from llmcompressor.transformers import SparseAutoModelForCausalLM, oneshot
+    from llmcompressor.transformers import SparseAutoModelForCausalLM
 
     logger = set_log_level(opt_args.log_level, "fms_mo.run_fp8")
 
