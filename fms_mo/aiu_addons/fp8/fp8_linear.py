@@ -244,7 +244,21 @@ if available_packages["fms"] and available_packages["torchao"]:
             return (
                 f"{self.__class__.__name__}"
                 f"(in={self.in_features}, out={self.out_features}, "
-                f"bias={self.has_bias}, fp8_config={self.linear_config})"
+                f"bias={self.has_bias}, fp8_config={self._repr_fp8_config()})"
+            )
+
+        def _repr_fp8_config(self) -> str:
+            return (
+                "("
+                "acts: ("
+                f"dynamic: {self.linear_config['input_activations']['dynamic']}, "
+                f"strategy: {self.linear_config['input_activations']['strategy']}"
+                "), "
+                "weights: ("
+                f"dynamic: {self.linear_config['weights']['dynamic']}, "
+                f"strategy: {self.linear_config['weights']['strategy']}"
+                ")"
+                ")"
             )
 
     def get_fp8_linear(
@@ -266,14 +280,14 @@ if available_packages["fms"] and available_packages["torchao"]:
         sharding  | param          | shard | dim |
         ----------+----------------+-------+-----|
         colwise   | weight         |   Y   |  0  |
-                | weight_scale   |   N   |  -  |
-                | input_scale    |   N   |  -  |
-                | bias           |   Y   |  0  |
+                  | weight_scale   |   N   |  -  |
+                  | input_scale    |   N   |  -  |
+                  | bias           |   Y   |  0  |
         ----------+----------------+-------+-----|
         rowwise   | weight         |   Y   |  1  |
-                | weight_scale   |  Y/N  | 0/- |
-                | input_scale    |  Y/N  | 0/- |
-                | bias           |   0   |  -  |
+                  | weight_scale   |  Y/N  | 0/- |
+                  | input_scale    |  Y/N  | 0/- |
+                  | bias           |   0   |  -  |
         """
 
         param_sharding_info: dict[str, dict[str, LinearParameterShardingInfo]] = {}
