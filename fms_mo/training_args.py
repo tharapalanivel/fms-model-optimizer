@@ -181,8 +181,15 @@ class FMSMOArguments(TypeChecker):
         default=2048, metadata={"help": "input sequence length after tokenization"}
     )
     eval_ppl: bool = field(default=False)
-    aiu_sim_triton: bool = field(
-        default=False, metadata={"help": ("AIU simulation with triton kernel")}
+    aiu_sim_triton: str = field(
+        default=None,
+        metadata={
+            "help": (
+                "AIU simulation with triton kernel. ['int8', 'fp8', None]\n"
+                "'int8' mode will trigger qmodel_prep() and swap QLinears"
+                "'fp8' mode will directly replace existing nn.Linears"
+            )
+        },
     )
     recompute_narrow_weights: bool = field(
         default=False,

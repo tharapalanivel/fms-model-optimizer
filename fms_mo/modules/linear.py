@@ -1934,8 +1934,12 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
             ctx.fp8_e4m3_max = torch.finfo(torch.float8_e4m3fn).max
             ctx.fp8_e5m2_max = torch.finfo(torch.float8_e5m2).max
             reduce_dim = None if fp8_dyn == "per_tensor" else 1
-            x_scale = x.abs().amax(dim=reduce_dim) / ctx.fp8_e4m3_max
-            w_scale = weight.abs().amax(dim=reduce_dim) / ctx.fp8_e4m3_max
+            x_scale = (
+                x.abs().amax(dim=reduce_dim, keepdim=True) / ctx.fp8_e4m3_max
+            ).clamp(min=1e-5)
+            w_scale = (
+                weight.abs().amax(dim=reduce_dim, keepdim=True) / ctx.fp8_e4m3_max
+            ).clamp(min=1e-5)
 
             x = (x / x_scale).to(torch.float8_e4m3fn).to(org_dtype) * x_scale
             weight = (weight / w_scale).to(torch.float8_e4m3fn).to(org_dtype) * w_scale

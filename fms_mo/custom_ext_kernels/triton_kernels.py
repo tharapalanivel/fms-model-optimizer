@@ -164,7 +164,7 @@ def matmul_kernel(
     # NOTE mask will be applied on accumulator, which is alway FP32, so we may truncate up to 23b
     # e.g., 20b -> trun_mask = 0xFFF00000, round_bit = 0x00080000
     #        8b -> trun_mask = 0xFFFFFF00, round_bit = 0x00000080
-    trun_mask = tl.cast((0xFFFFFFFF >> chunk_trun_bits) << chunk_trun_bits, tl.uint32)
+    trun_mask = ~tl.cast((1 << chunk_trun_bits) - 1, tl.uint32)
     round_bit = 1 << (chunk_trun_bits - 1) if chunk_trun_bits > 0 else 0
     ## ---------------------------------------------------------
 
@@ -386,7 +386,7 @@ def matmul_kernel_DABC(
     # NOTE mask will be applied on accumulator, which is alway FP32, so we may truncate up to 23b
     # e.g., 20b -> trun_mask = 0xFFF00000, round_bit = 0x00080000
     #        8b -> trun_mask = 0xFFFFFF00, round_bit = 0x00000080
-    trun_mask = tl.cast((0xFFFFFFFF >> chunk_trun_bits) << chunk_trun_bits, tl.uint32)
+    trun_mask = ~tl.cast((1 << chunk_trun_bits) - 1, tl.uint32)
     round_bit = 1 << (chunk_trun_bits - 1) if chunk_trun_bits > 0 else 0
     ## ---------------------------------------------------------
 
@@ -448,10 +448,11 @@ def round_and_trun(x, round_bit, trun_mask):
 @triton.jit
 def fp32_clamp_to_dl16(x):
     """clamp FP32 (1-8-23) TENSOR x to DL16 (1-6-9) range."""
-    # 1. rounding: add round bit to full uint representation, zero out last 13 bits, back to float
+    # 1. rounding: add round bit, zero out last 13 bits, back to float
     x = libdevice.float_as_uint(x)
     round_bit = 1 << (23 - 9 - 1)
-    x = libdevice.uint_as_float(((x + round_bit) >> 13) << 13)
+    mask_13x0 = ~tl.cast((1 << 13) - 1, tl.uint32)
+    x = libdevice.uint_as_float((x + round_bit) & mask_13x0)
 
     # 2. clamp to min/max:
     #   max = 2^32 * 1.(1111 1111 0)_base2 => 2^32*1.(1111 1111 1) will become inf

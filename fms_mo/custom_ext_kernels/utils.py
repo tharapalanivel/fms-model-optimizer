@@ -918,6 +918,12 @@ def lower_qmodel_triton(
 
     if layer_to_exclude is None:
         layer_to_exclude = []
+    elif isinstance(layer_to_exclude, str):
+        layer_to_exclude = [
+            layer_to_exclude,
+        ]
+    elif not isinstance(layer_to_exclude, (list, tuple)):
+        raise RuntimeError("layer_to_exclude has to be either str, list, or tuple.")
 
     for name, m in model.named_modules():
         if not isinstance(m, (QLinear, torch.nn.Linear)) or name in layer_to_exclude:
