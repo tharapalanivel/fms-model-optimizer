@@ -517,8 +517,8 @@ def exllama_ops_load_and_reg(qcfg=None, run_unit_test=False):
         need_registration = False
     else:
         need_registration = (
-            available_packages["exllama_kernels"]
-            and available_packages["exllamav2_kernels"]
+            available_packages["gptqmodel_exllama_kernels"]
+            and available_packages["gptqmodel_exllamav2_kernels"]
         )
 
         if not need_registration:

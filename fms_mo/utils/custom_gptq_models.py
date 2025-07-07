@@ -14,41 +14,42 @@
 
 """Allow users to add new GPTQ classes for their custom models easily."""
 
-# Third Party
-from gptqmodel.models.base import BaseGPTQModel
+# Local
+from fms_mo.utils.import_utils import available_packages
 
+if available_packages["gptqmodel"]:
+    # Third Party
+    from gptqmodel.models.base import BaseGPTQModel
 
-class GraniteGPTQForCausalLM(BaseGPTQModel):
-    """Enable Granite for GPTQ."""
+    class GraniteGPTQForCausalLM(BaseGPTQModel):
+        """Enable Granite for GPTQ."""
 
-    layer_type = "GraniteDecoderLayer"
-    layers_node = "model.layers"
-    base_modules = ["model.embed_tokens", "model.norm"]
-    layer_modules = [
-        ["self_attn.k_proj", "self_attn.v_proj", "self_attn.q_proj"],
-        ["self_attn.o_proj"],
-        ["mlp.up_proj", "mlp.gate_proj"],
-        ["mlp.down_proj"],
-    ]
+        layer_type = "GraniteDecoderLayer"
+        layers_node = "model.layers"
+        base_modules = ["model.embed_tokens", "model.norm"]
+        layer_modules = [
+            ["self_attn.k_proj", "self_attn.v_proj", "self_attn.q_proj"],
+            ["self_attn.o_proj"],
+            ["mlp.up_proj", "mlp.gate_proj"],
+            ["mlp.down_proj"],
+        ]
 
+    class GraniteMoeGPTQForCausalLM(BaseGPTQModel):
+        """Enable Granite MOE for GPTQ."""
 
-class GraniteMoeGPTQForCausalLM(BaseGPTQModel):
-    """Enable Granite MOE for GPTQ."""
+        layer_type = "GraniteMoeDecoderLayer"
+        layers_node = "model.layers"
+        base_modules = ["model.embed_tokens", "model.norm"]
+        layer_modules = [
+            ["self_attn.k_proj", "self_attn.v_proj", "self_attn.q_proj"],
+            ["self_attn.o_proj"],
+            ["block_sparse_moe.input_linear", "block_sparse_moe.output_linear"],
+        ]
 
-    layer_type = "GraniteMoeDecoderLayer"
-    layers_node = "model.layers"
-    base_modules = ["model.embed_tokens", "model.norm"]
-    layer_modules = [
-        ["self_attn.k_proj", "self_attn.v_proj", "self_attn.q_proj"],
-        ["self_attn.o_proj"],
-        ["block_sparse_moe.input_linear", "block_sparse_moe.output_linear"],
-    ]
-
-
-# NOTE: Keys in this table are huggingface config."model_type" (see the corresponding field in
-#       config.json). Make sure you cover the ones in the model family you want to use, as they may
-#       not be under the same model_type. See Granite as an example.
-custom_gptq_classes = {
-    # "granite": GraniteGPTQForCausalLM,
-    "granitemoe": GraniteMoeGPTQForCausalLM,
-}
+    # NOTE: Keys in this table are huggingface config."model_type" (see the corresponding field in
+    #       config.json). Make sure you cover the ones in the model family you want to use,
+    #       as they may not be under the same model_type. See Granite as an example.
+    custom_gptq_classes = {
+        # "granite": GraniteGPTQForCausalLM,
+        "granitemoe": GraniteMoeGPTQForCausalLM,
+    }

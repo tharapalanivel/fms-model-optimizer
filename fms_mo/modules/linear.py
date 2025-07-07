@@ -1583,7 +1583,13 @@ class QLinearCutlassI8I32NT(QLinearCublasI8I32NT):
         return x.to(in_dtype)
 
 
-try:
+gptq_available = (
+    available_packages["gptqmodel"]
+    and available_packages["gptqmodel_exllama_kernels"]
+    and available_packages["gptqmodel_exllamav2_kernels"]
+)
+
+if gptq_available:
     # Third Party
     from gptqmodel.nn_modules.qlinear.exllama import (
         ExllamaQuantLinear as QLinearExllamaV1,
@@ -1881,12 +1887,6 @@ try:
                 if self.bias is not None:
                     x.add_(self.bias)
                 return x
-
-except ModuleNotFoundError:
-    logger.warning(
-        "GPTQModel is not properly installed. "
-        "QLinearExv1WI4AF16 and QLinearExv2WI4AF16 wrappers will not be available."
-    )
 
 
 class LinearFuncFPxFwdBwd(torch.autograd.Function):
@@ -2383,6 +2383,14 @@ QLinear_modules = (
 )
 if available_packages["mx"]:
     QLinear_modules += (QLinearMX,)
+
+if gptq_available:
+    QLinear_modules += (
+        QLinearExllamaV1,
+        QLinearExllamaV2,
+        QLinearExv1WI4AF16,
+        QLinearExv2WI4AF16,
+    )
 
 
 def isinstance_qlinear(module):
