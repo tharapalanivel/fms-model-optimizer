@@ -42,6 +42,7 @@ import torch.nn.functional as F
 # Local
 from fms_mo.modules import QBmm, QLinear
 from fms_mo.modules.conv import QConv2dPTQv2
+from fms_mo.modules.linear import LinearFPxAcc, QLinearINT8Deploy
 from fms_mo.quant.quantizers import (
     AdaRoundQuantizer,
     Qdynamic,
@@ -481,8 +482,118 @@ class PTQHookRecInOutLMv2(nn.Module):
         assert not self.stop_after_rec
 
 
-# this hook is meant for ptq_loss_func == 'fisher_diag' and to temp hold the "Q_out" of the module
+class HookRecPostQuantInOut(torch.nn.Module):
+    """Another simplified hook to check post-quantized input/output, e.g. within +-127 for INT8."""
+
+    def __init__(self, cache_dict={}, mod_name=None):
+        super().__init__()
+        self.cache_dict = cache_dict
+        self.mod_name = mod_name
+        name_split = mod_name.split(".")
+        self.lay_idx = int(name_split[3])
+        self.lay_key = name_split[6]
+
+        self.cache_dev = "cpu"
+        # prepare empty dict for later use
+        self.cache_dict[mod_name] = {}
+        self.fwd_mapping = {
+            LinearFPxAcc: self.call_func_for_fpxacc,
+            QLinear: self.call_func_for_qlinear,
+            QLinearINT8Deploy: self.call_func_for_qlinear_int,
+            torch.nn.Linear: self.call_func_for_nnlinear,
+        }
+
+    def call_func_for_fpxacc(self, mod, inputs, outputs, **_kwargs):
+        raise NotImplementedError
+
+    def call_func_for_qlinear(self, mod, inputs, outputs, **_kwargs):
+        lay_idx = self.lay_idx
+        lay_key = self.lay_key
+        mod_name = self.mod_name
+        cache_dict = self.cache_dict
+
+        act_max = inputs[0].abs().amax(dim=[d for d in range(len(inputs[0].shape) - 1)])
+        # mod.smoothq_act_scale
+        w_max = mod.weight.abs().max(dim=0, keepdim=True)[0].clamp(min=1e-5)
+        is_smq_layer = not torch.all(act_max == 0).item()
+        # smoothQ scale = smoothq_act_scale**alpha / weight_scale**(1.0 - alpha)
+        # smoothq_scale = mod.get_smoothq_scale(inputs[0])
+        smoothq_scale = getattr(mod, "smq_scale", 1.0)
+        # "smq_scale" only available in QLin_INT8
+
+        with torch.no_grad():
+            smoothed_inp = inputs[0] / smoothq_scale
+            smoothed_w = mod.weight * smoothq_scale
+
+            # this is assuming pertokenmax quantizer, NOTE calc quant scale after smoothing
+            absmax = smoothed_inp.abs().max(dim=-1, keepdim=True)[0]
+            qa_scale = absmax.clamp(min=1e-5) / 127
+            qinput = torch.round(smoothed_inp / qa_scale).clamp(-127, 127)
+            # should clamp to -128?
+            if mod.qa_mode == "pertokenmax":
+                # doesnt implement dequant=False yet, do it manually
+                cva = mod.quantize_feature.clip_val
+                qa_scale = cva.clamp(min=1e-5).div(127)
+                qinput = smoothed_inp.div(qa_scale).round()
+            else:
+                mod.quantize_feature.dequantize = False
+                qinput = mod.quantize_feature(smoothed_inp)
+                mod.quantize_feature.dequantize = True
+
+            # also record quantized, smoothed W in INT8, calc both maxperCh and SAWBperCh
+            cvw = mod.quantize_weight.clip_val
+            scale_w = cvw / 127
+            mod.quantize_weight.dequantize = False
+            qw = mod.quantize_weight(smoothed_w)
+            mod.quantize_weight.dequantize = True
+
+            # inputs is a tuple, QLinear only has 1 valid input
+            cache_dict[mod_name]["input"] = inputs[0].to(self.cache_dev)
+            cache_dict[mod_name]["cva"] = cva.to(self.cache_dev)
+            cache_dict[mod_name]["cvw"] = cvw.to(self.cache_dev)
+            cache_dict[mod_name]["smoothed_input"] = smoothed_inp.to(self.cache_dev)
+            cache_dict[mod_name]["smoothed_weight"] = smoothed_w.to(self.cache_dev)
+            cache_dict[mod_name]["qinput"] = qinput.to(self.cache_dev)
+            # NOTE in INT8, *scales if need dQ
+            cache_dict[mod_name]["qweight"] = qw.to(self.cache_dev)
+            # torch.round(smoothed_w.T/scale_w).clamp(-127, 127).to(self.cache_dev)
+            # cache_dict[mod_name]["qoutput"] = outputs.to(self.cache_dev)
+
+    def call_func_for_qlinear_int(self, mod, inputs, outputs, **_kwargs):
+        smoothq_scale = getattr(mod, "smq_scale", 1.0)
+        mod_name = self.mod_name
+        cache_dict = self.cache_dict
+        with torch.no_grad():
+            if mod.useDynMaxQfunc in [-1, -2]:
+                qinput = mod.qa_dynamic_max_qfunc(inputs[0])
+            elif mod.use_fake_zero_shift:
+                qinput = mod.qa_dyn_max_fake_zero_shift(inputs[0])
+            elif mod.usePTnativeQfunc:
+                qinput = mod.qa_raw_qfunc(inputs[0])
+            else:
+                qinput = mod.qa_fmo_mo_qfunc(inputs[0])
+
+            # inputs is a tuple, QLinear only has 1 valid input
+            cache_dict[mod_name]["input"] = inputs[0].to(self.cache_dev)
+            cache_dict[mod_name]["cva"] = mod.cvs[0].to(self.cache_dev)
+            cache_dict[mod_name]["cvw"] = mod.cvs[2].to(self.cache_dev)
+            cache_dict[mod_name]["qinput"] = qinput.to(self.cache_dev)
+            cache_dict[mod_name]["qweight"] = mod.weight.to(self.cache_dev)
+
+    def call_func_for_nnlinear(self, mod, inputs, outputs, **_kwargs):
+        mod_name = self.mod_name
+        cache_dict = self.cache_dict
+        cache_dict[mod_name]["input"] = inputs[0].to(self.cache_dev)
+        cache_dict[mod_name]["weight"] = mod.weight.to(self.cache_dev)
+
+    def __call__(self, mod, inputs, outputs, **_kwargs):
+        self.fwd_mapping[type(mod)](mod, inputs, outputs, **_kwargs)
+
+
 class PTQHookRecQOut(nn.Module):
+    """This hook is for ptq_loss_func == 'fisher_diag' and will temporarily hold the "Q_out" of the
+    module"""
+
     def __init__(self, qcfg):
         super().__init__()
         self.qcfg = qcfg
