@@ -1180,14 +1180,20 @@ def model_analyzer(
     if is_transformers:
         # NOTE simplified method to determine 1st/last modules for transformers.
         # will not work if model has multiple parallel heads at the end, e.g. obj det
-        def call_seq_hook(mod, *_args, **_kwargs):
-            qcfg["mod_call_seq"].append(lut_weight2modname[mod.weight])
+        def call_seq_hook(mod, *_args, **kwargs):
+            mod_name = kwargs.get("mod_name", lut_weight2modname.get(mod.weight, None))
+            if mod_name is None:
+                raise RuntimeError("cannot determine module name, plz check model.")
+
+            qcfg["mod_call_seq"].append(mod_name)
 
         h_hooks = []
         qcfg["mod_call_seq"] = []
         for n, m in model.named_modules():
             if isinstance(m, (torch.nn.Linear, torch.nn.Conv2d)):
-                h_hooks.append(m.register_forward_hook(call_seq_hook))
+                h_hooks.append(
+                    m.register_forward_hook(partial(call_seq_hook, mod_name=n))
+                )
 
         with torch.no_grad():
             run_fwd_once(model, sample_inp)

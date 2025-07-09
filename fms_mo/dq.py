@@ -268,35 +268,9 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
             max_acc_bits=qcfg.get("max_acc_bits", 32),
             num_lsb_to_truncate=qcfg.get("lsb_trun_bits", 0),
             chunk_size=qcfg.get("chunk_size", 32),  # 1024
-            clamp_acc_to_dl16=False,  # fms_mo_args.aiu_sim_triton == "fp8"
+            clamp_acc_to_dl16=fms_mo_args.aiu_sim_triton == "fp8",
             # layer_to_exclude=["lm_head",]
         )
-    # [CL] -------- record W, A, qW, qA with hooks ----------------
-    # from fms_mo.modules.linear import QLinear, QLinearINT8Deploy
-    # from fms_mo.quant.ptq import HookRecPostQuantInOut
-    #     cache_dict = {}
-    #     hook_handles = []
-    #     for n, m in model.named_modules():
-    #         if not isinstance(m, (QLinear, QLinearINT8Deploy, torch.nn.Linear)):
-    #             continue
-
-    #         m.mod_name = n
-    #         hook_handles.append(
-    #             m.register_forward_hook( HookRecPostQuantInOut(cache_dict, n))
-    #         )
-
-    #     data_mb = next(iter(eval_dataloader))
-    #     with torch.no_grad():
-    #         model(**data_mb)
-
-    #     for h in hook_handles:
-    #         h.remove()
-
-    #     torch.save(
-    #         cache_dict,
-    #         f"roberta_sqv2_data_dump_{qcfg['qa_mode']}_{qcfg['qw_mode']}_chunk64_lsb{args.aiu_int_lsb_trun}_dq.pt"
-    #     )
-    #     return
 
     if fms_mo_args.eval_ppl:
         path_test = Path(data_args.test_data_path)
