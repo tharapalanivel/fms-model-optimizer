@@ -160,13 +160,8 @@ def matmul_kernel(
     # We accumulate into a `[BLOCK_SIZE_M, BLOCK_SIZE_N]` block
     # of fp32 values for higher accuracy.
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
-    ## ------ prepare LSB rounding/truncation masks -------
-    # NOTE mask will be applied on accumulator, which is alway FP32, so we may truncate up to 23b
-    # e.g., 20b -> trun_mask = 0xFFF00000, round_bit = 0x00080000
-    #        8b -> trun_mask = 0xFFFFFF00, round_bit = 0x00000080
-    trun_mask = ~tl.cast((1 << chunk_trun_bits) - 1, tl.uint32)
-    round_bit = 1 << (chunk_trun_bits - 1) if chunk_trun_bits > 0 else 0
-    ## ---------------------------------------------------------
+    ## ------ prepare LSB rounding/truncation masks outside the for loop -------
+    round_bit, trun_mask = round_and_trun_mask(chunk_trun_bits, clamp_acc_to_dl16)
 
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
         # Load the next block of A and B, generate a mask by checking the K dimension.
@@ -181,10 +176,10 @@ def matmul_kernel(
         # tl.dot() default is using TF32 approximation, not good enough for LSB truncation exp
 
         ## ------ add chunky LSB rounding/masking --------
-        if chunk_trun_bits > 0:
-            accumulator_inner = round_and_trun(accumulator_inner, round_bit, trun_mask)
-        if clamp_acc_to_dl16:
-            accumulator_inner = fp32_clamp_to_dl16(accumulator_inner)
+        if clamp_acc_to_dl16 or chunk_trun_bits > 0:
+            accumulator_inner = round_and_trun(
+                accumulator_inner, round_bit, trun_mask, clamp_acc_to_dl16
+            )
         ## ---------------------------------------------------------
         if truncate_then_accumulate:
             accumulator += accumulator_inner
@@ -382,13 +377,8 @@ def matmul_kernel_DABC(
     # We accumulate into a `[BLOCK_SIZE_M, BLOCK_SIZE_N]` block
     # of fp32 values for higher accuracy, i.e. C should have been cast to fp32 already
     accumulator = tl.load(c_ptrs, mask=c_mask, other=0.0)
-    ## ------ prepare LSB rounding/truncation masks -------
-    # NOTE mask will be applied on accumulator, which is alway FP32, so we may truncate up to 23b
-    # e.g., 20b -> trun_mask = 0xFFF00000, round_bit = 0x00080000
-    #        8b -> trun_mask = 0xFFFFFF00, round_bit = 0x00000080
-    trun_mask = ~tl.cast((1 << chunk_trun_bits) - 1, tl.uint32)
-    round_bit = 1 << (chunk_trun_bits - 1) if chunk_trun_bits > 0 else 0
-    ## ---------------------------------------------------------
+    ## ------ prepare LSB rounding/truncation masks outside the for loop -------
+    round_bit, trun_mask = round_and_trun_mask(chunk_trun_bits, clamp_acc_to_dl16)
 
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
         # Load the next block of A, B, and C, generate a mask by checking the K dimension.
@@ -408,10 +398,10 @@ def matmul_kernel_DABC(
         #       precision as well, hence, could lose some precision!
 
         ## ------ add chunky LSB rounding/masking --------
-        if chunk_trun_bits > 0:
-            accumulator_inner = round_and_trun(accumulator_inner, round_bit, trun_mask)
-        if clamp_acc_to_dl16:
-            accumulator_inner = fp32_clamp_to_dl16(accumulator_inner)
+        if clamp_acc_to_dl16 or chunk_trun_bits > 0:
+            accumulator_inner = round_and_trun(
+                accumulator_inner, round_bit, trun_mask, clamp_acc_to_dl16
+            )
         ## ---------------------------------------------------------
         if truncate_then_accumulate:
             accumulator += accumulator_inner
@@ -440,32 +430,62 @@ def leaky_relu(x):
 
 
 @triton.jit
-def round_and_trun(x, round_bit, trun_mask):
-    """Round and truncate (usually for accumulator)."""
-    return libdevice.uint_as_float((libdevice.float_as_uint(x) + round_bit) & trun_mask)
+def round_and_trun_mask(chunk_trun_bits, clamp_acc_to_dl16):
+    """
+    Rounding and LSB truncation masks only need to be generated once.
+    These mask will be applied on "inner" accumulator, which is alway FP32 (e8m23). We may truncate
+    up to 23b for mantissa. If DL16/DL8, pay attention to exponent bias.
+    Examples: 20b -> trun_mask = 0xFFF00000, round_bit = 0x00080000
+               8b -> trun_mask = 0xFFFFFF00, round_bit = 0x00000080
+    """
+    if clamp_acc_to_dl16:
+        # DL16 is e6m9, hence, truncate 23 - 9 = 14 bits
+        chunk_trun_bits = 14
+    round_bit = 1 << (chunk_trun_bits - 1) if chunk_trun_bits > 0 else 0
+    trun_mask = ~tl.cast((1 << chunk_trun_bits) - 1, tl.uint32)
+    return round_bit, trun_mask
 
 
 @triton.jit
-def fp32_clamp_to_dl16(x):
-    """clamp FP32 (1-8-23) TENSOR x to DL16 (1-6-9) range."""
-    # 1. rounding: add round bit, zero out last 13 bits, back to float
-    x = libdevice.float_as_uint(x)
-    round_bit = 1 << (23 - 9 - 1)
-    mask_13x0 = ~tl.cast((1 << 13) - 1, tl.uint32)
-    x = libdevice.uint_as_float((x + round_bit) & mask_13x0)
+def round_and_trun(x, round_bit, trun_mask, clamp_acc_to_dl16):
+    """Round and truncate (usually for accumulator)."""
+    x = libdevice.uint_as_float((libdevice.float_as_uint(x) + round_bit) & trun_mask)
 
-    # 2. clamp to min/max:
-    #   max = 2^32 * 1.(1111 1111 0)_base2 => 2^32*1.(1111 1111 1) will become inf
-    #         (32 + 127) << 23 | (0xFF8 << (23 - 12)) in FP32 is 8581545984.0
-    #   min = 2^-31 * 1.(0000 0000 1)_base2 => set to 0 for those smaller than this
-    #         (-31 + 127) << 23 | (1 << (23 - 9)) in FP32 is 4.665707820095122e-10
-    dl16_max = 8581545984.0
-    dl16_min = 4.665707820095122e-10
-    x = tl.where(x >= dl16_max, float("inf"), x)
-    x = tl.where(x <= -dl16_max, float("-inf"), x)
-    x = tl.where(tl.abs(x) < dl16_min, 0, x)
-
+    if clamp_acc_to_dl16:
+        # clamp to DL16 min/max:
+        #   max = 2^32 * 1.(1111 1111 0)_base2 = 2^32*(2 - 2^-9) = 8581545984.0
+        #         greater than this will become +inf (or -inf)
+        #   min = 2^-31 * 1.(0000 0000 1)_base2 = 2^-31*(1 + 2^-9)> = 4.665707820095122e-10
+        #         smaller than this will become 0
+        dl16_max = 8581545984.0
+        dl16_min = 4.665707820095122e-10
+        x = tl.where(x >= dl16_max, float("inf"), x)
+        x = tl.where(x <= -dl16_max, float("-inf"), x)
+        x = tl.where(tl.abs(x) < dl16_min, 0, x)
     return x
+
+
+# @triton.jit
+# def fp32_clamp_to_dl16(x):
+#     """clamp FP32 (1-8-23) TENSOR x to DL16 (1-6-9) range."""
+#     # 1. rounding: add round bit, zero out last 13 bits, back to float
+#     x = libdevice.float_as_uint(x)
+#     round_bit = 1 << (23 - 9 - 1)
+#     mask_13x0 = ~tl.cast((1 << 13) - 1, tl.uint32)
+#     x = libdevice.uint_as_float((x + round_bit) & mask_13x0)
+
+#     # 2. clamp to min/max:
+#     #   max = 2^32 * 1.(1111 1111 0)_base2 => 2^32*1.(1111 1111 1) will become inf
+#     #         (32 + 127) << 23 | (0xFF8 << (23 - 12)) in FP32 is 8581545984.0
+#     #   min = 2^-31 * 1.(0000 0000 1)_base2 => set to 0 for those smaller than this
+#     #         (-31 + 127) << 23 | (1 << (23 - 9)) in FP32 is 4.665707820095122e-10
+#     dl16_max = 8581545984.0
+#     dl16_min = 4.665707820095122e-10
+#     x = tl.where(x >= dl16_max, float("inf"), x)
+#     x = tl.where(x <= -dl16_max, float("-inf"), x)
+#     x = tl.where(tl.abs(x) < dl16_min, 0, x)
+
+#     return x
 
 
 def tl_matmul_chunk_truncate(

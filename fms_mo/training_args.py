@@ -192,7 +192,7 @@ class FMSMOArguments(TypeChecker):
         default=2048, metadata={"help": "input sequence length after tokenization"}
     )
     eval_ppl: bool = field(default=False)
-    aiu_sim_triton: str = field(
+    aiu_sim_triton: Optional[str] = field(
         default=None,
         metadata={
             "help": (

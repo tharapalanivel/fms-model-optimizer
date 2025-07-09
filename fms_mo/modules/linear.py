@@ -1926,6 +1926,7 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
         ctx.chunk_size = chunk_size
         ctx.fp8_dyn = fp8_dyn
         ctx.clamp_acc_to_dl16 = clamp_acc_to_dl16
+        ctx.dl8_min = 0.0087890625
 
         if fp8_dyn:
             # use Q/dQ simulation for now, meaning still compute in fp16/bf16
@@ -1943,6 +1944,11 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
 
             x = (x / x_scale).to(torch.float8_e4m3fn).to(org_dtype) * x_scale
             weight = (weight / w_scale).to(torch.float8_e4m3fn).to(org_dtype) * w_scale
+            if clamp_acc_to_dl16:
+                # NOTE For DL8@DL8 acc in DL16, as DL8 doesn't support subnorm numbers like PyTorch
+                # (whose real min for e4m3fn is 2^-9), need to flush subnorm numbers to 0
+                x.masked_fill_(x < ctx.dl8_min, 0)
+                weight.masked_fill_(weight < ctx.dl8_min, 0)
 
         # triton kernel assumes 2D inputs and cast the return to input.dtype
         output = tl_matmul(
@@ -1983,6 +1989,11 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
             grad_output_2D = (grad_output_2D / grad_out_scale).to(torch.float8_e5m2).to(
                 grad_output.dtype
             ) * grad_out_scale
+            if ctx.clamp_acc_to_dl16:
+                # flush subnorm numbers to 0 as DL8 doesn't support it
+                x.masked_fill_(x < ctx.dl8_min, 0)
+                weight.masked_fill_(weight < ctx.dl8_min, 0)
+                grad_output_2D.masked_fill_(grad_output_2D < ctx.dl8_min, 0)
 
         # Compute grad_weight, shape = [out, in]
         # NOTE: this triton kernel requires A matrix to be contiguous

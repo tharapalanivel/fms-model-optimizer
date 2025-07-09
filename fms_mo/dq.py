@@ -161,6 +161,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     # config layers to skip, smooth scale
     config_quantize_smooth_layers(qcfg)
 
+    use_dynamo = True
+    # use dynamo as default unless really needed, False -> fallback to TorchScript tracing
     if any(x != 32 for x in attn_bits):
         logger.info("Quantize attention bmms or kvcache, will use dynamo for prep")
         use_layer_name_pattern_matching = False
@@ -168,11 +170,9 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         assert (
             qcfg["qlayer_name_pattern"] == []
         ), "ensure nothing in qlayer_name_pattern when use dynamo"
-        use_dynamo = True
     else:
         logger.info("Attention bmms will not be quantized.")
         use_layer_name_pattern_matching = True
-        use_dynamo = False
 
     qcfg["seq_len"] = block_size
     qcfg["model"] = model_args.model_name_or_path
@@ -271,6 +271,33 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
             clamp_acc_to_dl16=False,  # fms_mo_args.aiu_sim_triton == "fp8"
             # layer_to_exclude=["lm_head",]
         )
+    # [CL] -------- record W, A, qW, qA with hooks ----------------
+    # from fms_mo.modules.linear import QLinear, QLinearINT8Deploy
+    # from fms_mo.quant.ptq import HookRecPostQuantInOut
+    #     cache_dict = {}
+    #     hook_handles = []
+    #     for n, m in model.named_modules():
+    #         if not isinstance(m, (QLinear, QLinearINT8Deploy, torch.nn.Linear)):
+    #             continue
+
+    #         m.mod_name = n
+    #         hook_handles.append(
+    #             m.register_forward_hook( HookRecPostQuantInOut(cache_dict, n))
+    #         )
+
+    #     data_mb = next(iter(eval_dataloader))
+    #     with torch.no_grad():
+    #         model(**data_mb)
+
+    #     for h in hook_handles:
+    #         h.remove()
+
+    #     torch.save(
+    #         cache_dict,
+    #         f"roberta_sqv2_data_dump_{qcfg['qa_mode']}_{qcfg['qw_mode']}_chunk64_lsb{args.aiu_int_lsb_trun}_dq.pt"
+    #     )
+    #     return
+
     if fms_mo_args.eval_ppl:
         path_test = Path(data_args.test_data_path)
         arrow_files = list(path_test.glob("*.arrow"))
