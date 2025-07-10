@@ -1228,7 +1228,7 @@ def model_analyzer(
     # Therefore, length of qcfg["qkvsync_my_1st_sibling"] will be much shorter and keys of this dict
     # won't exist in full list (like all_linears below).
     all_linears = set(
-        [n for n, m in model.named_modules() if isinstance(m, torch.nn.Linear)]
+        n for n, m in model.named_modules() if isinstance(m, torch.nn.Linear)
     )
 
     if any(k not in all_linears for k in qcfg["qkvsync_my_1st_sibling"]):
@@ -1242,9 +1242,8 @@ def model_analyzer(
                 lut_all_siblings[sib_1st].append(me)
 
         full_sib_list = {}
-        for me in lut_all_siblings:
+        for me, all_sibs in lut_all_siblings.items():
             partial_matches = [lin for lin in all_linears if me in lin]
-            all_sibs = lut_all_siblings[me]
             # here lin is full_name, me and all_sibs are partial
             for lin in partial_matches:
                 prefix = lin[: lin.index(me)]
