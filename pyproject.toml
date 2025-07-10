@@ -27,7 +27,7 @@ dependencies = [
 "transformers>=4.45,<4.53",
 "torch>=2.2.0,<2.6",
 "tqdm>=4.66.2,<5.0",
-"datasets>=3.0.0,<4.0",
+"datasets>=3.0.0,<5.0",
 "pandas",
 "safetensors",
 "pkginfo>1.10"
