@@ -1010,6 +1010,8 @@ def model_analyzer(
         }
         prefix = None
         if qcfg["N_backend_called"] > 1:  # subgraph found, see Note 2
+            # TODO this approach only works for FX IR (call_module nodes are not functionalized)
+            #       need an update for Aten IR cases
             for n in gm_fx.graph.nodes:
                 if n.op == "call_module":
                     mod = gm_fx.get_submodule(n.target)
@@ -1220,6 +1222,38 @@ def model_analyzer(
     # ------ model analysis is finished, but there are a few remaining things to be done
 
     # a) qkvsync dict update from "module names" to "module instances"
+    #   NOTE when graph break happened, qkvsync() may only find partial QKV names. For example,
+    # as opposed to ["model.layers.0.self_attn.q_proj", ..., "model.layers.1.self_attn.q_proj", ...]
+    # it may report ["self_attn.q_proj", "self_attn.k_proj", ...]
+    # Therefore, length of qcfg["qkvsync_my_1st_sibling"] will be much shorter and keys of this dict
+    # won't exist in full list (like all_linears below).
+    all_linears = set(
+        [n for n, m in model.named_modules() if isinstance(m, torch.nn.Linear)]
+    )
+
+    if any(k not in all_linears for k in qcfg["qkvsync_my_1st_sibling"]):
+        # qcfg["qkvsync_my_1st_sibling"] dict is like {q:q, k:q, v:q,...}, here we need a simpler
+        # dict like {q:[q,k,v], gate:[up, gate]}
+        lut_all_siblings = {}
+        for me, sib_1st in qcfg["qkvsync_my_1st_sibling"].items():
+            if sib_1st not in lut_all_siblings:
+                lut_all_siblings[sib_1st] = [sib_1st]
+            elif me not in lut_all_siblings[sib_1st]:
+                lut_all_siblings[sib_1st].append(me)
+
+        full_sib_list = {}
+        for me in lut_all_siblings:
+            partial_matches = [lin for lin in all_linears if me in lin]
+            all_sibs = lut_all_siblings[me]
+            # here lin is full_name, me and all_sibs are partial
+            for lin in partial_matches:
+                prefix = lin[: lin.index(me)]
+                for sib in all_sibs:
+                    full_sib_list[prefix + sib] = prefix + me
+                    all_linears.remove(prefix + sib)
+        # all_linears will still have down_proj, out_proj, lm_head, and maybe others
+        qcfg["qkvsync_my_1st_sibling"] = full_sib_list
+
     updated_dict = {
         model.get_submodule(mod): model.get_submodule(sib)
         for mod, sib in qcfg["qkvsync_my_1st_sibling"].items()
@@ -1303,7 +1337,7 @@ def model_analyzer(
     if qcfg["N_backend_called"] > 1:
         logger.warning(
             f"Found {qcfg['N_backend_called']} graph breaks during Dynamo tracing!! \n"
-            f"First/Last layer, which usually needs to stay unquantized, cannot be identified"
+            f"First/Last layer, which usually needs to stay unquantized, may not be identified"
             f" correctly now. Please double-check layers being skipped:\n"
             f"{qcfg['qskip_layer_name']}\n NOTE: Users can control layer selection by adding layer"
             f"names to:\n"
