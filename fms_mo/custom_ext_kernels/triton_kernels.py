@@ -465,29 +465,6 @@ def round_and_trun(x, round_bit, trun_mask, clamp_acc_to_dl16):
     return x
 
 
-# @triton.jit
-# def fp32_clamp_to_dl16(x):
-#     """clamp FP32 (1-8-23) TENSOR x to DL16 (1-6-9) range."""
-#     # 1. rounding: add round bit, zero out last 13 bits, back to float
-#     x = libdevice.float_as_uint(x)
-#     round_bit = 1 << (23 - 9 - 1)
-#     mask_13x0 = ~tl.cast((1 << 13) - 1, tl.uint32)
-#     x = libdevice.uint_as_float((x + round_bit) & mask_13x0)
-
-#     # 2. clamp to min/max:
-#     #   max = 2^32 * 1.(1111 1111 0)_base2 => 2^32*1.(1111 1111 1) will become inf
-#     #         (32 + 127) << 23 | (0xFF8 << (23 - 12)) in FP32 is 8581545984.0
-#     #   min = 2^-31 * 1.(0000 0000 1)_base2 => set to 0 for those smaller than this
-#     #         (-31 + 127) << 23 | (1 << (23 - 9)) in FP32 is 4.665707820095122e-10
-#     dl16_max = 8581545984.0
-#     dl16_min = 4.665707820095122e-10
-#     x = tl.where(x >= dl16_max, float("inf"), x)
-#     x = tl.where(x <= -dl16_max, float("-inf"), x)
-#     x = tl.where(tl.abs(x) < dl16_min, 0, x)
-
-#     return x
-
-
 def tl_matmul_chunk_truncate(
     a,
     b,
