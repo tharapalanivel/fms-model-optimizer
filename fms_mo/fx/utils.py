@@ -461,14 +461,14 @@ def model_size_Wb(mod, unit="MB", print_to_file=True, show_details=False):
                 w_mat.numel() * w_mat.element_size()
                 + b_mat.numel() * b_mat.element_size()
             )
-            w_dtype = w_mat.dtype
+            w_dtype = str(w_mat.dtype)
             w_shape = w_mat.shape
 
         elif isinstance(w, torch.Tensor):
             mem_use = w.numel() * w.element_size()
             if hasattr(m, "bias") and m.bias is not None:
                 mem_use += m.bias.numel() * m.bias.element_size()
-            w_dtype = w.dtype
+            w_dtype = str(w.dtype)
             w_shape = w.shape
 
         if w_shape:

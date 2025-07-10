@@ -1899,7 +1899,16 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, x, weight, bias=None, trun_bits=0, chunk_size=16, fp8_dyn=False):
+    def forward(
+        ctx,
+        x,
+        weight,
+        bias=None,
+        trun_bits=0,
+        chunk_size=16,
+        fp8_dyn=False,
+        clamp_acc_to_dl16=False,
+    ):
         assert x.dtype in [torch.float, torch.bfloat16, torch.float16]
         # input can be 2D or 3D, need to reshape before tl_matmul
         org_dtype = x.dtype
@@ -1916,27 +1925,49 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
         ctx.trun_bits = trun_bits
         ctx.chunk_size = chunk_size
         ctx.fp8_dyn = fp8_dyn
+        ctx.clamp_acc_to_dl16 = clamp_acc_to_dl16
+        ctx.fp8_e4m3_max = torch.finfo(torch.float8_e4m3fn).max
+        ctx.fp8_e5m2_max = torch.finfo(torch.float8_e5m2).max
+        ctx.dl8_min = 0.0087890625
 
+        x_scale = torch.tensor(1.0, device=x.device, dtype=org_dtype)
+        w_scale = x_scale.clone()
         if fp8_dyn:
             # use Q/dQ simulation for now, meaning still compute in fp16/bf16
             # if choose per_token for input, use per_channel for W
             # (W saved as [out, in], reduce inCh-dim, => reduce_dim=1)
-            ctx.fp8_e4m3_max = torch.finfo(torch.float8_e4m3fn).max
-            ctx.fp8_e5m2_max = torch.finfo(torch.float8_e5m2).max
             reduce_dim = None if fp8_dyn == "per_tensor" else 1
-            x_scale = x.abs().amax(dim=reduce_dim) / ctx.fp8_e4m3_max
-            w_scale = weight.abs().amax(dim=reduce_dim) / ctx.fp8_e4m3_max
+            x_scale = (
+                x.abs().amax(dim=reduce_dim, keepdim=True) / ctx.fp8_e4m3_max
+            ).clamp(min=1e-5)
+            w_scale = (
+                weight.abs().amax(dim=reduce_dim, keepdim=True) / ctx.fp8_e4m3_max
+            ).clamp(min=1e-5)
 
-            x = (x / x_scale).to(torch.float8_e4m3fn).to(org_dtype) * x_scale
-            weight = (weight / w_scale).to(torch.float8_e4m3fn).to(org_dtype) * w_scale
+            x = (x / x_scale).to(torch.float8_e4m3fn).to(torch.float32)
+            weight = (weight / w_scale).to(torch.float8_e4m3fn).to(torch.float32)
+            if clamp_acc_to_dl16:
+                # at this point, x and W are clamped to PT's FP8 range (2^-9 to 448). But since DL8
+                # doesn't support subnorm like PyTorch, need to flush subnorms to 0 BEFORE descaling
+                x.masked_fill_(x.abs() < ctx.dl8_min, 0)
+                weight.masked_fill_(weight.abs() < ctx.dl8_min, 0)
 
         # triton kernel assumes 2D inputs and cast the return to input.dtype
-        output = tl_matmul(
-            x,
-            weight.t().to(org_dtype),
-            chunk_trun_bits=trun_bits,
-            chunk_size=chunk_size,
-        ).reshape(target_shape_output)
+        output = (
+            (
+                tl_matmul(
+                    x,
+                    weight.t(),
+                    chunk_trun_bits=trun_bits,
+                    chunk_size=chunk_size,
+                    clamp_acc_to_dl16=clamp_acc_to_dl16,
+                )
+                * x_scale
+                * w_scale.t()
+            )
+            .to(org_dtype)
+            .reshape(target_shape_output)
+        )
 
         if bias is not None:
             output = output + bias.to(org_dtype)
@@ -1956,6 +1987,8 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
         target_shape_grad_input = grad_output.shape[:-1] + (in_dim,)
         grad_output_2D = grad_output.reshape(-1, out_dim).to(dtype_input)
 
+        x_scale = torch.tensor(1.0, device=x.device, dtype=dtype_input)
+        w_scale = x_scale.clone()
         if ctx.fp8_dyn:
             reduce_dim = None if ctx.fp8_dyn == "per_tensor" else 1
             x_scale = x.abs().amax(dim=reduce_dim) / ctx.fp8_e5m2_max
@@ -1963,30 +1996,45 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
             # always assume perT in this case
             grad_out_scale = grad_output_2D.abs().amax(dim=None) / ctx.fp8_e5m2_max
 
-            x = (x / x_scale).to(torch.float8_e5m2).to(dtype_input) * x_scale
-            weight = (weight / w_scale).to(torch.float8_e5m2).to(weight.dtype) * w_scale
-            grad_output_2D = (grad_output_2D / grad_out_scale).to(torch.float8_e5m2).to(
-                grad_output.dtype
-            ) * grad_out_scale
+            x = (x / x_scale).to(torch.float8_e5m2).to(torch.float)
+            weight = (weight / w_scale).to(torch.float8_e5m2).to(torch.float)
+            grad_output_2D = (
+                (grad_output_2D / grad_out_scale).to(torch.float8_e5m2).to(torch.float)
+            )
+            if ctx.clamp_acc_to_dl16:
+                # flush subnorm numbers to 0 as DL8 doesn't support it
+                x.masked_fill_(x.abs() < ctx.dl8_min, 0)
+                weight.masked_fill_(weight.abs() < ctx.dl8_min, 0)
+                grad_output_2D.masked_fill_(grad_output_2D.abs() < ctx.dl8_min, 0)
 
         # Compute grad_weight, shape = [out, in]
         # NOTE: this triton kernel requires A matrix to be contiguous
-        grad_weight = tl_matmul(
-            grad_output_2D.transpose(0, 1).contiguous(),
-            x,
-            chunk_trun_bits=trun_bits,
-            chunk_size=chunk_size,
+        grad_weight = (
+            tl_matmul(
+                grad_output_2D.transpose(0, 1).contiguous(),
+                x,
+                chunk_trun_bits=trun_bits,
+                chunk_size=chunk_size,
+                clamp_acc_to_dl16=ctx.clamp_acc_to_dl16,
+            )
+            * grad_out_scale.t()
+            * x_scale
         ).to(weight.dtype)
         # Compute grad_input in 2D then reshape to target shape, could be 3D or 2D
         grad_input = (
-            tl_matmul(
-                grad_output_2D,
-                weight.to(dtype_input),
-                chunk_trun_bits=trun_bits,
-                chunk_size=chunk_size,
+            (
+                tl_matmul(
+                    grad_output_2D,
+                    weight,
+                    chunk_trun_bits=trun_bits,
+                    chunk_size=chunk_size,
+                    clamp_acc_to_dl16=ctx.clamp_acc_to_dl16,
+                )
+                * grad_out_scale
+                * w_scale
             )
-            .reshape(target_shape_grad_input)
             .to(dtype_input)
+            .reshape(target_shape_grad_input)
         )
 
         if not ctx.has_bias:
@@ -1994,7 +2042,7 @@ class LinearFuncFPxFwdBwd(torch.autograd.Function):
         else:
             grad_bias = grad_output_2D.sum(0).to(ctx.bias_dtype)
 
-        return grad_input, grad_weight, grad_bias, None, None, None
+        return grad_input, grad_weight, grad_bias, None, None, None, None
 
 
 class LinearFPxAcc(torch.nn.Linear):
@@ -2016,6 +2064,10 @@ class LinearFPxAcc(torch.nn.Linear):
             cls (class): The class to be created.
             nnlin (torch.nn.Linear): The original torch.nn.Linear module.
             trun_bits (int): truncate [0 to 22] LSBs from FP32 accumulation.
+            dynamic_fp8: whether to use dynamic quantization for fp8 activations, available options
+                        are ["per_tensor", "per_token", False]
+            clamp_acc_to_dl16: clamp local accumulator into DL16 range, to simulate the effect of
+                                this special dtype
             **kwargs: Additional keyword arguments.
 
         Returns:
@@ -2030,14 +2082,14 @@ class LinearFPxAcc(torch.nn.Linear):
             nnlin.in_features,
             nnlin.out_features,
             bias=nnlin.bias is not None,
-            device=target_device,
+            device="meta",
         )
 
         lin24acc.weight = nnlin.weight
         lin24acc.trun_bits = trun_bits
         lin24acc.chunk_size = kwargs.get("chunk_size", False)
         lin24acc.fp8_dyn = kwargs.get("dynamic_fp8", False)
-        # available options are ["per_tensor", "per_token"]
+        lin24acc.clamp_acc_to_dl16 = kwargs.get("clamp_acc_to_dl16", False)
 
         if nnlin.bias is not None:
             lin24acc.bias = nnlin.bias
@@ -2052,16 +2104,24 @@ class LinearFPxAcc(torch.nn.Linear):
             self.trun_bits,
             self.chunk_size,
             self.fp8_dyn,
+            self.clamp_acc_to_dl16,
         )
 
     def extra_repr(self) -> str:
         """
         Returns an alternative string representation of the object.
         """
-        return (
-            f"in={self.in_features}, out={self.out_features}, bias={self.bias is not None}, "
-            f"trun_bits={self.trun_bits},fp8_dyn={self.fp8_dyn},chunk_size={self.chunk_size}"
-        )
+        repr_str = f"{self.in_features},{self.out_features}"
+        if self.bias is not None:
+            repr_str += f",bias={self.bias is not None}"
+        if self.trun_bits > 0:
+            repr_str += f",trun_bits={self.trun_bits}"
+        if self.fp8_dyn:
+            repr_str += f",fp8_dyn={self.fp8_dyn}"
+        if self.clamp_acc_to_dl16:
+            repr_str += ",use_DL16_acc"
+        repr_str += f",chunk_size={self.chunk_size}"
+        return repr_str
 
 
 class LinearFuncINT8FwdFP32Bwd(torch.autograd.Function):

@@ -161,6 +161,8 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
     # config layers to skip, smooth scale
     config_quantize_smooth_layers(qcfg)
 
+    use_dynamo = True
+    # use dynamo as default unless really needed, False -> fallback to TorchScript tracing
     if any(x != 32 for x in attn_bits):
         logger.info("Quantize attention bmms or kvcache, will use dynamo for prep")
         use_layer_name_pattern_matching = False
@@ -168,11 +170,9 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         assert (
             qcfg["qlayer_name_pattern"] == []
         ), "ensure nothing in qlayer_name_pattern when use dynamo"
-        use_dynamo = True
     else:
         logger.info("Attention bmms will not be quantized.")
         use_layer_name_pattern_matching = True
-        use_dynamo = False
 
     qcfg["seq_len"] = block_size
     qcfg["model"] = model_args.model_name_or_path
@@ -216,17 +216,18 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
                 act_scales = get_act_scales(model, dq_dataloader, qcfg)
             torch.save(act_scales, scale_file)
 
-    qmodel_prep(
-        model,
-        dq_dataloader,
-        qcfg,
-        use_layer_name_pattern_matching=use_layer_name_pattern_matching,
-        use_dynamo=use_dynamo,
-        dev=dev,
-        save_fname="dq",
-    )
-    logger.info(f"Quantized model {model}")
-    logger.info("==" * 20)
+    if fms_mo_args.aiu_sim_triton != "fp8":
+        qmodel_prep(
+            model,
+            dq_dataloader,
+            qcfg,
+            use_layer_name_pattern_matching=use_layer_name_pattern_matching,
+            use_dynamo=use_dynamo,
+            dev=dev,
+            save_fname="dq",
+        )
+        logger.info(f"Quantized model {model}")
+        logger.info("==" * 20)
 
     if qcfg["smoothq"]:
         logger.info("Starting to apply smooth scale")
@@ -260,12 +261,15 @@ def run_dq(model_args, data_args, opt_args, fms_mo_args):
         tokenizer.save_pretrained(opt_args.output_dir)
 
     if fms_mo_args.aiu_sim_triton:
+        # NOTE plz apply correct HW settings here, defaults are not real HW params
         lower_qmodel_triton(
             model,
             use_dyn_max_act=-1 if qcfg["qa_mode"] == "pertokenmax" else False,
             max_acc_bits=qcfg.get("max_acc_bits", 32),
             num_lsb_to_truncate=qcfg.get("lsb_trun_bits", 0),
-            chunk_size=qcfg.get("chunk_size", 1024),
+            chunk_size=qcfg.get("chunk_size", 32),  # 1024
+            clamp_acc_to_dl16=fms_mo_args.aiu_sim_triton == "fp8",
+            # layer_to_exclude=["lm_head",]
         )
 
     if fms_mo_args.eval_ppl:
