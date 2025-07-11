@@ -29,8 +29,35 @@ import torch.nn.functional as F
 # open issue in PyLint: https://github.com/pytorch/pytorch/issues/119482
 
 
-aten = torch.ops.aten
-DispatchKey = torch._C.DispatchKey  # type: ignore[attr-defined]
+def _scaled_mm_cpu_out(
+    mat1: Tensor,
+    mat2: Tensor,
+    scale1: Tensor,
+    scale2: Tensor,
+    bias: Optional[Tensor] = None,
+    scale_result: Optional[Tensor] = None,
+    out_dtype: Optional[torch.dtype] = None,
+    use_fast_accum: bool = False,
+    *,
+    out: Optional[Tensor] = None,
+) -> Tensor:
+    if out_dtype is None:
+        out_dtype = torch.float32
+    mat1 = (mat1.to(dtype=out_dtype) * scale1).to(dtype=out_dtype)
+    mat2 = (mat2.to(dtype=out_dtype) * scale2).to(dtype=out_dtype)
+
+    if bias is not None:
+        ret = torch.addmm(bias, mat1, mat2).to(dtype=out_dtype)
+    else:
+        ret = torch.mm(mat1, mat2).to(dtype=out_dtype)
+
+    if out is not None:
+        out.copy_(ret)
+        return out
+    return ret
+
+
+torch.library.register_kernel(torch.ops.aten._scaled_mm.out, "cpu", _scaled_mm_cpu_out)
 
 
 @torch.library.register_kernel("aten::_scaled_mm", "cpu")
@@ -44,14 +71,17 @@ def _scaled_mm_cpu(
     out_dtype: Optional[torch.dtype] = None,
     use_fast_accum: bool = False,
 ) -> Tensor:
-    if out_dtype is None:
-        out_dtype = torch.float32
-    mat1 = (mat1.to(dtype=out_dtype) * scale1).to(dtype=out_dtype)
-    mat2 = (mat2.to(dtype=out_dtype) * scale2).to(dtype=out_dtype)
-
-    if bias is not None:
-        return torch.addmm(bias, mat1, mat2).to(dtype=out_dtype)
-    return torch.mm(mat1, mat2).to(dtype=out_dtype)
+    return _scaled_mm_cpu_out(
+        mat1,
+        mat2,
+        scale1,
+        scale2,
+        bias,
+        scale_result,
+        out_dtype,
+        use_fast_accum,
+        out=None,
+    )
 
 
 @torch.library.custom_op("spyre::scaled_bmm", mutates_args=())
@@ -127,7 +157,6 @@ def scaled_paged_attn_store(
     Scales key and value tensors, and stores them to the paged KV cache
     using the same schema as vLLM.
     """
-    print("Should never hit")
     result_key_cache = key_cache.clone()
     result_value_cache = value_cache.clone()
     for seq_i, slot_mapping_seq in enumerate(slot_mapping):
@@ -136,10 +165,10 @@ def scaled_paged_attn_store(
             position = slot.item() % 64
 
             result_key_cache[block_number, position, :, :] = (
-                key[seq_i, tok_i, :, :] / key_scale
+                key[seq_i, tok_i, :, :] / key_scale[seq_i]
             ).to(dtype=torch.float8_e4m3fn)
             result_value_cache[block_number, position, :, :] = (
-                value[seq_i, tok_i, :, :] / value_scale
+                value[seq_i, tok_i, :, :] / value_scale[seq_i]
             ).to(dtype=torch.float8_e4m3fn)
     return result_key_cache, result_value_cache
 
@@ -179,7 +208,6 @@ def scaled_paged_attn_compute(
     Implements a CPU fallback to run the kernel that has been confirmed
     to match the vLLM fused kernel.
     """
-    print("Should never hit")
     # torch.zeros(NUM_BLOCKS, BLOCK_SIZE, kvheads, head_size, dtype=model_dtype),
     output = torch.zeros_like(query)
     num_query_heads = query.shape[2]
@@ -220,10 +248,10 @@ def scaled_paged_attn_compute(
 
         out = F.scaled_dot_product_attention(  # noqa: E1102
             q.transpose(0, 1).unsqueeze(0),  # format for sdpa
-            (keys.transpose(0, 1).unsqueeze(0).to(dtype=q.dtype) * key_scale).to(
+            (keys.transpose(0, 1).unsqueeze(0).to(dtype=q.dtype) * key_scale[i]).to(
                 dtype=q.dtype
             ),  # format for sdpa
-            (values.transpose(0, 1).unsqueeze(0).to(dtype=q.dtype) * value_scale).to(
+            (values.transpose(0, 1).unsqueeze(0).to(dtype=q.dtype) * value_scale[i]).to(
                 dtype=q.dtype
             ),  # format for sdpa
             is_causal=False,  # decode assumes no causal mask

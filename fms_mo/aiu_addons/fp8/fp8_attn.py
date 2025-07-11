@@ -70,12 +70,24 @@ if available_packages["fms"]:
             k_scale = key_cache._scale
             v_scale = value_cache._scale
         else:
-            k_scale = (torch.abs(keys).max() / K_RANGE).to(dtype=torch.float32)
-            v_scale = (torch.abs(values).max() / V_RANGE).to(dtype=torch.float32)
+            k_scale = (
+                (torch.abs(keys).amax(dim=(1, 2, 3)) / K_RANGE)
+                .clamp(min=1e-5)
+                .to(dtype=torch.float32)
+            )
+            v_scale = (
+                (torch.abs(values).amax(dim=(1, 2, 3)) / V_RANGE)
+                .clamp(min=1e-5)
+                .to(dtype=torch.float32)
+            )
 
         # Scale kv tensors for storage
-        keys = (keys / k_scale).to(torch.float8_e4m3fn).transpose(2, 1)
-        values = (values / v_scale).to(torch.float8_e4m3fn).transpose(2, 1)
+        keys = (
+            (keys / k_scale.view(-1, 1, 1, 1)).to(torch.float8_e4m3fn).transpose(2, 1)
+        )
+        values = (
+            (values / v_scale.view(-1, 1, 1, 1)).to(torch.float8_e4m3fn).transpose(2, 1)
+        )
 
         if (
             isinstance(key_cache, ScaledTensor)
@@ -134,10 +146,20 @@ if available_packages["fms"]:
             value_cache = value_cache._data
         else:
             # Store op wasn't run (e.g. encoders, use_cache=False)
-            k_scale = (torch.abs(key_cache).max() / K_RANGE).to(dtype=torch.float32)
-            v_scale = (torch.abs(value_cache).max() / V_RANGE).to(dtype=torch.float32)
-            key_cache = (key_cache / k_scale).to(torch.float8_e4m3fn)
-            value_cache = (value_cache / v_scale).to(torch.float8_e4m3fn)
+            k_scale = (
+                (torch.abs(key_cache).amax(dim=(1, 2, 3)) / K_RANGE)
+                .clamp(min=1e-5)
+                .to(dtype=torch.float32)
+            )
+            v_scale = (
+                (torch.abs(value_cache).amax(dim=(1, 2, 3)) / V_RANGE)
+                .clamp(min=1e-5)
+                .to(dtype=torch.float32)
+            )
+            key_cache = (key_cache / k_scale.view(-1, 1, 1, 1)).to(torch.float8_e4m3fn)
+            value_cache = (value_cache / v_scale.view(-1, 1, 1, 1)).to(
+                torch.float8_e4m3fn
+            )
 
         # If store wasn't run, we need to transpose the tensors here
         # TODO: Refactor FMS to avoid edge cases where this fails; add use_cache param here
@@ -192,14 +214,20 @@ if available_packages["fms"]:
                 * scale_factor
             )
         else:
-            key_t = (key_cache.to(dtype=orig_dtype) * k_scale).transpose(-2, -1)
+            key_t = (
+                (key_cache.to(dtype=orig_dtype) * k_scale.view(-1, 1, 1, 1))
+                .to(dtype=orig_dtype)
+                .transpose(-2, -1)
+            )
             attn_weight = query @ key_t
             attn_weight *= scale_factor
         attn_weight += attn_bias
         attn_weight = torch.softmax(attn_weight, dim=-1)
         attn_weight = torch.dropout(attn_weight, p_dropout, train=True)
         # Do matmul in orig_dtype
-        attn = attn_weight @ (value_cache.to(dtype=orig_dtype) * v_scale)
+        attn = attn_weight @ (
+            value_cache.to(dtype=orig_dtype) * v_scale.view(-1, 1, 1, 1)
+        ).to(dtype=orig_dtype)
 
         attn = attn.to(orig_dtype).transpose(2, 1).contiguous()
         return attn
@@ -226,9 +254,15 @@ if available_packages["fms"]:
             value_cache, ScaledTensor
         ), "kv cache must be preallocated"
         if not key_cache._scaled:
-            key_cache._scale = (torch.abs(keys).max() / 200.0).to(dtype=torch.float32)
-            value_cache._scale = (torch.abs(values).max() / 100.0).to(
-                dtype=torch.float32
+            key_cache._scale = (
+                (torch.abs(keys).amax(dim=(1, 2, 3)) / K_RANGE)
+                .clamp(min=1e-5)
+                .to(dtype=torch.float32)
+            )
+            value_cache._scale = (
+                (torch.abs(values).amax(dim=(1, 2, 3)) / V_RANGE)
+                .clamp(min=1e-5)
+                .to(dtype=torch.float32)
             )
 
         result_key_cache_data, result_value_cache_data = (
