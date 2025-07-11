@@ -20,6 +20,7 @@ from typing import Any, Mapping
 import torch
 
 # Local
+from fms_mo.aiu_addons.fp8 import fp8_spyre_op  # pylint: disable=unused-import
 from fms_mo.prep import available_packages
 
 # pylint: disable=not-callable
