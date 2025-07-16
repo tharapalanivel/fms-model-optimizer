@@ -317,14 +317,16 @@ if available_packages["fms"]:
             attn_kwargs["left_padded_prompt_mask"],
             attn_kwargs["block_table"],
         )
-    
+
     def __spyre_scaled_paged_validate_attn_kwargs_op(
         input_ids: torch.Tensor,
         position_ids: torch.Tensor,
         past_key_value_states: Optional[list[tuple[torch.Tensor, torch.Tensor]]] = None,
         **attn_kwargs,
     ):
-        __spyre_paged_validate_attn_kwargs_op(input_ids, position_ids, past_key_value_states, **attn_kwargs)
+        __spyre_paged_validate_attn_kwargs_op(
+            input_ids, position_ids, past_key_value_states, **attn_kwargs
+        )
 
         if past_key_value_states is not None:
             for k, v in past_key_value_states:
