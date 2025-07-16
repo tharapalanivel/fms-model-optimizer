@@ -145,13 +145,6 @@ def get_activation_quantizer(
             act_quantizer = QFixSymmetric(
                 nbits, init_clip_val=clip_val, align_zero=align_zero
             )
-        elif qa_mode == "maxsym":
-            act_quantizer = Qmax(
-                nbits,
-                align_zero=True,
-                minmax=False,
-                extend_act_range=extend_act_range,
-            )
         elif qa_mode == "pactsym":
             act_quantizer = PACT2Sym(
                 nbits,
