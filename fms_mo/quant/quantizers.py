@@ -152,7 +152,13 @@ def get_activation_quantizer(
                 minmax=False,
                 extend_act_range=extend_act_range,
             )
-
+        elif qa_mode == "pactsym":
+            act_quantizer = PACT2Sym(
+                nbits,
+                init_clip_val=clip_val,
+                dequantize=True,
+                inplace=False,
+            )
         elif qa_mode == "pactsym+":
             act_quantizer = PACTplusSym(
                 nbits,
