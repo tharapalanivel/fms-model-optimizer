@@ -88,7 +88,7 @@ def quantize(
 
     logger.info(f"{fms_mo_args}\n{opt_args.quant_method}\n")
 
-    if opt_args.quant_method == "gptq":
+    if opt_args.quant_method in ["gptq","gptqv2"]:
         if not available_packages["gptqmodel"]:
             raise ImportError(
                 "Quantization method has been selected as gptq but unable to use external library, "
@@ -138,12 +138,23 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
 
     logger = set_log_level(opt_args.log_level, "fms_mo.run_gptq")
 
-    quantize_config = QuantizeConfig(
-        bits=gptq_args.bits,
-        group_size=gptq_args.group_size,
-        desc_act=gptq_args.desc_act,
-        damp_percent=gptq_args.damp_percent,
-    )
+    if opt_args.quant_method == "gptq":
+        quantize_config = QuantizeConfig(
+            bits=gptq_args.bits,
+            group_size=gptq_args.group_size,
+            desc_act=gptq_args.desc_act,
+            damp_percent=gptq_args.damp_percent,
+        )
+    else:
+        quantize_config = QuantizeConfig(
+            bits=gptq_args.bits,
+            group_size=gptq_args.group_size,
+            desc_act=gptq_args.desc_act,
+            damp_percent=gptq_args.damp_percent,
+            v2=True,
+            v2_memory_device="cpu",
+        )
+
 
     # Add custom model_type mapping to gptqmodel LUT so GPTQModel can recognize them.
     for mtype, cls in custom_gptq_classes.items():
