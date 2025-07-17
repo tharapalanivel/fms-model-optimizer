@@ -138,7 +138,10 @@ class OptArguments(TypeChecker):
     """Dataclass for optimization related arguments."""
 
     quant_method: str = field(
-        metadata={"choices": ["gptq", "gptqv2", "fp8", "dq"], "help": "Quantization technique"}
+        metadata={
+            "choices": ["gptq", "gptqv2", "fp8", "dq"], 
+            "help": "Quantization technique"
+        }
     )
     output_dir: str = field(
         metadata={

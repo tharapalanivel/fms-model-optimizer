@@ -88,7 +88,7 @@ def quantize(
 
     logger.info(f"{fms_mo_args}\n{opt_args.quant_method}\n")
 
-    if opt_args.quant_method in ["gptq","gptqv2"]:
+    if opt_args.quant_method in ["gptq", "gptqv2"]:
         if not available_packages["gptqmodel"]:
             raise ImportError(
                 "Quantization method has been selected as gptq but unable to use external library, "
