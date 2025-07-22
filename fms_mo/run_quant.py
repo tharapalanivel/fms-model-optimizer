@@ -155,7 +155,6 @@ def run_gptq(model_args, data_args, opt_args, gptq_args):
             v2_memory_device="cpu",
         )
 
-
     # Add custom model_type mapping to gptqmodel LUT so GPTQModel can recognize them.
     for mtype, cls in custom_gptq_classes.items():
         if mtype in MODEL_MAP:

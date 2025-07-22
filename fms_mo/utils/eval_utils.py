@@ -107,6 +107,9 @@ def eval_llm_1GPU(qcfg, model, test_dataset, pre_cache_func=None, **kwargs):  # 
         lm_head.to(dev)
         lm_logits = lm_head(hidden_states)
 
+        if model.config.model_type == "granite":
+            lm_logits /= model.config.logits_scaling
+
         # Shift so that tokens < n predict n
         shift_logits = lm_logits[:, :-1, :].contiguous().float()
         shift_labels = test_dataset.input_ids[:, (i * seq_len) : ((i + 1) * seq_len)][

@@ -2140,12 +2140,20 @@ def get_blocks(model, model_type=None):
             None,
             "lm_head",
         ),
-        "granite": (
+        "granite_gptbigcode": (
             "transformer.h",
             "transformer.wte",
             "transformer.wpe",
             None,
             "transformer.ln_f",
+            "lm_head",
+        ),
+        "granite": (
+            "model.layers",
+            "model.embed_tokens",
+            "model.rotary_emb",
+            None,
+            "model.norm",
             "lm_head",
         ),
         "llama": (
