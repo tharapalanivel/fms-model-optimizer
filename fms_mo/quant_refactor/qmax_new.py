@@ -24,6 +24,11 @@ import torch
 
 # Local
 from fms_mo.quant_refactor.base_quant import Qscheme, Quantizer
+from fms_mo.quant_refactor.per_channel_ste import (
+    PerChannelSTE_PTnative,
+    PerChannelSTEQmax,
+    PerChannelSTEQmax_PTnative,
+)
 from fms_mo.quant_refactor.per_tensor_ste import (
     PerTensorSTE_PTnative,
     PerTensorSTEQmax,
@@ -123,13 +128,29 @@ class Qmax_new(Quantizer):
         self.copy_legacy_vars()  # copy align_zero
 
         if self.use_PT_native_Qfunc:
-            if self.extend_act_range:
-                self.quantizer_name = "QmaxExtend"
-                self.set_clip_ratio()
-                self.quantizer = QmaxExtendRangeSTE_PTnative
+            if self.minmax:
+                self.quantizer_name = "Qminmax"
+                if self.perGrp:
+                    # self.quantizer = QmaxPerGrpSTE_PTnative
+                    pass
+                else:
+                    self.quantizer = (
+                        QmaxPerChSTE_PTnative
+                        if self.perCh
+                        else PerTensorSTEQmax_PTnative
+                    )
             else:
-                self.quantizer_name = "Qminmax" if self.minmax else "Qmax"
-                self.quantizer = PerTensorSTEQmax_PTnative
+                if self.extend_act_range:
+                    self.quantizer_name = "QmaxExtend"
+                    self.set_clip_ratio()
+                    self.quantizer = QmaxExtendRangeSTE_PTnative
+                else:
+                    self.quantizer_name = "Qminmax" if self.minmax else "Qmax"
+                    self.quantizer = (
+                        QmaxPerChSTE_PTnative
+                        if self.perCh
+                        else PerTensorSTEQmax_PTnative
+                    )
         else:
             if self.minmax:
                 self.quantizer_name = "Qminmax"
@@ -171,14 +192,14 @@ class Qmax_new(Quantizer):
         if self.perCh:
             if self.minmax:
                 clip_val_new = torch.max(
-                    input_tensor.reshape([self.perCh, -1]), dim=1
+                    input_tensor.reshape([self.qscheme.Nch, -1]), dim=1
                 ).values
                 clip_valn_new = torch.min(
-                    input_tensor.reshape([self.perCh, -1]), dim=1
+                    input_tensor.reshape([self.qscheme.Nch, -1]), dim=1
                 ).values
             else:
                 clip_val_new = torch.max(
-                    input_tensor.abs().reshape([self.perCh, -1]), dim=1
+                    input_tensor.abs().reshape([self.qscheme.Nch, -1]), dim=1
                 ).values
                 clip_valn_new = -clip_val_new
             assert (
@@ -487,50 +508,32 @@ class QmaxExtendRangeSTE_PTnative(PerTensorSTEQmax_PTnative):
         return n_levels, clip_val, scale, zero_point, qint_min, qint_max, qint_dtype
 
 
-# Placeholder classes for PerCh/PerGp - need to rework #
-class QmaxPerChSTE_new(torch.autograd.Function):
+class QmaxPerChSTE_new(PerChannelSTEQmax):
     """
     Max with zero alignment (symmetric)
     "dequantize=False" option is functional
     """
 
     @staticmethod
-    def forward(
-        ctx,
-        input_tensor,
-        num_bits,
-        _dequantize,
-        inplace,
-        _cvn,
-        cv,
-        align_zero,
-    ) -> torch.FloatTensor:
+    def backward(ctx, grad_output):
         """
-        TODO (bmgroth): docstring
+        Backward function for Qmax Per Channel STE
+
+        Args:
+            ctx (torch.autograd.Function): Context object.
+            grad_output (torch.FloatTensor): Gradient to clip
+
+        Returns:
+            [torch.FloatTensor, None,...,None]: Gradients
         """
-        if inplace:
-            ctx.mark_dirty(input)
-        scale = (2**num_bits - 2) if align_zero else (2**num_bits - 1)
-        zero_point = 0.0
-        _clip_val = cv
-        # here use symmetric similar to sawbperCh code
-        _nspace = 2**num_bits - 2  # lose one level
-        int_l = -(2 ** (num_bits - 1)) + 1
-        int_u = -int_l  # symmetric
-        scale = (
-            cv * 2 / (2**num_bits - 2)
-        )  # original SAWB assumes odd number of bins when calc clip_val
-        zero_point = torch.zeros_like(scale)  # centers around 0 and align 0
-        # FIXME, fake quantize function only support float.
-        output = torch.fake_quantize_per_channel_affine(
-            input_tensor.float(),
-            scale.float(),
-            zero_point.float(),
-            axis=0,
-            quant_min=int_l,
-            quant_max=int_u,
-        ).to(input_tensor.dtype)
-        return output
+        return grad_output, None, None, None, None, None, None
+
+
+class QmaxPerChSTE_PTnative(PerChannelSTEQmax_PTnative):
+    """
+    Max with zero alignment (symmetric)
+    "dequantize=False" option is functional
+    """
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -606,30 +609,10 @@ class QmaxPerGpSTE_new(torch.autograd.Function):
         return grad_output, None, None, None, None, None, None
 
 
-class QminmaxPerChSTE_new(torch.autograd.Function):
+class QminmaxPerChSTE_new(PerChannelSTEQmax):
     """
     per channel minmax with zero alignment (asymmetric)
     """
-
-    @staticmethod
-    def forward(
-        ctx, input_tensor, num_bits, _dequantize, inplace, cv, cvn, align_zero
-    ) -> torch.FloatTensor:
-        """
-        TODO (bmgroth): docstring
-        """
-        if inplace:
-            ctx.mark_dirty(input_tensor)
-        cv, cvn = cv.to(input_tensor.dtype), cvn.to(input_tensor.dtype)
-        scale = (2**num_bits - 1) / (cv - cvn)
-        zero_point = cvn * scale
-        if align_zero:
-            zero_point = torch.round(zero_point)
-        output = (input_tensor.clamp(cvn[:, None], cv[:, None]) - cvn[:, None]) * scale[
-            :, None
-        ]
-        output = (torch.round(output) + zero_point[:, None]) / scale[:, None]
-        return output
 
     @staticmethod
     def backward(ctx, grad_output):
