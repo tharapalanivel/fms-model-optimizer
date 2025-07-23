@@ -240,27 +240,36 @@ def quantizer_asymmetric(request):
 
 
 # Create random clip vals for Per Channel ; must be accompanied by the same tensor
-clip_low_perCh = []
-clip_high_perCh = []
-for tensor_size in tensor_sizes:
-    clip_low_row = -torch.rand(tensor_size) - 2.5  # [-3.5, -2.5]
-    clip_high_row = torch.rand(tensor_size) + 2.5  # [2.5, 3.5]
-    clip_low_perCh.append(clip_low_row)
-    clip_high_perCh.append(clip_high_row)
+qschemes_asymmetric_perCh_params = []
+for qunit in ["perCh"]:
+    for symmetric in [False]:
+        for Ngrp in [False]:
+            for single_sided in [False]:
+                # needs to be disabled for some special cases
+                for qlevel_lowering in [True]:
+                    for axis in [0]:
+                        qschemes_asymmetric_perCh_params.append(
+                            Qscheme(
+                                unit=qunit,
+                                symmetric=symmetric,
+                                single_sided=single_sided,
+                                qlevel_lowering=qlevel_lowering,
+                                Nch=1,  # temp value
+                                axis=axis,
+                            )
+                        )
 
 quantizer_asymmetric_perCh_params = []
 for num_bits in torch.tensor([8, 4]):
-    for clip_low in clip_low_perCh:
-        for clip_high in clip_high_perCh:
-            for scheme in qschemes_asymmetric_params:
-                quantizer_asymmetric_params.append(
-                    {
-                        "num_bits": num_bits,
-                        "clip_low": clip_low,
-                        "clip_high": clip_high,
-                        "scheme": scheme,
-                    }
-                )
+    for scheme in qschemes_asymmetric_perCh_params:
+        quantizer_asymmetric_perCh_params.append(
+            {
+                "num_bits": num_bits,
+                # "clip_low": -clip_high,
+                # "clip_high": clip_high,
+                "scheme": scheme,
+            }
+        )
 
 
 @pytest.fixture(scope="session", params=quantizer_asymmetric_perCh_params)
