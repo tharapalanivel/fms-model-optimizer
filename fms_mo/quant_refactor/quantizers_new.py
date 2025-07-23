@@ -3110,14 +3110,29 @@ class QmaxPerChSTE(torch.autograd.Function):
         )  # original SAWB assumes odd number of bins when calc clip_val
         zero_point = torch.zeros_like(scale)  # centers around 0 and align 0
         # FIXME, fake quantize function only support float.
-        output = torch.fake_quantize_per_channel_affine(
-            input.float(),
-            scale.float(),
-            zero_point.float(),
-            axis=0,
-            quant_min=int_l,
-            quant_max=int_u,
-        ).to(input.dtype)
+
+        if dequantize:
+            output = torch.fake_quantize_per_channel_affine(
+                input.float(),
+                scale.float(),
+                zero_point.float(),
+                axis=0,
+                quant_min=int_l,
+                quant_max=int_u,
+            ).to(input.dtype)
+        else:
+            output = (
+                torch.quantize_per_channel(
+                    input.float(),
+                    scale.float(),
+                    zero_point.float(),
+                    axis=0,
+                    dtype=torch.qint8,
+                )
+                .int_repr()
+                .clamp(int_l, int_u)
+            )
+
         return output
 
     @staticmethod
@@ -3210,15 +3225,14 @@ class QminmaxPerChSTE(torch.autograd.Function):
             ctx.mark_dirty(input)
         clip_val, clip_valn = clip_val.to(input.dtype), clip_valn.to(input.dtype)
         scale = (clip_val - clip_valn) / (2**num_bits - 1)
-        zero_point = torch.round(-clip_valn / scale).to(torch.int)
+        zero_point = torch.round(clip_valn / scale).to(torch.int)
 
-        output = input.clamp(clip_valn[:, None], clip_val[:, None])
-        output = torch.round(output / scale[:, None] - zero_point[:, None])
+        output = torch.round(input / scale[:, None] - zero_point[:, None])
         if dequantize:
             output = (output + zero_point[:, None]) * scale[:, None]
         else:
-            n_half = 2 ** (num_bits - 1)
-            output = (output - n_half).to(torch.int8)
+            output = output.to(torch.uint8)
+
         return output
 
     @staticmethod
