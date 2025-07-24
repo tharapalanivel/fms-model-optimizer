@@ -138,7 +138,10 @@ class OptArguments(TypeChecker):
     """Dataclass for optimization related arguments."""
 
     quant_method: str = field(
-        metadata={"choices": ["gptq", "fp8", "dq"], "help": "Quantization technique"}
+        metadata={
+            "choices": ["gptq", "gptqv2", "fp8", "dq"], 
+            "help": "Quantization technique"
+        }
     )
     output_dir: str = field(
         metadata={
@@ -224,6 +227,7 @@ class GPTQArguments(TypeChecker):
     use_cuda_fp16: bool = True
     autotune_warmup_after_quantized: bool = False
     cache_examples_on_gpu: bool = True
+
 
 
 @dataclass

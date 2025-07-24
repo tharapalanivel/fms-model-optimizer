@@ -7,6 +7,7 @@ For generative LLMs, very often the bottleneck of inference is no longer the com
 
 - [FMS Model Optimizer requirements](../../README.md#requirements)
 - `gptqmodel` is needed for this example. Use `pip install gptqmodel` or [install from source](https://github.com/ModelCloud/GPTQModel/tree/main?tab=readme-ov-file)
+    - It is advised to install from source if you plan to use `GPTQv2`
 - Optionally for the evaluation section below, install [lm-eval](https://github.com/EleutherAI/lm-evaluation-harness)
     ```
     pip install lm-eval
@@ -32,7 +33,7 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 > - Tokenized data will be saved in `<path_to_save>_train` and `<path_to_save>_test`
 > - If you have trouble downloading Llama family of models from Hugging Face ([LLama models require access](https://www.llama.com/docs/getting-the-models/hugging-face/)), you can use `ibm-granite/granite-8b-code` instead
 
-2. **Quantize the model** using the data generated above, the following command will kick off the quantization job (by invoking `gptqmodel` under the hood.) Additional acceptable arguments can be found here in [GPTQArguments](../../fms_mo/training_args.py#L127).
+2. **Quantize the model** using the data generated above, the following command will kick off the `GPTQv1' quantization job (by invoking `gptqmodel` under the hood.) Additional acceptable arguments can be found here in [GPTQArguments](../../fms_mo/training_args.py#L127).
 
     ```bash
     python -m fms_mo.run_quant \
@@ -41,9 +42,10 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
         --quant_method gptq \
         --output_dir Meta-Llama-3-8B-GPTQ \
         --bits 4 \
-        --group_size 128
+        --group_size 128 \ 
+
     ```
-    The model that can be found in the specified output directory (`Meta-Llama-3-8B-GPTQ` in our case) can be deployed and inferenced via `vLLM`.
+    The model that can be found in the specified output directory (`Meta-Llama-3-8B-GPTQ` in our case) can be deployed and inferenced via `vLLM`. To enable `GPTQv2`, set the `quant_method` argument to `gptqv2`. 
 
 > [!NOTE]
 > - In GPTQ, `group_size` is a trade-off between accuracy and speed, but there is an additional constraint that `in_features` of the Linear layer to be quantized needs to be an **integer multiple** of `group_size`, i.e. some models may have to use smaller `group_size` than default.
@@ -82,25 +84,33 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 ## Example Test Results
 
 - Unquantized Model
-- 
-|Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value |   |Stderr|
-|------------|--------------|------:|------|-----:|----------|---|-----:|---|-----:|
-| LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.7103|±  |0.0063|
-|            |              |       |none  |     5|perplexity|↓  |3.7915|±  |0.0727|
+
+        |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value |   |Stderr|
+        |------------|--------------|------:|------|-----:|----------|---|-----:|---|-----:|
+        | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.7103|±  |0.0063|
+        |            |              |       |none  |     5|perplexity|↓  |3.7915|±  |0.0727|
 
 - Quantized model with the settings showed above (`desc_act` default to False.)
-- 
-|Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
-|------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
-| LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6365 |±  |0.0067|
-|            |              |       |none  |     5|perplexity|↓  |5.9307 |±  |0.1830|
+    - `GPTQv1`
+
+        |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
+        |------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
+        | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6365 |±  |0.0067|
+        |            |              |       |none  |     5|perplexity|↓  |5.9307 |±  |0.1830|
+
+    - `GPTQv2`
+
+        |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
+        |------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
+        | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6817 |±  |0.0065|
+        |            |              |       |none  |     5|perplexity|↓  |4.3994 |±  |0.0995|
 
 - Quantized model with `desc_act` set to `True` (could improve the model quality, but at the cost of inference speed.)
-- 
-|Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
-|------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
-| LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6193 |±  |0.0068|
-|            |              |       |none  |     5|perplexity|↓  |5.8879 |±  |0.1546|
+    - `GPTQv1` 
+        |Model       |    Tasks     |Version|Filter|n-shot|  Metric  |   |Value  |   |Stderr|
+        |------------|--------------|------:|------|-----:|----------|---|------:|---|-----:|
+        | LLAMA3-8B  |lambada_openai|      1|none  |     5|acc       |↑  |0.6193 |±  |0.0068|
+        |            |              |       |none  |     5|perplexity|↓  |5.8879 |±  |0.1546|
 
 > [!NOTE]
 > There is some randomness in generating the model and data, the resulting accuracy may vary ~$\pm$ 0.05.
@@ -108,18 +118,33 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
 
 ## Code Walk-through
 
-1.  Command line arguments will be used to create a GPTQ quantization config. Information about the required arguments and their default values can be found [here](../../fms_mo/training_args.py)
+1.  Command line arguments will be used to create a GPTQ quantization config. Information about the required arguments and their default values can be found [here](../../fms_mo/training_args.py). `GPTQv1` and `GPTQv2` is supported. 
+
+    - To use `GPTQv1`, set the parameter `quant_method` to `gptq` in the command line. 
 
     ```python
-    from gptqmodel import GPTQModel, QuantizeConfig
+        from gptqmodel import GPTQModel, QuantizeConfig
 
-    quantize_config = QuantizeConfig(
-        bits=gptq_args.bits,
-        group_size=gptq_args.group_size,
-        desc_act=gptq_args.desc_act,
-        damp_percent=gptq_args.damp_percent,
-    )
+        quantize_config = QuantizeConfig(
+            bits=gptq_args.bits,
+            group_size=gptq_args.group_size,
+            desc_act=gptq_args.desc_act,
+            damp_percent=gptq_args.damp_percent,
+            )
+    ```
+    - To use `GPTQv2`, simply set  `quant_method` to `gptqv2`in the command line. Under the hood, two additional arguments will be added to QuantizeConfig, i.e. `v2` = `True` and `v2_memory_device` = `cpu`.
 
+    ```python
+        from gptqmodel import GPTQModel, QuantizeConfig
+
+        quantize_config = QuantizeConfig(
+            bits=gptq_args.bits,
+            group_size=gptq_args.group_size,
+            desc_act=gptq_args.desc_act,
+            damp_percent=gptq_args.damp_percent,
+            v2=True,
+            v2_memory_device='cpu',
+            )
     ```
 
 2. Load the pre_trained model with `gptqmodel` class/wrapper. Tokenizer is optional because we already tokenized the data in a previous step.
@@ -158,4 +183,4 @@ This end-to-end example utilizes the common set of interfaces provided by `fms_m
     tokenizer.save_pretrained(output_dir) # optional
     ```
 > [!NOTE]
-> 1. GPTQ of a 70B model usually takes ~4-10 hours on A100.
+> 1. GPTQ of a 70B model usually takes ~4-10 hours on A100 with `GPTQv1`.
