@@ -449,7 +449,7 @@ def round_and_trun_mask(chunk_trun_bits, clamp_acc_to_dl16):
 @triton.jit
 def round_and_trun(x, round_bit, trun_mask, clamp_acc_to_dl16):
     """Round and truncate (usually for accumulator)."""
-    x = libdevice.uint_as_float((libdevice.float_as_uint(x) + round_bit) & trun_mask)
+    x = libdevice.uint_as_float((libdevice.float_as_uint(x) + round_bit) & trun_mask)  # pylint: disable=assignment-from-no-return
 
     if clamp_acc_to_dl16:
         # clamp to DL16 min/max:
