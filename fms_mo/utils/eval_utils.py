@@ -98,7 +98,10 @@ def eval_llm_1GPU(qcfg, model, test_dataset, pre_cache_func=None, **kwargs):  # 
     logger.info("All blocks are computed for evaluation")
 
     nlls = []
+
+    # Required by Granite-3.X (and potentially other models) to scale their logits
     logits_scaling = getattr(model.config, "logits_scaling", 1)
+
     # for i, data_mb in enumerate(dloader): #if using dloader.
     for i in tqdm(range(qcfg["n_samples"]), desc="Final Evaluating..."):
         hidden_states = qcfg["cached_input"][i].to(dev)
@@ -107,6 +110,8 @@ def eval_llm_1GPU(qcfg, model, test_dataset, pre_cache_func=None, **kwargs):  # 
             hidden_states = ln_f(hidden_states)
         lm_head.to(dev)
         lm_logits = lm_head(hidden_states)
+
+        # Scaling of the lm_head outputs to obtain the correct logits
         lm_logits /= logits_scaling
 
         # Shift so that tokens < n predict n
