@@ -2913,6 +2913,7 @@ class Qmax(nn.Module):
         self.perCh = perCh
         self.extend_act_range = extend_act_range
         self.perGp = perGp
+        self.recompute_clips = False
 
         self.set_quantizer()
 
@@ -2997,7 +2998,7 @@ class Qmax(nn.Module):
         if len(clipvaln_new.shape) == 0:
             clipvaln_new = clipvaln_new.unsqueeze(dim=0)
 
-        if self.Niter == 0 and self.training:
+        if (self.Niter == 0 and self.training) or self.recompute_clips:
             # to avoid unintended bwd ops added to the graph, cause memory leak sometimes
             with torch.no_grad():
                 # similar to fill_(), will not change id(self.clip_val) but update the values
