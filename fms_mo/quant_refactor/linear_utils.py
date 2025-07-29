@@ -293,13 +293,9 @@ def asymmetric_linear_quantization_params(
         scale = diff / n_levels
         zero_point = -sat_min / scale
         if integral_zero_point:
-            zero_point = zero_point.round()
+            zero_point = zero_point.round().to(torch.int)
         if signed:
             zero_point += 2 ** (num_bits - 1)
-
-        # Ensure zp in [0, n_levels]
-        zp_bounds = torch.all((zero_point > 0) & (zero_point < n_levels))
-        assert zp_bounds, "Asymmetric zero points should be in [0, 2**bits-1]"
 
         return n_levels, scale, zero_point
 

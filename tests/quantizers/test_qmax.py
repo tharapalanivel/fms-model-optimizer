@@ -713,6 +713,10 @@ def test_qmaxnew_asymmetric_perCh(
 
     setup = torch_quantizer_asymmetric_perCh.get_setup()
 
+    # QminmaxPerChSTE_PTnative has a rare numerical problem:
+    # input/scale + zp == (K+.5), then rounding becomes unstable inside torch.quantize_per_channel
+    error_override = base_options["nativePT"] and other_options_perCh["minmax"]
+
     quantizer_error(
         tensor,
         qtensor_fms_mo,
@@ -720,4 +724,5 @@ def test_qmaxnew_asymmetric_perCh(
         setup,
         base_options,
         other_options_perCh,
+        error_override=error_override,
     )

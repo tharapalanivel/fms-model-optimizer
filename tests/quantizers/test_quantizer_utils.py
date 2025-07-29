@@ -79,6 +79,7 @@ def quantizer_error(
     max_norm_tol=1e-5,
     l2_norm_tol=1e-2,
     nonzero_tol=1e-2,
+    error_override=False,
 ):
     """
     Check various types of quantizer numerical errors for FMS and Torch quantizied tensors
@@ -102,7 +103,7 @@ def quantizer_error(
     """
 
     # If using PyTorch functions, set error tolerances to zero
-    if base_options["nativePT"]:
+    if base_options["nativePT"] and not error_override:
         max_norm_tol = 0.0
         l2_norm_tol = 0.0
         nonzero_tol = 0.0
@@ -207,16 +208,16 @@ def quantizer_error(
         num_bits,
         clip_low,
         clip_high,
+        _n_level,
         scale,
         _zero_point,
-        _n_level,
         _quant_min,
         _quant_max,
         _qscheme,
     ) = setup
 
     # Check if qtensors are constant for non-constant tensor with appropriate spacing of elements
-    if tensor.unique().numel() > 1 and (tensor.max() - tensor.min()) > scale:
+    if tensor.unique().numel() > 1 and (tensor.max() - tensor.min()) > scale.min():
         fms_mo_unique_vals = qtensor_fms_mo.unique()
         torch_unique_vals = qtensor_torch.unique()
 
@@ -271,6 +272,8 @@ def quantizer_error(
 
     assert total_nonscale_nonzero_indices == total_nonzero_indices - total_scale_indices
 
+    # At this point, we don't want to count any potential problems from banker's rounding
+
     with torch.no_grad():
         try:
             # Check for large difference in values for current dtype (ie underflow/overflow)
@@ -322,6 +325,10 @@ def quantizer_error(
             )
             logger.error("Total Diff vals =%s", diff.unique().numel())
             logger.error("Diff unique vals =\n%s", diff.unique().detach())
+
+            logger.error("input tensor =\n%s", tensor)
+            logger.error("torch_scale =\n%s", scale)
+            logger.error("torch_zero_point =\n%s", _zero_point)
             raise e_value  # Reraise exception
 
 

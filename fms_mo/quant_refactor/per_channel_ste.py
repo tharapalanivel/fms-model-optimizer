@@ -361,7 +361,6 @@ class PerChannelSTE_PTnative(torch.autograd.Function):
                 quant_max=qint_h,
             ).to(input_tensor.dtype)
         else:
-            # Note: scale is multi-valued, but zero_point isn't...
             output = (
                 torch.quantize_per_channel(
                     input_tensor.float(),
