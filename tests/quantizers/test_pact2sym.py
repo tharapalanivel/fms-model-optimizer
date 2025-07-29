@@ -82,31 +82,31 @@ def test_pact2sym_symmetric(
     base_options["nativePT"] = native_pt  # reset value
 
 
-def test_pact2symnew_symmetric(
+def test_pact2sym_rc_symmetric(
     tensor,
-    pact2symnew_quantizer_symmetric,
+    pact2sym_rc_quantizer_symmetric,
     torch_quantizer_symmetric,
     base_options: dict,
     other_options: dict = None,
 ):
     """
-    Test PACT2Sym_new w/ ymmetric tensors
+    Test PACT2Sym_rc w/ ymmetric tensors
 
     Args:
         tensor (torch.Tensor): Tensor to quantize.
-        pact2symnew_quantizer_symmetric (torch.autograd.Function): PACT2Sym_new Quantizer
+        pact2sym_rc_quantizer_symmetric (torch.autograd.Function): PACT2Sym_rc Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
         other_options (dict, optional): Other Options for quantization. Defaults to None.
     """
     # Set base quantizer and other options
     set_base_options(
-        pact2symnew_quantizer_symmetric, torch_quantizer_symmetric, base_options
+        pact2sym_rc_quantizer_symmetric, torch_quantizer_symmetric, base_options
     )
     set_other_options(torch_quantizer_symmetric)
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = pact2symnew_quantizer_symmetric(tensor).detach()
+    qtensor_fms_mo = pact2sym_rc_quantizer_symmetric(tensor).detach()
     qtensor_torch = torch_quantizer_symmetric(tensor).detach()
 
     setup = torch_quantizer_symmetric.get_setup()

@@ -47,7 +47,7 @@ qscheme_per_tensor = Qscheme(
 )
 
 
-class Qmax_new(Quantizer):
+class Qmax_rc(Quantizer):
     """
     SAWB with custom backward (gradient pass through for clip function)
     if align_zero: quantizer = SAWBSTE() for coded sawb such as 103, 403, 803
@@ -155,21 +155,19 @@ class Qmax_new(Quantizer):
             if self.minmax:
                 self.quantizer_name = "Qminmax"
                 if self.perGrp:
-                    self.quantizer = QminmaxPerGpSTE_new
+                    self.quantizer = QminmaxPerGpSTE_rc
                 else:
-                    self.quantizer = (
-                        QminmaxPerChSTE_new if self.perCh else QminmaxSTE_new
-                    )
+                    self.quantizer = QminmaxPerChSTE_rc if self.perCh else QminmaxSTE_rc
             elif self.extend_act_range:
-                self.quantizer = QmaxExtendRangeSTE_new
+                self.quantizer = QmaxExtendRangeSTE_rc
                 self.quantizer_name = "QmaxExtend"
                 self.set_clip_ratio()
             else:
                 self.quantizer_name = "Qmax"
                 if self.perGrp:
-                    self.quantizer = QmaxPerGpSTE_new
+                    self.quantizer = QmaxPerGpSTE_rc
                 else:
-                    self.quantizer = QmaxPerChSTE_new if self.perCh else QmaxSTE_new
+                    self.quantizer = QmaxPerChSTE_rc if self.perCh else QmaxSTE_rc
 
     def set_clip_ratio(self):
         """
@@ -191,69 +189,69 @@ class Qmax_new(Quantizer):
         """
         if self.perCh:
             if self.minmax:
-                clip_val_new = torch.max(
+                clip_val_temp = torch.max(
                     input_tensor.reshape([self.qscheme.Nch, -1]), dim=1
                 ).values
-                clip_valn_new = torch.min(
+                clip_valn_temp = torch.min(
                     input_tensor.reshape([self.qscheme.Nch, -1]), dim=1
                 ).values
             else:
-                clip_val_new = torch.max(
+                clip_val_temp = torch.max(
                     input_tensor.abs().reshape([self.qscheme.Nch, -1]), dim=1
                 ).values
-                clip_valn_new = -clip_val_new
+                clip_valn_temp = -clip_val_temp
             assert (
-                len(clip_val_new) == input_tensor.shape[0]
-            ), f"dimension error, input{input_tensor.shape}, clipval{clip_val_new.shape}"
+                len(clip_val_temp) == input_tensor.shape[0]
+            ), f"dimension error, input{input_tensor.shape}, clipval{clip_val_temp.shape}"
         elif self.perGrp:
             if self.minmax:
-                clip_val_new = torch.max(
+                clip_val_temp = torch.max(
                     input_tensor.reshape(self.perGrp), dim=1
                 ).values
-                clip_valn_new = torch.min(
+                clip_valn_temp = torch.min(
                     input_tensor.reshape(self.perGrp), dim=1
                 ).values
             else:
-                clip_val_new = torch.max(
+                clip_val_temp = torch.max(
                     input_tensor.abs().reshape(self.perGrp), dim=1
                 ).values
-                clip_valn_new = -clip_val_new
+                clip_valn_temp = -clip_val_temp
             assert (
-                len(clip_val_new)
+                len(clip_val_temp)
                 == (input_tensor.shape[0] * input_tensor.shape[1] // self.perGrp[1])
-            ), f"dimension error, input{input_tensor.shape}, clip_val{clip_val_new.shape}"
+            ), f"dimension error, input{input_tensor.shape}, clip_val{clip_val_temp.shape}"
         elif self.extend_act_range:
             if input_tensor.max() >= input_tensor.min().abs():
-                clip_val_new = input_tensor.max()
-                clip_valn_new = clip_val_new * self.clip_ratio
+                clip_val_temp = input_tensor.max()
+                clip_valn_temp = clip_val_temp * self.clip_ratio
             else:
-                clip_valn_new = input_tensor.min()
-                clip_val_new = clip_valn_new / self.clip_ratio
+                clip_valn_temp = input_tensor.min()
+                clip_val_temp = clip_valn_temp / self.clip_ratio
         else:
             if self.minmax:  # asymmetric
-                clip_val_new = input_tensor.max()
-                clip_valn_new = input_tensor.min()
+                clip_val_temp = input_tensor.max()
+                clip_valn_temp = input_tensor.min()
             else:  # symmetric
-                clip_val_new = input_tensor.abs().max()
-                clip_valn_new = -clip_val_new
+                clip_val_temp = input_tensor.abs().max()
+                clip_valn_temp = -clip_val_temp
 
-        if len(clip_val_new.shape) == 0:
-            clip_val_new = clip_val_new.unsqueeze(dim=0)
-        if len(clip_valn_new.shape) == 0:
-            clip_valn_new = clip_valn_new.unsqueeze(dim=0)
+        if len(clip_val_temp.shape) == 0:
+            clip_val_temp = clip_val_temp.unsqueeze(dim=0)
+        if len(clip_valn_temp.shape) == 0:
+            clip_valn_temp = clip_valn_temp.unsqueeze(dim=0)
 
         if (self.Niter == 0 and self.training) or self.recompute_clips:
             # to avoid unintended bwd ops added to the graph, cause memory leak sometimes
             with torch.no_grad():
-                self.clip_val.copy_(clip_val_new)
-                self.clip_valn.copy_(clip_valn_new)
+                self.clip_val.copy_(clip_val_temp)
+                self.clip_valn.copy_(clip_valn_temp)
 
         if self.training:
             output = self.quantizer.apply(
                 input_tensor,
                 self.num_bits,
-                clip_valn_new,
-                clip_val_new,  # use new clip_vals first, then do moving average
+                clip_valn_temp,
+                clip_val_temp,  # use new clip_vals first, then do moving average
                 self.dequantize,
                 self.qscheme.symmetric,
                 self.qscheme.qlevel_lowering,
@@ -263,14 +261,14 @@ class Qmax_new(Quantizer):
                 # to avoid unintended bwd ops added to the graph, cause memory leak sometimes
                 self.clip_val.copy_(
                     self.clip_val * (1.0 - self.movAvgFac)
-                    + clip_val_new * self.movAvgFac
+                    + clip_val_temp * self.movAvgFac
                 )
                 if self.extend_act_range:
                     self.clip_valn.copy_(self.clip_val * self.clip_ratio)
                 else:
                     self.clip_valn.copy_(
                         self.clip_valn * (1.0 - self.movAvgFac)
-                        + clip_valn_new * self.movAvgFac
+                        + clip_valn_temp * self.movAvgFac
                     )
         else:
             output = self.quantizer.apply(
@@ -288,7 +286,7 @@ class Qmax_new(Quantizer):
         return output
 
 
-class QmaxSTE_new(PerTensorSTEQmax):
+class QmaxSTE_rc(PerTensorSTEQmax):
     """
     QMax with zero alignment (symmetric)
 
@@ -311,7 +309,7 @@ class QmaxSTE_new(PerTensorSTEQmax):
         return grad_output, None, None, None, None, None, None, None
 
 
-class QminmaxSTE_new(PerTensorSTEQmax):
+class QminmaxSTE_rc(PerTensorSTEQmax):
     """minmax with zero alignment (asymmetric)
     Dequantization always enabled (cannot be turned off, at this time)
     """
@@ -331,7 +329,7 @@ class QminmaxSTE_new(PerTensorSTEQmax):
         return grad_output, None, None, None, None, None, None, None
 
 
-class QmaxExtendRangeSTE_new(torch.autograd.Function):
+class QmaxExtendRangeSTE_rc(torch.autograd.Function):
     """
     2-sided Max quantizer using a single clip
 
@@ -508,7 +506,7 @@ class QmaxExtendRangeSTE_PTnative(PerTensorSTEQmax_PTnative):
         return n_levels, clip_val, scale, zero_point, qint_min, qint_max, qint_dtype
 
 
-class QmaxPerChSTE_new(PerChannelSTEQmax):
+class QmaxPerChSTE_rc(PerChannelSTEQmax):
     """
     Max with zero alignment (symmetric)
     "dequantize=False" option is functional
@@ -550,7 +548,7 @@ class QmaxPerChSTE_PTnative(PerChannelSTEQmax_PTnative):
         return grad_output, None, None, None, None, None, None
 
 
-class QmaxPerGpSTE_new(torch.autograd.Function):
+class QmaxPerGpSTE_rc(torch.autograd.Function):
     """
     Max with zero alignment (symmetric)
     per group quantization
@@ -609,7 +607,7 @@ class QmaxPerGpSTE_new(torch.autograd.Function):
         return grad_output, None, None, None, None, None, None
 
 
-class QminmaxPerChSTE_new(PerChannelSTEQmax):
+class QminmaxPerChSTE_rc(PerChannelSTEQmax):
     """
     per channel minmax with zero alignment (asymmetric)
     """
@@ -629,7 +627,7 @@ class QminmaxPerChSTE_new(PerChannelSTEQmax):
         return grad_output, None, None, None, None, None, None
 
 
-class QminmaxPerGpSTE_new(torch.autograd.Function):
+class QminmaxPerGpSTE_rc(torch.autograd.Function):
     """
     per group minmax with zero alignment (asymmetric)
     """

@@ -63,19 +63,19 @@ def test_lsq_single_sided(
     base_options["nativePT"] = native_pt
 
 
-def test_lsqnew_single_sided(
+def test_lsq_rc_single_sided(
     tensor_single_sided: torch.Tensor,
-    lsqnew_quantizer_single_sided: torch.autograd.Function,
+    lsq_rc_quantizer_single_sided: torch.autograd.Function,
     torch_quantizer_single_sided: torch.nn.Module,
     base_options: dict,
     other_options: dict = None,
 ):
     """
-    Test LSQ_new w/ single-sided tensors
+    Test LSQ_rc w/ single-sided tensors
 
     Args:
         tensor_single_sided (torch.Tensor): Tensor to quantize.
-        lsqnew_quantizer_single_sided (torch.autograd.Function): LSQ Quantizer
+        lsq_rc_quantizer_single_sided (torch.autograd.Function): LSQ Quantizer
         torch_quantizer_single_sided (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
         other_options (dict, optional): Other Options for quantization. Defaults to None.
@@ -84,11 +84,11 @@ def test_lsqnew_single_sided(
     native_pt = base_options["nativePT"]
     base_options["nativePT"] = False  # Override: not supported in LSQ
     set_base_options(
-        lsqnew_quantizer_single_sided, torch_quantizer_single_sided, base_options
+        lsq_rc_quantizer_single_sided, torch_quantizer_single_sided, base_options
     )
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = lsqnew_quantizer_single_sided(tensor_single_sided).detach()
+    qtensor_fms_mo = lsq_rc_quantizer_single_sided(tensor_single_sided).detach()
     qtensor_torch = torch_quantizer_single_sided(tensor_single_sided).detach()
 
     setup = torch_quantizer_single_sided.get_setup()

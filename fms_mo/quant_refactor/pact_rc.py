@@ -35,7 +35,7 @@ qscheme_per_tensor = Qscheme(
 )
 
 
-class PACT_new(Quantizer):
+class PACT_rc(Quantizer):
     """
     1-sided original PACT
     PACT is only used to quantize activations
@@ -89,10 +89,10 @@ class PACT_new(Quantizer):
         if self.use_PT_native_Qfunc:  # PTnative overrides all other options
             self.quantizer = PerTensorSTE_PTnative
         else:
-            self.quantizer = PACTplusSTE_new if self.pact_plus else PACT_STE_new
+            self.quantizer = PACTplusSTE_rc if self.pact_plus else PACT_STE_rc
 
 
-class PACT_STE_new(PerTensorSTE):
+class PACT_STE_rc(PerTensorSTE):
     """
     Single-sided PACT STE
 
@@ -128,7 +128,7 @@ class PACT_STE_new(PerTensorSTE):
         return grad_input, grad_alpha, None, None, None, None, None
 
 
-class PACTplusSTE_new(PerTensorSTE):
+class PACTplusSTE_rc(PerTensorSTE):
     """
     Single-sided PACT+ STE
 

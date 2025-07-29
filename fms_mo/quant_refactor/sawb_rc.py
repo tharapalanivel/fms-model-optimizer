@@ -46,7 +46,7 @@ qscheme_per_tensor = Qscheme(
 )
 
 
-class SAWB_new(Quantizer):
+class SAWB_rc(Quantizer):
     """
     SAWB with custom backward (gradient pass through for clip function)
     if align_zero: quantizer = SAWBSTE() for coded sawb such as 103, 403, 803
@@ -145,19 +145,19 @@ class SAWB_new(Quantizer):
             if self.clipSTE:
                 if self.qscheme.qlevel_lowering:
                     self.quantizer = (
-                        SAWBPlusZeroPerChSTE_new
+                        SAWBPlusZeroPerChSTE_rc
                         if self.perCh and self.num_bits in [2, 4, 8]
-                        else SAWBPlusZeroSTE_new
+                        else SAWBPlusZeroSTE_rc
                     )
                 else:
-                    self.quantizer = SAWBPlusSTE_new
+                    self.quantizer = SAWBPlusSTE_rc
             else:
                 # if perCh but no sawb+ (e.g. `sawb_perCh`) will use a per-tensor
                 # clip copied over each channel
                 if self.qscheme.qlevel_lowering:
-                    self.quantizer = SAWBZeroSTE_new
+                    self.quantizer = SAWBZeroSTE_rc
                 else:
-                    self.quantizer = SAWBSTE_new
+                    self.quantizer = SAWBSTE_rc
 
     def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """
@@ -179,11 +179,11 @@ class SAWB_new(Quantizer):
                 else self.num_bits
             )
             code = bits2codeDict[num_bits_int]
-            _, clip_val_new = sawb_params_code(
+            _, clip_val_temp = sawb_params_code(
                 input_tensor, self.num_bits, code, perCh=True
             )
         elif self.use_extended_range_4bits:
-            _, clip_val_new = sawb_params_code(
+            _, clip_val_temp = sawb_params_code(
                 input_tensor, self.num_bits, 403, perCh=False
             )
         else:
@@ -195,33 +195,33 @@ class SAWB_new(Quantizer):
                     else self.num_bits
                 )
                 code = bits2codeDict[num_bits_int]
-                _, clip_val_new = sawb_params_code(
+                _, clip_val_temp = sawb_params_code(
                     input_tensor, self.num_bits, code, perCh=False
                 )
             else:
-                _, clip_val_new = sawb_params(
+                _, clip_val_temp = sawb_params(
                     input_tensor, self.num_bits, self.qscheme.qlevel_lowering
                 )
-        clip_val_new = clip_val_new.to(input_tensor.dtype)  # keep dtype of input
-        clip_valn_new = -clip_val_new
+        clip_val_temp = clip_val_temp.to(input_tensor.dtype)  # keep dtype of input
+        clip_valn_temp = -clip_val_temp
 
         # If shape == 0, unsqueese clip vals
-        if len(clip_val_new.shape) == 0:
-            clip_val_new = clip_val_new.unsqueeze(dim=0)
-        if len(clip_valn_new.shape) == 0:
-            clip_valn_new = clip_valn_new.unsqueeze(dim=0)
+        if len(clip_val_temp.shape) == 0:
+            clip_val_temp = clip_val_temp.unsqueeze(dim=0)
+        if len(clip_valn_temp.shape) == 0:
+            clip_valn_temp = clip_valn_temp.unsqueeze(dim=0)
 
         if (self.Niter == 0 and self.training) or self.recompute_clips:
             with torch.no_grad():
-                self.clip_val.copy_(clip_val_new)
-                self.clip_valn.copy_(clip_valn_new)
+                self.clip_val.copy_(clip_val_temp)
+                self.clip_valn.copy_(clip_valn_temp)
 
         if self.training:
             output = self.quantizer.apply(
                 input_tensor,
                 self.num_bits,
-                clip_valn_new,
-                clip_val_new,  # use new clip_vals first, then do moving average
+                clip_valn_temp,
+                clip_val_temp,  # use new clip_vals first, then do moving average
                 self.dequantize,
                 self.qscheme.symmetric,
                 self.qscheme.qlevel_lowering,
@@ -232,7 +232,7 @@ class SAWB_new(Quantizer):
             with torch.no_grad():
                 self.clip_val.copy_(
                     self.clip_val * (1.0 - self.movAvgFac)
-                    + clip_val_new * self.movAvgFac
+                    + clip_val_temp * self.movAvgFac
                 )
                 # Special case for extended range
                 if self.use_extended_range_4bits:
@@ -241,7 +241,7 @@ class SAWB_new(Quantizer):
                 else:
                     self.clip_valn.copy_(
                         self.clip_valn * (1.0 - self.movAvgFac)
-                        + clip_valn_new * self.movAvgFac
+                        + clip_valn_temp * self.movAvgFac
                     )
 
         else:  # Inference case
@@ -259,7 +259,7 @@ class SAWB_new(Quantizer):
         return output
 
 
-class SAWBSTE_new(PerTensorSTESAWB):
+class SAWBSTE_rc(PerTensorSTESAWB):
     """
     SAWB without zero alignment
 
@@ -290,7 +290,7 @@ class SAWBSTE_new(PerTensorSTESAWB):
         return grad_input, None, None, None, None, None, None, None
 
 
-class SAWBZeroSTE_new(PerTensorSTESAWB):
+class SAWBZeroSTE_rc(PerTensorSTESAWB):
     """
     SAWB with zero alignment (symmetric) and gradient clipping
     Supported bits: 2, 4, 8
@@ -324,7 +324,7 @@ class SAWBZeroSTE_new(PerTensorSTESAWB):
         return grad_input, None, None, None, None, None, None, None
 
 
-class SAWBPlusSTE_new(PerTensorSTESAWB):
+class SAWBPlusSTE_rc(PerTensorSTESAWB):
     """
     SAWB+: no zero alignment and no gradient clipping
     Incorrect behavior for "dequantize=False" - do not use
@@ -349,7 +349,7 @@ class SAWBPlusSTE_new(PerTensorSTESAWB):
         return grad_input, None, None, None, None, None, None, None
 
 
-class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
+class SAWBPlusZeroSTE_rc(PerTensorSTESAWB):
     """SAWB+ with zero alignment (symmetric) and no gradient clipping
     Supported bits: 2, 4, 7, 8
     Other bits requests: runs x.abs().max(), not SAWB
@@ -374,7 +374,7 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
         return grad_output, None, None, None, None, None, None, None
 
 
-# class SAWBPlus16ZeroSTE_new(torch.autograd.Function):
+# class SAWBPlus16ZeroSTE_rc(torch.autograd.Function):
 #     """
 #     SAWB with zero alignment but use 16 bins instead of 15, i.e. asymmetric and 4 bit only
 #     Uses code=403
@@ -555,7 +555,7 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 #         return n_levels, clip_val, scale, zero_point, qint_l, qint_h, qint_dtype
 
 
-class SAWBPlusZeroPerChSTE_new(PerChannelSTESAWB):
+class SAWBPlusZeroPerChSTE_rc(PerChannelSTESAWB):
     """
     per-channel SAWB with zero alignment, ca,8n use 15 or 16 bins, i.e. [-7,7] or [-7]
     """

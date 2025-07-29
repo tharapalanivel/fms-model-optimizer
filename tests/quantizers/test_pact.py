@@ -108,31 +108,31 @@ def test_pact_single_sided(
     base_options["nativePT"] = native_pt  # reset value
 
 
-def test_pactnew_single_sided(
+def test_pact_rc_single_sided(
     tensor_single_sided: torch.Tensor,
-    pactnew_quantizer_single_sided: torch.autograd.Function,
+    pact_rc_quantizer_single_sided: torch.autograd.Function,
     torch_quantizer_single_sided: torch.nn.Module,
     base_options: dict,
     other_options: dict,
 ):
     """
-    Test PACT_new w/ single-sided tensors
+    Test PACT_rc w/ single-sided tensors
 
     Args:
         tensor_single_sided (torch.Tensor): Tensor to quantize.
-        pactnew_quantizer_single_sided (torch.autograd.Function): PACT Quantizer
+        pact_rc_quantizer_single_sided (torch.autograd.Function): PACT Quantizer
         torch_quantizer_single_sided (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
         other_options (dict, optional): Other Options for quantization. Defaults to None.
     """
     # Set base quantizer and other options
     set_base_options(
-        pactnew_quantizer_single_sided, torch_quantizer_single_sided, base_options
+        pact_rc_quantizer_single_sided, torch_quantizer_single_sided, base_options
     )
-    set_other_options(pactnew_quantizer_single_sided, other_options)
+    set_other_options(pact_rc_quantizer_single_sided, other_options)
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = pactnew_quantizer_single_sided(tensor_single_sided).detach()
+    qtensor_fms_mo = pact_rc_quantizer_single_sided(tensor_single_sided).detach()
     qtensor_torch = torch_quantizer_single_sided(tensor_single_sided).detach()
 
     setup = torch_quantizer_single_sided.get_setup()

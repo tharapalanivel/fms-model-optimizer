@@ -24,7 +24,7 @@ import pytest
 import torch
 
 # Local
-from fms_mo.quant_refactor.get_quantizer_new import get_weight_quantizer_new
+from fms_mo.quant_refactor.get_quantizer_rc import get_weight_quantizer_rc
 
 # Weight inputs
 # qw_mode="SAWB+",
@@ -94,14 +94,14 @@ def weight_symmetric(request):
     return request.param
 
 
-def test_get_weight_symmetric_new(weight_symmetric):
+def test_get_weight_symmetric_rc(weight_symmetric):
     """
     Test get_weight_quantizer is callable
 
     Args:
         weight_symmetric (dict): Function input
     """
-    get_weight_quantizer_new(
+    get_weight_quantizer_rc(
         qw_mode=weight_symmetric["qw_mode"],
         nbits=weight_symmetric["num_bits"],
         clip_val=weight_symmetric["clip_val"],

@@ -50,7 +50,7 @@ qscheme_per_tensor = Qscheme(
 )
 
 
-class LSQQuantization_new(Quantizer):
+class LSQQuantization_rc(Quantizer):
     """
     LSQ Quantizer
 
@@ -94,12 +94,12 @@ class LSQQuantization_new(Quantizer):
 
     def set_quantizer(self):
         """
-        Set quantizer STE - use LSQQuantizationSTE_new
+        Set quantizer STE - use LSQQuantizationSTE_rc
         """
-        self.quantizer = LSQQuantizationSTE_new
+        self.quantizer = LSQQuantizationSTE_rc
 
 
-class LSQQuantizationSTE_new(PerTensorSTE):
+class LSQQuantizationSTE_rc(PerTensorSTE):
     """
     1-sided LSQ quantization STE
 
@@ -192,7 +192,7 @@ class LSQQuantizationSTE_new(PerTensorSTE):
         return grad_input, grad_alpha * grad_scale, None, None, None, None, None
 
 
-class LSQPlus_new(Quantizer):
+class LSQPlus_rc(Quantizer):
     """
     LSQ+ Quantizater
 
@@ -242,9 +242,9 @@ class LSQPlus_new(Quantizer):
 
     def set_quantizer(self):
         """
-        Set quantizer STE - use LSQPlus_func_new
+        Set quantizer STE - use LSQPlus_func_rc
         """
-        self.quantizer = LSQPlus_func_new
+        self.quantizer = LSQPlus_func_rc
 
     def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """
@@ -283,7 +283,7 @@ class LSQPlus_new(Quantizer):
         return output
 
 
-class LSQPlus_func_new(torch.autograd.Function):
+class LSQPlus_func_rc(torch.autograd.Function):
     """2-side LSQ+ from CVPR workshop paper"""
 
     @staticmethod

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-PACT2 Quantizer
+PACT2Symmetric Quantizer
 """
 
 # Third Party
@@ -27,7 +27,7 @@ clip_valn_default = torch.tensor([-8.0])
 clip_val_default = torch.tensor([8.0])
 qscheme_per_tensor = Qscheme(
     unit="perT",
-    symmetric=False,
+    symmetric=True,
     Nch=None,
     Ngrp=None,
     single_sided=False,
@@ -35,11 +35,12 @@ qscheme_per_tensor = Qscheme(
 )
 
 
-class PACT2_new(Quantizer):
+class PACT2Sym_rc(Quantizer):
     """
-    Two-sided original PACT
-    PACT2 can be used to quantize both weights and activations
+    Two-sided PACT with symmetric clip values
 
+    Extends:
+        Quantizer
     """
 
     def __init__(
@@ -49,11 +50,10 @@ class PACT2_new(Quantizer):
         init_clip_val: torch.Tensor = clip_val_default,
         qscheme: Qscheme = qscheme_per_tensor,
         dequantize: bool = True,
-        pact_plus: bool = True,
         **kwargs,
     ):
         """
-        Init PACT2 quantizer
+        Init PACT2Sym quantizer
 
         Args:
             num_bits (torch.Tensor): Number of bits for quantization.
@@ -63,7 +63,6 @@ class PACT2_new(Quantizer):
                 Defaults to Qscheme( unit="perT", symmetric=False, Nch=None, Ngrp=None,
                                        single_sided=False, qlevel_lowering=False, ).
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
-            pact_plus (bool, optional): Use PACT+2 quantizer . Defaults to True.
             kwargs.use_PT_native_Qfunc (bool, optional): Use native PT quantizer.
                 Defaults to False.
         """
@@ -78,7 +77,6 @@ class PACT2_new(Quantizer):
             self.clip_valn.data *= init_clip_valn
             self.clip_val.data *= init_clip_val
 
-        self.pact_plus = pact_plus
         self.set_quantizer()
 
     def set_quantizer(self):
@@ -88,12 +86,12 @@ class PACT2_new(Quantizer):
         if self.use_PT_native_Qfunc:
             self.quantizer = PerTensorSTE_PTnative
         else:
-            self.quantizer = PACTplus2STE_new if self.pact_plus else PACT2_STE_new
+            self.quantizer = PACT2Sym_STE_rc
 
 
-class PACT2_STE_new(PerTensorSTE):
+class PACT2Sym_STE_rc(PerTensorSTE):
     """
-    two-sided original pact quantization for activation
+    Symmetric with zero in the center. For example, 4bit -- > [-7, 7] with FP0 align to INT0
 
     Extends:
         PerTensorSTE: Uses PerTensorSTE.forward()
@@ -102,21 +100,19 @@ class PACT2_STE_new(PerTensorSTE):
     @staticmethod
     def backward(ctx, grad_output):
         """
-        Backward function for PACT2
+        Backward function for PACT2Sym
 
         Args:
             ctx (torch.autograd.Function): Context object.
             grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.Tensor, torch.Tensor, torch.Tensor, None,...,None]: Gradients
+            [torch.Tensor, torch.Tensor, None,...,None]: Gradients
         """
-        input_tensor, _, clip_valn, clip_val, _, _ = ctx.saved_tensors
-
+        input_tensor, _, _, clip_val, _, _ = ctx.saved_tensors
         grad_input = grad_output.clone()
-
         grad_input = torch.where(
-            input_tensor <= clip_valn, torch.zeros_like(grad_input), grad_input
+            input_tensor <= -clip_val, torch.zeros_like(grad_input), grad_input
         )
         grad_input = torch.where(
             input_tensor >= clip_val, torch.zeros_like(grad_input), grad_input
@@ -124,64 +120,10 @@ class PACT2_STE_new(PerTensorSTE):
 
         grad_alpha = grad_output.clone()
         grad_alpha = torch.where(
-            input_tensor < clip_val, torch.zeros_like(grad_alpha), grad_alpha
+            torch.logical_and(input_tensor < clip_val, input_tensor > -clip_val),
+            torch.zeros_like(grad_alpha),
+            grad_alpha,
         )
         grad_alpha = grad_alpha.sum().expand_as(clip_val)
 
-        grad_alphan = grad_output.clone()
-        grad_alphan = torch.where(
-            input_tensor > clip_valn, torch.zeros_like(grad_alphan), grad_alphan
-        )
-        grad_alphan = grad_alphan.sum().expand_as(clip_valn)
-
-        return grad_input, grad_alpha, grad_alphan, None, None, None, None
-
-
-class PACTplus2STE_new(PerTensorSTE):
-    """
-    two-sided pact+ quantization for activation
-
-    Extends:
-        PerTensorSTE: Uses PerTensorSTE.forward()
-    """
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        """
-        Backward function for PACT+2
-
-        Args:
-            ctx (torch.autograd.Function): Context object.
-            grad_output (torch.Tensor): Gradient to clip
-
-        Returns:
-            [torch.Tensor, torch.Tensor, torch.Tensor, None,...,None]: Gradients
-        """
-        input_tensor, n_levels, clip_valn, clip_val, scale, _ = ctx.saved_tensors
-
-        z = (input_tensor - clip_valn) * scale
-        delz = (z - torch.round(z)) / n_levels
-
-        grad_input = grad_output.clone()
-        grad_input = torch.where(
-            input_tensor <= clip_valn, torch.zeros_like(grad_input), grad_input
-        )
-        grad_input = torch.where(
-            input_tensor >= clip_val, torch.zeros_like(grad_input), grad_input
-        )
-
-        grad_alpha = -grad_output.clone() * delz
-        grad_alphan = -grad_alpha
-        grad_alpha = torch.where(
-            input_tensor <= clip_valn, torch.zeros_like(grad_alpha), grad_alpha
-        )
-        grad_alpha = torch.where(input_tensor >= clip_val, grad_output, grad_alpha)
-        grad_alphan = torch.where(
-            input_tensor >= clip_val, torch.zeros_like(grad_alpha), grad_alphan
-        )
-        grad_alphan = torch.where(input_tensor <= clip_valn, grad_output, grad_alphan)
-
-        grad_alpha = grad_alpha.sum().expand_as(clip_val)
-        grad_alphan = grad_alphan.sum().expand_as(clip_valn)
-
-        return grad_input, grad_alpha, grad_alphan, None, None, None, None
+        return grad_input, grad_alpha, None, None, None, None, None

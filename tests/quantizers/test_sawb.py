@@ -23,7 +23,7 @@ import torch
 
 # Local
 from fms_mo.quant_refactor.quantizers_new import SAWB
-from fms_mo.quant_refactor.sawb_new import SAWB_new
+from fms_mo.quant_refactor.sawb_rc import SAWB_rc
 from fms_mo.quant_refactor.torch_quantizer import TorchQuantizer
 
 other_option_params = []
@@ -158,7 +158,7 @@ def use_tensor_squashing(
 
 
 # SAWB_new settings for TorchQuantizer ; refactored SAWB does not use tensor squashing
-def set_other_options_new(
+def set_other_options_rc(
     tensor: torch.Tensor,
     fms_mo_quantizer: torch.autograd.Function,
     torch_quantizer: torch.nn.Module,
@@ -166,7 +166,7 @@ def set_other_options_new(
     axis: int = 0,
 ):
     """
-    Set other options for new FMS and Torch quantizer
+    Set other options for _rc FMS and Torch quantizer
 
     Args:
         tensor (torch.Tensor): Tensor to quantize.
@@ -188,7 +188,7 @@ def set_other_options_new(
 
     # For SAWB Zero STEs
     if other_option["align_zero"]:
-        # SAWBPlus16ZeroSTE_new - no sawb_params
+        # SAWBPlus16ZeroSTE_rc - no sawb_params
         if (
             torch_quantizer.qscheme.q_unit == "perT"
             and other_option["clipSTE"]
@@ -207,7 +207,7 @@ def set_other_options_new(
             torch_quantizer.symmetric_nlevel = 0
             torch_quantizer.set_quant_range()
 
-        # SAWBPlusZeroPerChSTE_new - TODO: perCh test not functional yet
+        # SAWBPlusZeroPerChSTE_rc - TODO: perCh test not functional yet
         elif (
             torch_quantizer.qscheme.q_unit == "perCh"
             and other_option["clipSTE"]
@@ -221,11 +221,11 @@ def set_other_options_new(
             torch_quantizer.set_sawb_clip_code(tensor, perCh=True)  # sets clip vals
             torch_quantizer.set_quant_bounds()
 
-        else:  # SAWBZeroSTE_new, SAWBPlusZeroSTE_new - sawb_params_code
+        else:  # SAWBZeroSTE_rc, SAWBPlusZeroSTE_rc - sawb_params_code
             torch_quantizer.set_sawb_clip_code(tensor)
             torch_quantizer.set_quant_bounds()
 
-    else:  # SAWBSTE_new, SAWBPlusSTE_new
+    else:  # SAWBSTE_rc, SAWBPlusSTE_rc
         # Set num_bits and [clip_low,clip_high]
         torch_quantizer.n_levels = 2**num_bits - 1
         torch_quantizer.set_sawb_clip(tensor)
@@ -293,7 +293,7 @@ def test_sawb_symmetric(
     # SAWB requires tensor to set parameters for TorchQuantizer
 
     use16bins = other_options["use16bins"]
-    other_options["use16bins"] = False  # Not implemented for quantizer_new.SAWB
+    other_options["use16bins"] = False  # Not implemented for quantizer_rc.SAWB
     set_other_options(
         tensor, sawb_quantizer_symmetric, torch_quantizer_symmetric, other_options
     )
@@ -333,26 +333,26 @@ def test_sawb_symmetric(
     other_options["use16bins"] = use16bins
 
 
-def test_sawbnew_symmetric(
+def test_sawb_rc_symmetric(
     tensor: torch.Tensor,
-    sawbnew_quantizer_symmetric: torch.autograd.Function,
+    sawb_rc_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options: dict,
     other_options: dict,
 ):
     """
-    Test SAWB_new w/ symmetric tensors
+    Test SAWB_rc w/ symmetric tensors
 
     Args:
         tensor (torch.Tensor): Tensor to quantize.
-        sawbnew_quantizer_symmetric (torch.autograd.Function): Qmax Quantizer
+        sawb_rc_quantizer_symmetric (torch.autograd.Function): Qmax Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
         other_options (dict): Other Options for quantization.
     """
     # Set base quantizer and SAWB options
     set_base_options(
-        sawbnew_quantizer_symmetric, torch_quantizer_symmetric, base_options
+        sawb_rc_quantizer_symmetric, torch_quantizer_symmetric, base_options
     )
     # SAWB requires tensor to set parameters for TorchQuantizer
 
@@ -361,12 +361,12 @@ def test_sawbnew_symmetric(
     torch_quantizer_symmetric.qscheme.qlevel_lowering = other_options[
         "align_zero"
     ]  # use legacy setting for qlevel_lowering
-    set_other_options_new(
-        tensor, sawbnew_quantizer_symmetric, torch_quantizer_symmetric, other_options
+    set_other_options_rc(
+        tensor, sawb_rc_quantizer_symmetric, torch_quantizer_symmetric, other_options
     )
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = sawbnew_quantizer_symmetric(tensor).detach()
+    qtensor_fms_mo = sawb_rc_quantizer_symmetric(tensor).detach()
     qtensor_torch = torch_quantizer_symmetric(tensor).detach()
 
     setup = torch_quantizer_symmetric.get_setup()
@@ -445,13 +445,13 @@ def test_sawb_symmetric_perCh(
     base_options["nativePT"] = native_pt  # reset value
 
 
-def test_sawbnew_symmetric_perCh(
+def test_sawb_rc_symmetric_perCh(
     tensor: torch.Tensor,
     quantizer_symmetric_perCh: dict,
     base_options: dict,
 ):
     """
-    Test SAWB_new w/ symmetric tensors for perCh
+    Test SAWB_rc w/ symmetric tensors for perCh
 
     Args:
         tensor (torch.Tensor): Tensor to quantize.
@@ -466,7 +466,7 @@ def test_sawbnew_symmetric_perCh(
     qscheme.Nch = Nch
 
     # SAWB computes clip_val_vec in forward()
-    sawbnew_quantizer_symmetric_perCh = SAWB_new(
+    sawb_rc_quantizer_symmetric_perCh = SAWB_rc(
         num_bits=quantizer_symmetric_perCh["num_bits"],
         init_clip_valn=-clip_val,
         init_clip_val=clip_val,
@@ -486,15 +486,15 @@ def test_sawbnew_symmetric_perCh(
 
     # Set base quantizer and SAWB options
     set_base_options(
-        sawbnew_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options
+        sawb_rc_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options
     )
     # SAWB requires tensor to set parameters for TorchQuantizer
     set_per_channel(
-        tensor, sawbnew_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh
+        tensor, sawb_rc_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh
     )
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = sawbnew_quantizer_symmetric_perCh(tensor).detach()
+    qtensor_fms_mo = sawb_rc_quantizer_symmetric_perCh(tensor).detach()
     qtensor_torch = torch_quantizer_symmetric_perCh(tensor).detach()
 
     setup = torch_quantizer_symmetric_perCh.get_setup()

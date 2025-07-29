@@ -121,19 +121,19 @@ def test_lsqplus_asymmetric(
     base_options["nativePT"] = native_pt
 
 
-def test_lsqplusnew_symmetric(
+def test_lsqplus_rc_symmetric(
     tensor: torch.Tensor,
-    lsqplusnew_quantizer_symmetric: torch.autograd.Function,
+    lsqplus_rc_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options,
     other_options=None,
 ):
     """
-    Test LSQ+_new w/ symmetric tensors
+    Test LSQ+_rc w/ symmetric tensors
 
     Args:
         tensor (torch.Tensor): Tensor to quantize.
-        lsqplusnew_quantizer_symmetric (torch.autograd.Function): LSQ+ Quantizer
+        lsqplus_rc_quantizer_symmetric (torch.autograd.Function): LSQ+ Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
         other_options (dict, optional): Other Options for quantization. Defaults to None.
@@ -142,12 +142,12 @@ def test_lsqplusnew_symmetric(
     native_pt = base_options["nativePT"]
     base_options["nativePT"] = False  # Override: not supported in LSQ
     set_base_options(
-        lsqplusnew_quantizer_symmetric, torch_quantizer_symmetric, base_options
+        lsqplus_rc_quantizer_symmetric, torch_quantizer_symmetric, base_options
     )
     set_other_options(tensor, torch_quantizer_symmetric)
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = lsqplusnew_quantizer_symmetric(tensor).detach()
+    qtensor_fms_mo = lsqplus_rc_quantizer_symmetric(tensor).detach()
     qtensor_torch = torch_quantizer_symmetric(tensor).detach()
 
     setup = torch_quantizer_symmetric.get_setup()
@@ -158,19 +158,19 @@ def test_lsqplusnew_symmetric(
     base_options["nativePT"] = native_pt
 
 
-def test_lsqplusnew_asymmetric(
+def test_lsqplus_rc_asymmetric(
     tensor,
-    lsqplusnew_quantizer_asymmetric: torch.autograd.Function,
+    lsqplus_rc_quantizer_asymmetric: torch.autograd.Function,
     torch_quantizer_asymmetric: torch.nn.Module,
     base_options: dict,
     other_options: dict = None,
 ):
     """
-    Test LSQ+_new w/ symmetric tensors
+    Test LSQ+_rc w/ symmetric tensors
 
     Args:
         tensor (torch.Tensor): Tensor to quantize.
-        lsqplusnew_quantizer_asymmetric (torch.autograd.Function): LSQ+ Quantizer
+        lsqplus_rc_quantizer_asymmetric (torch.autograd.Function): LSQ+ Quantizer
         torch_quantizer_asymmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
         other_options (dict, optional): Other Options for quantization. Defaults to None.
@@ -179,7 +179,7 @@ def test_lsqplusnew_asymmetric(
     native_pt = base_options["nativePT"]
     base_options["nativePT"] = False  # Override: not supported in LSQ
     set_base_options(
-        lsqplusnew_quantizer_asymmetric, torch_quantizer_asymmetric, base_options
+        lsqplus_rc_quantizer_asymmetric, torch_quantizer_asymmetric, base_options
     )
     set_other_options(
         tensor,
@@ -187,7 +187,7 @@ def test_lsqplusnew_asymmetric(
     )
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = lsqplusnew_quantizer_asymmetric(tensor).detach()
+    qtensor_fms_mo = lsqplus_rc_quantizer_asymmetric(tensor).detach()
     qtensor_torch = torch_quantizer_asymmetric(tensor).detach()
 
     setup = torch_quantizer_asymmetric.get_setup()

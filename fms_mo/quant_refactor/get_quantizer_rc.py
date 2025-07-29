@@ -29,16 +29,16 @@ from fms_mo.quant.quantizers import (
     to_fp8,
 )
 from fms_mo.quant_refactor.base_quant import Qscheme
-from fms_mo.quant_refactor.lsq_new import LSQPlus_new, LSQQuantization_new
-from fms_mo.quant_refactor.pact2_new import PACT2_new
-from fms_mo.quant_refactor.pact2sym_new import PACT2Sym_new
-from fms_mo.quant_refactor.pact_new import PACT_new
-from fms_mo.quant_refactor.pactplussym_new import PACTplusSym_new
-from fms_mo.quant_refactor.qmax_new import Qmax_new
-from fms_mo.quant_refactor.sawb_new import SAWB_new
+from fms_mo.quant_refactor.lsq_rc import LSQPlus_rc, LSQQuantization_rc
+from fms_mo.quant_refactor.pact2_rc import PACT2_rc
+from fms_mo.quant_refactor.pact2sym_rc import PACT2Sym_rc
+from fms_mo.quant_refactor.pact_rc import PACT_rc
+from fms_mo.quant_refactor.pactplussym_rc import PACTplusSym_rc
+from fms_mo.quant_refactor.qmax_rc import Qmax_rc
+from fms_mo.quant_refactor.sawb_rc import SAWB_rc
 
 
-def get_activation_quantizer_new(
+def get_activation_quantizer_rc(
     qa_mode: str = "PACT",
     nbits: int = 32,
     clip_val: torch.Tensor = None,
@@ -59,10 +59,10 @@ def get_activation_quantizer_new(
     """
 
     QPACTLUT = {
-        "pact_uni": PACT_new,
-        "pact_bi": PACT2_new,
-        "pact+_uni": PACT_new,
-        "pact+_bi": PACT2_new,
+        "pact_uni": PACT_rc,
+        "pact_bi": PACT2_rc,
+        "pact+_uni": PACT_rc,
+        "pact+_bi": PACT2_rc,
     }
     if "pact" in qa_mode and "sym" not in qa_mode:
         keyQact = qa_mode + "_uni" if non_neg else qa_mode + "_bi"
@@ -84,7 +84,7 @@ def get_activation_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif qa_mode == "pactsym":
-        act_quantizer = PACT2Sym_new(
+        act_quantizer = PACT2Sym_rc(
             num_bits=nbits,
             init_clip_val=clip_val,
             Qscheme=Qscheme(
@@ -99,7 +99,7 @@ def get_activation_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif qa_mode == "pactsym+":
-        act_quantizer = PACTplusSym_new(
+        act_quantizer = PACTplusSym_rc(
             nbits,
             init_clip_val=clip_val,
             Qscheme=Qscheme(
@@ -115,7 +115,7 @@ def get_activation_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif qa_mode == "lsq+":
-        act_quantizer = LSQPlus_new(
+        act_quantizer = LSQPlus_rc(
             nbits,
             init_clip_valn=clip_valn,
             init_clip_val=clip_val,
@@ -131,12 +131,12 @@ def get_activation_quantizer_new(
             # use_PT_native_Qfunc=use_PT_native_Qfunc, # nativePT not enabled for LSQ+
         )
     elif qa_mode == "lsq":
-        act_quantizer = LSQQuantization_new(
+        act_quantizer = LSQQuantization_rc(
             nbits, init_clip_val=clip_val, dequantize=True, inplace=False
         )
     # NOTE: need to be careful using this for activation, particular to 1 sided.
     elif qa_mode == "max":
-        act_quantizer = Qmax_new(
+        act_quantizer = Qmax_rc(
             nbits,
             Qscheme=Qscheme(
                 unit="perT",
@@ -151,7 +151,7 @@ def get_activation_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif qa_mode == "minmax":
-        act_quantizer = Qmax_new(
+        act_quantizer = Qmax_rc(
             nbits,
             Qscheme=Qscheme(
                 unit="perT",
@@ -166,7 +166,7 @@ def get_activation_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif qa_mode == "maxsym":
-        act_quantizer = Qmax_new(
+        act_quantizer = Qmax_rc(
             nbits,
             Qscheme=Qscheme(
                 unit="perT",
@@ -212,7 +212,7 @@ def get_activation_quantizer_new(
     return act_quantizer
 
 
-def get_weight_quantizer_new(
+def get_weight_quantizer_rc(
     qw_mode: str = "SAWB+",
     nbits: int = 32,
     clip_val: torch.Tensor = None,
@@ -240,7 +240,7 @@ def get_weight_quantizer_new(
     unit = "perCh" if Nch is not False else "perGrp" if perGp is not None else "perT"
     if "sawb" in qw_mode:
         clipSTE = "+" in qw_mode
-        weight_quantizer = SAWB_new(
+        weight_quantizer = SAWB_rc(
             nbits,
             Qscheme=Qscheme(
                 unit=unit,
@@ -255,7 +255,7 @@ def get_weight_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif "max" in qw_mode:
-        weight_quantizer = Qmax_new(
+        weight_quantizer = Qmax_rc(
             nbits,
             Qscheme=Qscheme(
                 unit=unit,
@@ -269,7 +269,7 @@ def get_weight_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif qw_mode == "pact":
-        weight_quantizer = PACT2_new(
+        weight_quantizer = PACT2_rc(
             nbits,
             init_clip_valn=clip_valn,
             init_clip_val=clip_val,
@@ -285,7 +285,7 @@ def get_weight_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif qw_mode == "pact+":
-        weight_quantizer = PACTplusSym_new(
+        weight_quantizer = PACTplusSym_rc(
             nbits,
             init_clip_val=clip_val,
             Qscheme=Qscheme(
@@ -300,7 +300,7 @@ def get_weight_quantizer_new(
             use_PT_native_Qfunc=use_PT_native_Qfunc,
         )
     elif qw_mode == "lsq+":
-        weight_quantizer = LSQPlus_new(
+        weight_quantizer = LSQPlus_rc(
             nbits,
             init_clip_valb=clip_valn,
             init_clip_vals=clip_val,

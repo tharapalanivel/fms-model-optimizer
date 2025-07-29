@@ -22,7 +22,7 @@ import pytest
 import torch
 
 # Local
-from fms_mo.quant_refactor.qmax_new import Qmax_new
+from fms_mo.quant_refactor.qmax_rc import Qmax_rc
 from fms_mo.quant_refactor.quantizers_new import Qmax
 from fms_mo.quant_refactor.torch_quantizer import TorchQuantizer
 
@@ -82,7 +82,7 @@ def other_options_perCh(request):
 
 
 def set_other_options(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     fms_mo_quantizer: torch.autograd.Function,
     torch_quantizer: torch.nn.Module,
     other_option: dict,
@@ -92,7 +92,7 @@ def set_other_options(
     Set other options for FMS and Torch quantizer
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         fms_mo_quantizer (torch.autograd.Function):  FMS quantizer
         torch_quantizer (torch.nn.Module): Torch Quantizer
         other_option (dict): Other Option params
@@ -214,17 +214,17 @@ def use_tensor_squashing(other_option, q_unit):
     )
 
 
-def set_other_options_new(
-    tensor: torch.FloatTensor,
+def set_other_options_rc(
+    tensor: torch.Tensor,
     fms_mo_quantizer: torch.autograd.Function,
     torch_quantizer: torch.nn.Module,
     other_option: dict,
 ):
     """
-    Set other options for new FMS and Torch quantizer
+    Set other options for _rc FMS and Torch quantizer
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         fms_mo_quantizer (torch.autograd.Function):  FMS quantizer
         torch_quantizer (torch.nn.Module): Torch Quantizer
         other_option (dict): Other Option params
@@ -247,9 +247,9 @@ def set_other_options_new(
     n_half = 2 ** (num_bits - 1)
 
     if other_option["minmax"]:
-        if is_perCh or is_perGp:  # QminmaxPerChSTE_new
+        if is_perCh or is_perGp:  # QminmaxPerChSTE_rc
             pass
-        else:  # QminmaxSTE_new
+        else:  # QminmaxSTE_rc
             # min/max clip vals asymmetric
             torch_quantizer.clip_low = tensor.min()
             torch_quantizer.clip_high = tensor.max()
@@ -263,7 +263,7 @@ def set_other_options_new(
             ).to(torch.int)
             torch_quantizer.is_symmetric = False  # asymmetric
 
-    elif other_option["extend_act_range"]:  # QmaxExtendRangeSTE_new
+    elif other_option["extend_act_range"]:  # QmaxExtendRangeSTE_rc
         clip_ratio = -n_half / (n_half - 1)  # -128/127, -8/7
         if tensor.max() >= tensor.min().abs():
             torch_quantizer.clip_high = tensor.max()
@@ -278,9 +278,9 @@ def set_other_options_new(
         torch_quantizer.symmetric_nlevel = 0
 
     else:  # non-minmax STEs
-        if is_perCh or is_perGp:  # QmaxPerChSTE_new
+        if is_perCh or is_perGp:  # QmaxPerChSTE_rc
             pass
-        else:  # QmaxSTE_new
+        else:  # QmaxSTE_rc
             # clip_vals symmetric
             torch_quantizer.n_levels = (
                 2**num_bits - 2
@@ -300,7 +300,7 @@ def set_other_options_new(
 
 
 def set_per_channel(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     fms_mo_quantizer: torch.autograd.Function,
     torch_quantizer: torch.nn.Module,
     other_options_perCh: dict,
@@ -310,7 +310,7 @@ def set_per_channel(
     Setup quantizers to use per channel Qmax
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         fms_mo_quantizer (torch.autograd.Function): FMS quantizer.
         torch_quantizer (torch.nn.Module): Torch Quantizer
         axis (int, optional): Per channel axis dimension. Defaults to 0.
@@ -348,7 +348,7 @@ def set_per_channel(
 
 
 def test_qmax_symmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     qmax_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options: dict,
@@ -358,7 +358,7 @@ def test_qmax_symmetric(
     Test Qmax w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         qmax_quantizer_symmetric (torch.autograd.Function): Qmax Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -403,34 +403,34 @@ def test_qmax_symmetric(
     base_options["nativePT"] = native_pt  # reset value
 
 
-def test_qmaxnew_symmetric(
-    tensor: torch.FloatTensor,
-    qmaxnew_quantizer_symmetric: torch.autograd.Function,
+def test_qmax_rc_symmetric(
+    tensor: torch.Tensor,
+    qmax_rc_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options: dict,
     other_options: dict,
 ):
     """
-    Test Qmax_new w/ symmetric tensors
+    Test Qmax_rc w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
-        qmaxnew_quantizer_symmetric (torch.autograd.Function): Qmax Quantizer
+        tensor (torch.Tensor): Tensor to quantize.
+        qmax_rc_quantizer_symmetric (torch.autograd.Function): Qmax Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
         other_options (dict): Other Options for quantization.
     """
     # Set base quantizer and PACT2 options
     set_base_options(
-        qmaxnew_quantizer_symmetric, torch_quantizer_symmetric, base_options
+        qmax_rc_quantizer_symmetric, torch_quantizer_symmetric, base_options
     )
     # SAWB requires tensor to set parameters for TorchQuantizer
-    set_other_options_new(
-        tensor, qmaxnew_quantizer_symmetric, torch_quantizer_symmetric, other_options
+    set_other_options_rc(
+        tensor, qmax_rc_quantizer_symmetric, torch_quantizer_symmetric, other_options
     )
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = qmaxnew_quantizer_symmetric(tensor).detach()
+    qtensor_fms_mo = qmax_rc_quantizer_symmetric(tensor).detach()
     qtensor_torch = torch_quantizer_symmetric(tensor).detach()
 
     setup = torch_quantizer_symmetric.get_setup()
@@ -442,7 +442,7 @@ def test_qmaxnew_symmetric(
 
 
 def test_qmax_symmetric_perCh(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     quantizer_symmetric_perCh: dict,
     base_options: dict,
     other_options_perCh: dict,
@@ -451,7 +451,7 @@ def test_qmax_symmetric_perCh(
     Test Qmax w/ symmetric tensors for per channel
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         quantizer_symmetric_perCh (dict): Symmetric quantizer settings for per channel.
         base_options (dict): Base options for quantization.
         other_options_perCh (dict): Other Options for per channel quantization.
@@ -511,17 +511,17 @@ def test_qmax_symmetric_perCh(
     base_options["nativePT"] = native_pt  # reset value
 
 
-def test_qmaxnew_symmetric_perCh(
-    tensor: torch.FloatTensor,
+def test_qmax_rc_symmetric_perCh(
+    tensor: torch.Tensor,
     quantizer_symmetric_perCh: dict,
     base_options: dict,
     other_options_perCh: dict,
 ):
     """
-    Test Qmax_new w/ symmetric tensors for perCh
+    Test Qmax_rc w/ symmetric tensors for perCh
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         base_options (dict): Base options for quantization.
         other_options_perCh (dict): Other Options for per channel quantization.
     """
@@ -535,7 +535,7 @@ def test_qmaxnew_symmetric_perCh(
     qscheme.Nch = Nch
 
     # Qmax computes clip_val_vec in forward()
-    qmaxnew_quantizer_symmetric_perCh = Qmax_new(
+    qmax_rc_quantizer_symmetric_perCh = Qmax_rc(
         num_bits=quantizer_symmetric_perCh["num_bits"],
         init_clip_valn=-clip_val,
         init_clip_val=clip_val,
@@ -554,18 +554,18 @@ def test_qmaxnew_symmetric_perCh(
 
     # Set base quantizer and SAWB options
     set_base_options(
-        qmaxnew_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options
+        qmax_rc_quantizer_symmetric_perCh, torch_quantizer_symmetric_perCh, base_options
     )
     # Qmax requires tensor to set parameters for TorchQuantizer
     set_per_channel(
         tensor,
-        qmaxnew_quantizer_symmetric_perCh,
+        qmax_rc_quantizer_symmetric_perCh,
         torch_quantizer_symmetric_perCh,
         other_options_perCh,
     )
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = qmaxnew_quantizer_symmetric_perCh(tensor).detach()
+    qtensor_fms_mo = qmax_rc_quantizer_symmetric_perCh(tensor).detach()
     qtensor_torch = torch_quantizer_symmetric_perCh(tensor).detach()
 
     setup = torch_quantizer_symmetric_perCh.get_setup()
@@ -581,7 +581,7 @@ def test_qmaxnew_symmetric_perCh(
 
 
 def test_qmax_asymmetric_perCh(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     quantizer_asymmetric_perCh: dict,
     base_options: dict,
     other_options_perCh: dict,
@@ -590,7 +590,7 @@ def test_qmax_asymmetric_perCh(
     Test Qmax w/ symmetric tensors for per channel
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         quantizer_asymmetric_perCh (dict): Asymmetric quantizer settings for per channel.
         base_options (dict): Base options for quantization.
         other_options_perCh (dict): Other Options for per channel quantization.
@@ -654,17 +654,17 @@ def test_qmax_asymmetric_perCh(
     base_options["dequantize"] = dequantize
 
 
-def test_qmaxnew_asymmetric_perCh(
-    tensor: torch.FloatTensor,
+def test_qmax_rc_asymmetric_perCh(
+    tensor: torch.Tensor,
     quantizer_asymmetric_perCh: dict,
     base_options: dict,
     other_options_perCh: dict,
 ):
     """
-    Test Qmax_new w/ symmetric tensors for perCh
+    Test Qmax_rc w/ symmetric tensors for perCh
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         base_options (dict): Base options for quantization.
         other_options_perCh (dict): Other Options for per channel quantization.
     """
@@ -676,7 +676,7 @@ def test_qmaxnew_asymmetric_perCh(
     qscheme.Nch = Nch
 
     # Qmax computes clip_val_vec in forward()
-    qmaxnew_quantizer_asymmetric_perCh = Qmax_new(
+    qmax_rc_quantizer_asymmetric_perCh = Qmax_rc(
         num_bits=quantizer_asymmetric_perCh["num_bits"],
         init_clip_valn=-clip_val,
         init_clip_val=clip_val,
@@ -695,20 +695,20 @@ def test_qmaxnew_asymmetric_perCh(
 
     # Set base quantizer and SAWB options
     set_base_options(
-        qmaxnew_quantizer_asymmetric_perCh,
+        qmax_rc_quantizer_asymmetric_perCh,
         torch_quantizer_asymmetric_perCh,
         base_options,
     )
     # Qmax requires tensor to set parameters for TorchQuantizer
     set_per_channel(
         tensor,
-        qmaxnew_quantizer_asymmetric_perCh,
+        qmax_rc_quantizer_asymmetric_perCh,
         torch_quantizer_asymmetric_perCh,
         other_options_perCh,
     )
 
     # Create quantized tensors from FMS Model Optimizer + torch
-    qtensor_fms_mo = qmaxnew_quantizer_asymmetric_perCh(tensor).detach()
+    qtensor_fms_mo = qmax_rc_quantizer_asymmetric_perCh(tensor).detach()
     qtensor_torch = torch_quantizer_asymmetric_perCh(tensor).detach()
 
     setup = torch_quantizer_asymmetric_perCh.get_setup()

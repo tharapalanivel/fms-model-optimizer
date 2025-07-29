@@ -23,14 +23,14 @@ import torch
 # Local
 # Qscheme class for defining quantizers
 from fms_mo.quant_refactor.base_quant import Qscheme
-from fms_mo.quant_refactor.lsq_new import LSQPlus_new, LSQQuantization_new
-from fms_mo.quant_refactor.pact2_new import PACT2_new
-from fms_mo.quant_refactor.pact2sym_new import PACT2Sym_new
+from fms_mo.quant_refactor.lsq_rc import LSQPlus_rc, LSQQuantization_rc
+from fms_mo.quant_refactor.pact2_rc import PACT2_rc
+from fms_mo.quant_refactor.pact2sym_rc import PACT2Sym_rc
 
 # Refactored quantizers
-from fms_mo.quant_refactor.pact_new import PACT_new
-from fms_mo.quant_refactor.pactplussym_new import PACTplusSym_new
-from fms_mo.quant_refactor.qmax_new import Qmax_new
+from fms_mo.quant_refactor.pact_rc import PACT_rc
+from fms_mo.quant_refactor.pactplussym_rc import PACTplusSym_rc
+from fms_mo.quant_refactor.qmax_rc import Qmax_rc
 
 # Legacy quantizers
 from fms_mo.quant_refactor.quantizers_new import (
@@ -43,7 +43,7 @@ from fms_mo.quant_refactor.quantizers_new import (
     PACTplusSym,
     Qmax,
 )
-from fms_mo.quant_refactor.sawb_new import SAWB_new
+from fms_mo.quant_refactor.sawb_rc import SAWB_rc
 
 # Reference PyTorch Quantization class
 from fms_mo.quant_refactor.torch_quantizer import TorchQuantizer
@@ -481,17 +481,17 @@ def pact_quantizer_single_sided(quantizer_single_sided):
 
 
 @pytest.fixture
-def pactnew_quantizer_single_sided(quantizer_single_sided):
+def pact_rc_quantizer_single_sided(quantizer_single_sided):
     """
-    PACT_new quantizer w/ single-sided settings
+    PACT_rc quantizer w/ single-sided settings
 
     Args:
         quantizer_single_sided (dict): Single-sided quantizer settings
 
     Returns:
-        torch.autograd.Function: PACT_new
+        torch.autograd.Function: PACT_rc
     """
-    return PACT_new(
+    return PACT_rc(
         num_bits=quantizer_single_sided["num_bits"],
         init_clip_valn=quantizer_single_sided["clip_low"],
         init_clip_val=quantizer_single_sided["clip_high"],
@@ -519,17 +519,17 @@ def pact2_quantizer_asymmetric(quantizer_asymmetric):
 
 
 @pytest.fixture
-def pact2new_quantizer_asymmetric(quantizer_asymmetric):
+def pact2_rc_quantizer_asymmetric(quantizer_asymmetric):
     """
-    PACT2_new quantizer w/ asymmetric settings
+    PACT2_rc quantizer w/ asymmetric settings
 
     Args:
         quantizer_asymmetric (dict): Asymmetric quantizer settings
 
     Returns:
-        torch.autograd.Function: PACT2_new
+        torch.autograd.Function: PACT2_rc
     """
-    return PACT2_new(
+    return PACT2_rc(
         num_bits=quantizer_asymmetric["num_bits"],
         init_clip_valn=quantizer_asymmetric["clip_low"],
         init_clip_val=quantizer_asymmetric["clip_high"],
@@ -557,17 +557,17 @@ def pact2sym_quantizer_symmetric(quantizer_symmetric):
 
 
 @pytest.fixture
-def pact2symnew_quantizer_symmetric(quantizer_symmetric):
+def pact2sym_rc_quantizer_symmetric(quantizer_symmetric):
     """
-    PACT2Sym_new quantizer w/ symmetric settings
+    PACT2Sym_rc quantizer w/ symmetric settings
 
     Args:
         quantizer_symmetric (dict): Symmetric quantizer settings
 
     Returns:
-        torch.autograd.Function: PACT2Sym_new
+        torch.autograd.Function: PACT2Sym_rc
     """
-    return PACT2Sym_new(
+    return PACT2Sym_rc(
         num_bits=quantizer_symmetric["num_bits"],
         init_clip_valn=quantizer_symmetric["clip_low"],
         init_clip_val=quantizer_symmetric["clip_high"],
@@ -595,17 +595,17 @@ def pactplussym_quantizer_symmetric(quantizer_symmetric):
 
 
 @pytest.fixture
-def pactplussymnew_quantizer_symmetric(quantizer_symmetric):
+def pactplussym_rc_quantizer_symmetric(quantizer_symmetric):
     """
-    PACT+Sym_new quantizer w/ symmetric settings
+    PACT+Sym_rc quantizer w/ symmetric settings
 
     Args:
         quantizer_symmetric (dict): Symmetric quantizer settings
 
     Returns:
-        torch.autograd.Function: PACT+Sym_new
+        torch.autograd.Function: PACT+Sym_rc
     """
-    return PACTplusSym_new(
+    return PACTplusSym_rc(
         num_bits=quantizer_symmetric["num_bits"],
         init_clip_valn=quantizer_symmetric["clip_low"],
         init_clip_val=quantizer_symmetric["clip_high"],
@@ -652,17 +652,17 @@ def sawb_quantizer_symmetric_perCh(quantizer_symmetric_perCh):
 
 
 @pytest.fixture
-def sawbnew_quantizer_symmetric(quantizer_symmetric):
+def sawb_rc_quantizer_symmetric(quantizer_symmetric):
     """
-    SAWB_new quantizer w/ symmetric settings
+    SAWB_rc quantizer w/ symmetric settings
 
     Args:
         quantizer_symmetric (dict): Symmetric quantizer settings
 
     Returns:
-        torch.autograd.Function: SAWB_new
+        torch.autograd.Function: SAWB_rc
     """
-    return SAWB_new(
+    return SAWB_rc(
         num_bits=quantizer_symmetric["num_bits"],
         # init_clip_valn=quantizer_symmetric["clip_low"],
         # init_clip_val=quantizer_symmetric["clip_high"],
@@ -690,17 +690,17 @@ def qmax_quantizer_symmetric(quantizer_symmetric):
 
 
 @pytest.fixture
-def qmaxnew_quantizer_symmetric(quantizer_symmetric):
+def qmax_rc_quantizer_symmetric(quantizer_symmetric):
     """
-    Qmax_new quantizer w/ symmetric settings
+    Qmax_rc quantizer w/ symmetric settings
 
     Args:
         quantizer_symmetric (dict): Symmetric quantizer settings
 
     Returns:
-        torch.autograd.Function: Qmax_new
+        torch.autograd.Function: Qmax_rc
     """
-    return Qmax_new(
+    return Qmax_rc(
         num_bits=quantizer_symmetric["num_bits"],
         # init_clip_valn=quantizer_symmetric["clip_low"],
         # init_clip_val=quantizer_symmetric["clip_high"],
@@ -728,17 +728,17 @@ def lsq_quantizer_single_sided(quantizer_single_sided):
 
 
 @pytest.fixture
-def lsqnew_quantizer_single_sided(quantizer_single_sided):
+def lsq_rc_quantizer_single_sided(quantizer_single_sided):
     """
-    LSQ_new quantizer w/ single-sided settings
+    LSQ_rc quantizer w/ single-sided settings
 
     Args:
         quantizer_single_sided (dict): Single-sided quantizer settings
 
     Returns:
-        torch.autograd.Function: LSQ_new
+        torch.autograd.Function: LSQ_rc
     """
-    return LSQQuantization_new(
+    return LSQQuantization_rc(
         num_bits=quantizer_single_sided["num_bits"],
         init_clip_valn=quantizer_single_sided["clip_low"],
         init_clip_val=quantizer_single_sided["clip_high"],
@@ -785,17 +785,17 @@ def lsqplus_quantizer_asymmetric(quantizer_asymmetric):
 
 
 @pytest.fixture
-def lsqplusnew_quantizer_symmetric(quantizer_symmetric):
+def lsqplus_rc_quantizer_symmetric(quantizer_symmetric):
     """
-    LSQ+_new quantizer w/ asymmetric settings
+    LSQ+_rc quantizer w/ asymmetric settings
 
     Args:
         quantizer_symmetric (dict): Symmetric quantizer settings
 
     Returns:
-        torch.autograd.Function: LSQ+_new
+        torch.autograd.Function: LSQ+_rc
     """
-    return LSQPlus_new(
+    return LSQPlus_rc(
         num_bits=quantizer_symmetric["num_bits"],
         clip_valn=quantizer_symmetric["clip_low"],
         clip_val=quantizer_symmetric["clip_high"],
@@ -804,17 +804,17 @@ def lsqplusnew_quantizer_symmetric(quantizer_symmetric):
 
 
 @pytest.fixture
-def lsqplusnew_quantizer_asymmetric(quantizer_asymmetric):
+def lsqplus_rc_quantizer_asymmetric(quantizer_asymmetric):
     """
-    LSQ+_new quantizer w/ asymmetric settings
+    LSQ+_rc quantizer w/ asymmetric settings
 
     Args:
         quantizer_asymmetric (dict): Asymmetric quantizer settings
 
     Returns:
-        torch.autograd.Function: LSQ+_new
+        torch.autograd.Function: LSQ+_rc
     """
-    return LSQPlus_new(
+    return LSQPlus_rc(
         num_bits=quantizer_asymmetric["num_bits"],
         clip_valn=quantizer_asymmetric["clip_low"],
         clip_val=quantizer_asymmetric["clip_high"],

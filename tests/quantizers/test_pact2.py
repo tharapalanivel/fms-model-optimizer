@@ -102,31 +102,31 @@ def test_pact2_asymmetric(
     )
 
 
-def test_pact2new_asymmetric(
+def test_pact2_rc_asymmetric(
     tensor: torch.Tensor,
-    pact2new_quantizer_asymmetric: torch.autograd.Function,
+    pact2_rc_quantizer_asymmetric: torch.autograd.Function,
     torch_quantizer_asymmetric: torch.nn.Module,
     base_options: dict,
     other_options: dict,
 ):
     """
-    Test PACT2_new w/ asymmetric tensors
+    Test PACT2_rc w/ asymmetric tensors
 
     Args:
         tensor (torch.Tensor): Tensor to quantize.
-        pact2new_quantizer_asymmetric (torch.autograd.Function): PACT2 Quantizer
+        pact2_rc_quantizer_asymmetric (torch.autograd.Function): PACT2 Quantizer
         torch_quantizer_asymmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
         other_options (dict, optional): Other Options for quantization. Defaults to None.
     """
     # Set base quantizer and other options
     set_base_options(
-        pact2new_quantizer_asymmetric, torch_quantizer_asymmetric, base_options
+        pact2_rc_quantizer_asymmetric, torch_quantizer_asymmetric, base_options
     )
-    set_other_options(pact2new_quantizer_asymmetric, other_options)
+    set_other_options(pact2_rc_quantizer_asymmetric, other_options)
 
     # Create quantized tensors from PACT + torch
-    qtensor_pact2 = pact2new_quantizer_asymmetric(tensor).detach()
+    qtensor_pact2 = pact2_rc_quantizer_asymmetric(tensor).detach()
     qtensor_torch = torch_quantizer_asymmetric(tensor).detach()
 
     setup = torch_quantizer_asymmetric.get_setup()

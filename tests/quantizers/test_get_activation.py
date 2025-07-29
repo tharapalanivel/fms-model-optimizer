@@ -23,7 +23,7 @@ Only checks that the function signiture is callable without error.
 import pytest
 
 # Local
-from fms_mo.quant_refactor.get_quantizer_new import get_activation_quantizer_new
+from fms_mo.quant_refactor.get_quantizer_rc import get_activation_quantizer_rc
 
 # Activation inputs
 # qa_mode="PACT",
@@ -163,14 +163,14 @@ def activation_single_sided(request):
     return request.param
 
 
-def test_get_activation_symmetric_new(activation_symmetric):
+def test_get_activation_symmetric_rc(activation_symmetric):
     """
     Test get_activation_quantizer is callable
 
     Args:
         activation_symmetric (dict): Function input
     """
-    get_activation_quantizer_new(
+    get_activation_quantizer_rc(
         qa_mode=activation_symmetric["qa_mode"],
         nbits=activation_symmetric["num_bits"],
         clip_val=activation_symmetric["clip_val"],
@@ -190,7 +190,7 @@ def test_get_activation_asymmetric_new(activation_asymmetric):
     Args:
         activation_asymmetric (dict): Function input
     """
-    get_activation_quantizer_new(
+    get_activation_quantizer_rc(
         qa_mode=activation_asymmetric["qa_mode"],
         nbits=activation_asymmetric["num_bits"],
         clip_val=activation_asymmetric["clip_val"],
@@ -203,14 +203,14 @@ def test_get_activation_asymmetric_new(activation_asymmetric):
     )
 
 
-def test_get_activation_single_sided_new(activation_single_sided):
+def test_get_activation_single_sided_rc(activation_single_sided):
     """
     Test get_activation_quantizer is callable
 
     Args:
         activation_single_sided (dict): Function input
     """
-    get_activation_quantizer_new(
+    get_activation_quantizer_rc(
         qa_mode=activation_single_sided["qa_mode"],
         nbits=activation_single_sided["num_bits"],
         clip_val=activation_single_sided["clip_val"],

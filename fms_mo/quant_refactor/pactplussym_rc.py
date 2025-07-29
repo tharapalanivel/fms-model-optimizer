@@ -35,7 +35,7 @@ qscheme_per_tensor = Qscheme(
 )
 
 
-class PACTplusSym_new(Quantizer):
+class PACTplusSym_rc(Quantizer):
     """
     Two-sided symmetric PACT+
     PACTplusSym can be used to quantize both weights and activations
@@ -95,10 +95,10 @@ class PACTplusSym_new(Quantizer):
                 self.quantizer = PerTensorSTE_PTnative
         else:
             if self.extend_act_range:
-                self.quantizer = PACTplusExtendRangeSTE_new
+                self.quantizer = PACTplusExtendRangeSTE_rc
                 self.quantizer_name = "PACT+extend"
             else:
-                self.quantizer = PACTplusSymSTE_new
+                self.quantizer = PACTplusSymSTE_rc
                 self.quantizer_name = "PACT+sym"
 
     def set_extend_act_range(self, extend_act_range: bool):
@@ -111,7 +111,7 @@ class PACTplusSym_new(Quantizer):
         self.extend_act_range = extend_act_range
 
 
-class PACTplusSymSTE_new(PerTensorSTE):
+class PACTplusSymSTE_rc(PerTensorSTE):
     """
     Symmetric 2-sided PACT+
 
@@ -157,7 +157,7 @@ class PACTplusSymSTE_new(PerTensorSTE):
         return grad_input, grad_alpha, None, None, None, None, None
 
 
-class PACTplusExtendRangeSTE_new(torch.autograd.Function):
+class PACTplusExtendRangeSTE_rc(torch.autograd.Function):
     """
     2-sided PACT+ using a single clip
 
