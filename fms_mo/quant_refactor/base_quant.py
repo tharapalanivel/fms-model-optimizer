@@ -175,7 +175,7 @@ class Quantizer(torch.nn.Module):
 
     def __init__(
         self,
-        num_bits: torch.IntTensor,
+        num_bits: torch.Tensor,
         dequantize: bool = True,
         qscheme: Qscheme = torch.per_tensor_symmetric,
         use_PT_native_Qfunc: bool = False,
@@ -189,7 +189,7 @@ class Quantizer(torch.nn.Module):
         Init Quantizer Class
 
         Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
+            num_bits (torch.Tensor): Number of bit for quantization.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             qscheme (Qscheme, optional): Quantization scheme.
                 Defaults to Qscheme(unit="perT", symmetric=True).
@@ -257,7 +257,7 @@ class Quantizer(torch.nn.Module):
             f"Quantizer selection is not implemented for quantizer {self}"
         )
 
-    def forward(self, input_tensor: torch.FloatTensor):
+    def forward(self, input_tensor: torch.Tensor):
         """
         General forward() function for quantizer classes.
 
@@ -266,13 +266,13 @@ class Quantizer(torch.nn.Module):
             To STE functions without calling calc_qparams()
 
         Args:
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
+            input_tensor (torch.Tensor): Tensor to be quantized.
 
         Raises:
             ValueError: Single-sided qscheme has tensor min < 0.0
 
         Returns:
-            torch.FloatTensor: Dequantized or Quantized output tensor.
+            torch.Tensor: Dequantized or Quantized output tensor.
         """
         if self.qscheme.single_sided and input_tensor.min() < 0.0:
             raise ValueError(

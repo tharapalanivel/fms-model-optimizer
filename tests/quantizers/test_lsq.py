@@ -23,7 +23,7 @@ import torch
 
 # Tests LSQQuantization
 def test_lsq_single_sided(
-    tensor_single_sided: torch.FloatTensor,
+    tensor_single_sided: torch.Tensor,
     lsq_quantizer_single_sided: torch.autograd.Function,
     torch_quantizer_single_sided: torch.nn.Module,
     base_options: dict,
@@ -33,7 +33,7 @@ def test_lsq_single_sided(
     Test LSQ w/ single-sided tensors
 
     Args:
-        tensor_single_sided (torch.FloatTensor): Tensor to quantize.
+        tensor_single_sided (torch.Tensor): Tensor to quantize.
         lsq_quantizer_single_sided (torch.autograd.Function): LSQ Quantizer
         torch_quantizer_single_sided (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -64,7 +64,7 @@ def test_lsq_single_sided(
 
 
 def test_lsqnew_single_sided(
-    tensor_single_sided: torch.FloatTensor,
+    tensor_single_sided: torch.Tensor,
     lsqnew_quantizer_single_sided: torch.autograd.Function,
     torch_quantizer_single_sided: torch.nn.Module,
     base_options: dict,
@@ -74,7 +74,7 @@ def test_lsqnew_single_sided(
     Test LSQ_new w/ single-sided tensors
 
     Args:
-        tensor_single_sided (torch.FloatTensor): Tensor to quantize.
+        tensor_single_sided (torch.Tensor): Tensor to quantize.
         lsqnew_quantizer_single_sided (torch.autograd.Function): LSQ Quantizer
         torch_quantizer_single_sided (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.

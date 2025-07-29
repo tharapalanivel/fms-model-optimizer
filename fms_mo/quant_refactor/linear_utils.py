@@ -28,40 +28,40 @@ import torch
 
 def transform_clips(
     input_tensor_dtype: torch.dtype,
-    clip_valn: torch.FloatTensor,
-    clip_val: torch.FloatTensor,
-) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+    clip_valn: torch.Tensor,
+    clip_val: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Transform clip values to input datatype
 
     Args:
         input_tensor_dtype (torch.dtype): Input dtype.
-        clip_valn (torch.FloatTensor): Lower clip value.
-        clip_val (torch.FloatTensor): Upper clip value.
+        clip_valn (torch.Tensor): Lower clip value.
+        clip_val (torch.Tensor): Upper clip value.
 
     Returns:
-        [torch.FloatTensor, torch.FloatTensor]: Casted clip values
+        [torch.Tensor, torch.Tensor]: Casted clip values
     """
     return clip_valn.to(input_tensor_dtype), clip_val.to(input_tensor_dtype)
 
 
 def qint_bounds(
-    num_bits: torch.IntTensor,
-    zero_point: torch.IntTensor,
+    num_bits: torch.Tensor,
+    zero_point: torch.Tensor,
     symmetric: bool = False,
     qlevel_lowering: bool = False,
-) -> Tuple[torch.IntTensor, torch.IntTensor, torch.dtype]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.dtype]:
     """
     Compute qint clamp bounds based on qparams.
 
     Args:
-        num_bits (torch.IntTensor): Number of bits for quantization.
-        zero_point (torch.IntTensor): Quantized int bin mapping to fp 0.0.
+        num_bits (torch.Tensor): Number of bits for quantization.
+        zero_point (torch.Tensor): Quantized int bin mapping to fp 0.0.
         symmetric (bool, optional): Specify if quantized bounds are symmetric. Defaults to False.
         qlevel_lowering (bool, optional): Specify if quantized levels is reduced. Defaults to False.
 
     Returns:
-        [torch.IntTensor, torch.IntTensor, torch.dtype]: qint_bounds and torch.qint_dtype
+        [torch.Tensor, torch.Tensor, torch.dtype]: qint_bounds and torch.qint_dtype
     """
     # Set quantization bounds and datatype based on zero_point
     if symmetric and torch.sum(zero_point) == 0:
@@ -81,20 +81,20 @@ def qint_bounds(
 
 
 def linear_quantize(
-    input_tensor: torch.FloatTensor,
-    scale: torch.FloatTensor,
-    zero_point: torch.IntTensor,
-) -> torch.FloatTensor:
+    input_tensor: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+) -> torch.Tensor:
     """
     Quantize a tensor to quantized int space
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to quantize.
-        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-        zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0.
+        input_tensor (torch.Tensor): Tensor to quantize.
+        scale (torch.Tensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
 
     Returns:
-        torch.FloatTensor: Quantized int tensor
+        torch.Tensor: Quantized int tensor
     """
     return torch.round(
         input_tensor / scale.to(input_tensor.device)
@@ -103,20 +103,20 @@ def linear_quantize(
 
 
 def linear_quantize_residual(
-    input_tensor: torch.FloatTensor,
-    scale: torch.FloatTensor,
-    zero_point: torch.IntTensor,
-) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+    input_tensor: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Quantize a tensor to quantized int space and compute residual
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to quantize.
-        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-        zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0.
+        input_tensor (torch.Tensor): Tensor to quantize.
+        scale (torch.Tensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
 
     Returns:
-        [torch.FloatTensor, torch.FloatTensor]: Quantized int tensor and residual
+        [torch.Tensor, torch.Tensor]: Quantized int tensor and residual
     """
     unrounded = input_tensor / scale.to(input_tensor.device) + zero_point.to(
         input_tensor.device
@@ -128,20 +128,20 @@ def linear_quantize_residual(
 
 
 def linear_quantize_LSQresidual(
-    input_tensor: torch.FloatTensor,
-    scale: torch.FloatTensor,
-    zero_point: torch.IntTensor,
-) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+    input_tensor: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Quantize a tensor to quantized int space and compute LSQ residual
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to quantize.
-        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-        zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0.
+        input_tensor (torch.Tensor): Tensor to quantize.
+        scale (torch.Tensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
 
     Returns:
-        [torch.FloatTensor, torch.FloatTensor]: Quantized int tensor and residual
+        [torch.Tensor, torch.Tensor]: Quantized int tensor and residual
     """
     unrounded = input_tensor / scale.to(input_tensor.device) + zero_point.to(
         input_tensor.device
@@ -153,20 +153,20 @@ def linear_quantize_LSQresidual(
 
 
 def linear_dequantize(
-    input_tensor: torch.FloatTensor,
-    scale: torch.FloatTensor,
-    zero_point: torch.IntTensor,
-) -> torch.FloatTensor:
+    input_tensor: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+) -> torch.Tensor:
     """
     Dequantize a tensor to dequantized fp space
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to dequantize.
-        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-        zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0.
+        input_tensor (torch.Tensor): Tensor to dequantize.
+        scale (torch.Tensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
 
     Returns:
-        torch.FloatTensor: Dequantized fp tensor
+        torch.Tensor: Dequantized fp tensor
     """
     return (input_tensor - zero_point.to(input_tensor.device)) * scale.to(
         input_tensor.device
@@ -174,22 +174,22 @@ def linear_dequantize(
 
 
 def linear_quantize_zp(
-    input_tensor: torch.FloatTensor,
-    scale: torch.FloatTensor,
-    zero_point: torch.IntTensor,
-    num_bits: torch.IntTensor,
-) -> torch.FloatTensor:
+    input_tensor: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+    num_bits: torch.Tensor,
+) -> torch.Tensor:
     """
     Quantize a tensor to dequantized fp space and zero out upper bound values
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to quantize.
-        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-        zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0.
-        num_bits (torch.IntTensor): Number of bits for quantization.
+        input_tensor (torch.Tensor): Tensor to quantize.
+        scale (torch.Tensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
+        num_bits (torch.Tensor): Number of bits for quantization.
 
     Returns:
-        torch.FloatTensor: Quantized fp tensor
+        torch.Tensor: Quantized fp tensor
     """
     Qp = 2 ** (num_bits - 1) - 1
     out = torch.round(
@@ -201,20 +201,20 @@ def linear_quantize_zp(
 
 
 def linear_dequantize_zp(
-    input_tensor: torch.FloatTensor,
-    scale: torch.FloatTensor,
-    zero_point: torch.IntTensor,
-) -> torch.FloatTensor:
+    input_tensor: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
+) -> torch.Tensor:
     """
     Dequantize a tensor to dequantized fp space
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to dequantize.
-        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-        zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0.
+        input_tensor (torch.Tensor): Tensor to dequantize.
+        scale (torch.Tensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
 
     Returns:
-        torch.FloatTensor: Dequantized fp tensor
+        torch.Tensor: Dequantized fp tensor
     """
     return (input_tensor - zero_point.to(input_tensor.device)) * scale.to(
         input_tensor.device
@@ -222,10 +222,10 @@ def linear_dequantize_zp(
 
 
 def linear_quantization(
-    input_tensor: torch.FloatTensor,
-    num_bits: torch.IntTensor,
-    scale: torch.FloatTensor,
-    zero_point: torch.IntTensor,
+    input_tensor: torch.Tensor,
+    num_bits: torch.Tensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
     dequantize: bool = True,
     symmetric: bool = False,
     qlevel_lowering: bool = False,
@@ -238,10 +238,10 @@ def linear_quantization(
     x_out = (clamp(round(x/scale + zero_point), quant_min, quant_max) - zero_point) * scale
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to quantize.
-        num_bits (torch.IntTensor): Number of bits for quantization.
-        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-        zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0.
+        input_tensor (torch.Tensor): Tensor to quantize.
+        num_bits (torch.Tensor): Number of bits for quantization.
+        scale (torch.Tensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
         dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
         symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
         qlevel_lowering (bool, optional): Specify lowering of quantized levels. Defaults to False.
@@ -262,26 +262,26 @@ def linear_quantization(
 
 
 def asymmetric_linear_quantization_params(
-    num_bits: torch.IntTensor,
-    sat_min: torch.FloatTensor,
-    sat_max: torch.FloatTensor,
+    num_bits: torch.Tensor,
+    sat_min: torch.Tensor,
+    sat_max: torch.Tensor,
     integral_zero_point: bool = True,
     signed: bool = False,
     qlevel_lowering: bool = False,
-) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Default quantization setup for asymmetric quantization
 
     Args:
-        num_bits (torch.IntTensor): Number of bits for quantization.
-        sat_min (torch.FloatTensor): Lower clip value.
-        sat_max (torch.FloatTensor): Upper clip value.
+        num_bits (torch.Tensor): Number of bits for quantization.
+        sat_min (torch.Tensor): Lower clip value.
+        sat_max (torch.Tensor): Upper clip value.
         integral_zero_point (bool, optional): Specify using int zero point. Defaults to True.
         signed (bool, optional): Specify if clip values are . Defaults to False.
         qlevel_lowering (bool, optional): Specify lowering of quantized levels. Defaults to False.
 
     Returns:
-        [torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
+        [torch.Tensor, torch.Tensor, torch.Tensor]:
             # of quantized levels, scale, zero point
     """
     with torch.no_grad():
@@ -301,21 +301,21 @@ def asymmetric_linear_quantization_params(
 
 
 def symmetric_linear_quantization_params(
-    num_bits: torch.IntTensor,
-    sat_val: torch.FloatTensor,
+    num_bits: torch.Tensor,
+    sat_val: torch.Tensor,
     qlevel_lowering: bool = True,
-) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Default quantization setup for symmetric quantization
 
     Args:
-        num_bits (torch.IntTensor): Number of bits for quantization.
-        sat_max (torch.FloatTensor): Upper clip value.  Can be multi-valued (perCh/perGp).
+        num_bits (torch.Tensor): Number of bits for quantization.
+        sat_max (torch.Tensor): Upper clip value.  Can be multi-valued (perCh/perGp).
         qlevel_lowering (bool, optional): Specify lowering of quantized levels. Defaults to False.
         Ngp_or_ch (int, optional):
 
     Returns:
-        [torch.IntTensor, torch.FloatTensor, torch.FloatTensor]:
+        [torch.Tensor, torch.Tensor, torch.Tensor]:
             # of quantized levels, scale, zero point
     """
     if torch.any(sat_val < 0.0):
@@ -335,8 +335,8 @@ def symmetric_linear_quantization_params(
 
 
 def per_channel_axis(
-    scale: torch.FloatTensor,
-    zero_point: torch.IntTensor,
+    scale: torch.Tensor,
+    zero_point: torch.Tensor,
     tensor_shape: torch.Size,
     axis: int = 0,
 ):
@@ -347,8 +347,8 @@ def per_channel_axis(
     Note: for Transformers, axis = 0 is desired
 
     Args:
-        scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-        zero_point (torch.IntTensor): Quantized int bin mapping to fp 0.0.
+        scale (torch.Tensor): Dequantized range of a quantized integer bin.
+        zero_point (torch.Tensor): Quantized int bin mapping to fp 0.0.
         tensor_shape (torch.Size): Shape of quantized tensor
 
     Returns:

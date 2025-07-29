@@ -44,9 +44,9 @@ class PACT2_new(Quantizer):
 
     def __init__(
         self,
-        num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = clip_valn_default,
-        init_clip_val: torch.FloatTensor = clip_val_default,
+        num_bits: torch.Tensor,
+        init_clip_valn: torch.Tensor = clip_valn_default,
+        init_clip_val: torch.Tensor = clip_val_default,
         qscheme: Qscheme = qscheme_per_tensor,
         dequantize: bool = True,
         pact_plus: bool = True,
@@ -56,9 +56,9 @@ class PACT2_new(Quantizer):
         Init PACT2 quantizer
 
         Args:
-            num_bits (torch.IntTensor): Number of bits for quantization.
-            init_clip_valn (torch.FloatTensor, optional): Lower clip value bound. Defaults to -8.0.
-            init_clip_val (torch.FloatTensor, optional): Upper clip value bound. Defaults to 8.0.
+            num_bits (torch.Tensor): Number of bits for quantization.
+            init_clip_valn (torch.Tensor, optional): Lower clip value bound. Defaults to -8.0.
+            init_clip_val (torch.Tensor, optional): Upper clip value bound. Defaults to 8.0.
             qscheme (Qscheme, optional): Quantization scheme.
                 Defaults to Qscheme( unit="perT", symmetric=False, Nch=None, Ngrp=None,
                                        single_sided=False, qlevel_lowering=False, ).
@@ -106,10 +106,10 @@ class PACT2_STE_new(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, torch.Tensor, torch.Tensor, None,...,None]: Gradients
         """
         input_tensor, _, clip_valn, clip_val, _, _ = ctx.saved_tensors
 
@@ -152,10 +152,10 @@ class PACTplus2STE_new(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, torch.Tensor, torch.Tensor, None,...,None]: Gradients
         """
         input_tensor, n_levels, clip_valn, clip_val, scale, _ = ctx.saved_tensors
 

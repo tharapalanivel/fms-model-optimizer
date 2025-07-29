@@ -60,9 +60,9 @@ class LSQQuantization_new(Quantizer):
 
     def __init__(
         self,
-        num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = clip_valn_default,
-        init_clip_val: torch.FloatTensor = clip_val_default,
+        num_bits: torch.Tensor,
+        init_clip_valn: torch.Tensor = clip_valn_default,
+        init_clip_val: torch.Tensor = clip_val_default,
         qscheme=qscheme_per_tensor,
         dequantize: bool = True,
         **kwargs,
@@ -71,9 +71,9 @@ class LSQQuantization_new(Quantizer):
         Init LSQ Quantizer
 
         Args:
-            num_bits (torch.IntTensor): Number of bits for quantization.
-            init_clip_valn (torch.FloatTensor, optional): Lower clip value bound. Defaults to -8.0.
-            init_clip_val (torch.FloatTensor, optional): Upper clip value bound. Defaults to 8.0.
+            num_bits (torch.Tensor): Number of bits for quantization.
+            init_clip_valn (torch.Tensor, optional): Lower clip value bound. Defaults to -8.0.
+            init_clip_val (torch.Tensor, optional): Upper clip value bound. Defaults to 8.0.
             qscheme (Qscheme, optional): Quantization scheme.
                 Defaults to Qscheme( unit="perT", symmetric=False, Nch=None, Ngrp=None,
                                        single_sided=True, qlevel_lowering=False, ).
@@ -110,10 +110,10 @@ class LSQQuantizationSTE_new(PerTensorSTE):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
@@ -123,10 +123,10 @@ class LSQQuantizationSTE_new(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -168,10 +168,10 @@ class LSQQuantizationSTE_new(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, torch.Tensor, None,...,None]: Gradients
         """
         input_tensor, clip_val, residual = ctx.saved_tensors
         grad_input = grad_output.clone()
@@ -202,9 +202,9 @@ class LSQPlus_new(Quantizer):
 
     def __init__(
         self,
-        num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = clip_valn_default,
-        init_clip_val: torch.FloatTensor = clip_val_default,
+        num_bits: torch.Tensor,
+        init_clip_valn: torch.Tensor = clip_valn_default,
+        init_clip_val: torch.Tensor = clip_val_default,
         qscheme=qscheme_per_tensor,
         dequantize: bool = True,
         **kwargs,
@@ -213,9 +213,9 @@ class LSQPlus_new(Quantizer):
         Init LSQ+ Quantizer
 
         Args:
-            num_bits (torch.IntTensor): Number of bits for quantization.
-            init_clip_valn (torch.FloatTensor, optional): Lower clip value bound. Defaults to -8.0.
-            init_clip_val (torch.FloatTensor, optional): Upper clip value bound. Defaults to 8.0.
+            num_bits (torch.Tensor): Number of bits for quantization.
+            init_clip_valn (torch.Tensor, optional): Lower clip value bound. Defaults to -8.0.
+            init_clip_val (torch.Tensor, optional): Upper clip value bound. Defaults to 8.0.
             qscheme (Qscheme, optional): Quantization scheme.
                 Defaults to Qscheme( unit="perT", symmetric=False, Nch= None, Ngrp= None,
                                        single_sided=True, qlevel_lowering=False, ).
@@ -246,13 +246,13 @@ class LSQPlus_new(Quantizer):
         """
         self.quantizer = LSQPlus_func_new
 
-    def forward(self, input_tensor: torch.FloatTensor) -> torch.Tensor:
+    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """
         LSQ+ Quantizer forward function
         Sets scale, zero_point on first call, but uses cached values later
 
         Args:
-            input_tensor (torch.FloatTensor): Tensor to be quantized
+            input_tensor (torch.Tensor): Tensor to be quantized
 
         Returns:
             torch.Tensor: Dequantized or Quantized output tensor.
@@ -289,10 +289,10 @@ class LSQPlus_func_new(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        scale: torch.FloatTensor,
-        zero_point: torch.FloatTensor,  # clip vals are not passed to forward
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        scale: torch.Tensor,
+        zero_point: torch.Tensor,  # clip vals are not passed to forward
         dequantize: bool = True,
         _symmetric: bool = False,
         _qlevel_lowering: bool = False,
@@ -302,10 +302,10 @@ class LSQPlus_func_new(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            scale (torch.FloatTensor): Dequantized range of a quantized integer bin.
-            zero_point (torch.FloatTensor): Quantized integer bin mapping to fp 0.0.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            scale (torch.Tensor): Dequantized range of a quantized integer bin.
+            zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             _symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             _qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -345,10 +345,10 @@ class LSQPlus_func_new(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, torch.FloatTensor, torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, torch.Tensor, torch.Tensor, None,...,None]: Gradients
         """
         input_tensor, clip_vals, clip_valb = ctx.saved_tensors
         p = 2.0 ** (ctx.num_bits - 1) - 1

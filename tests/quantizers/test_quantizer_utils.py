@@ -70,9 +70,9 @@ def quantizer_setup(
 
 
 def quantizer_error(
-    tensor: torch.FloatTensor,
-    qtensor_fms_mo: Union[torch.FloatTensor, torch.IntTensor],
-    qtensor_torch: Union[torch.FloatTensor, torch.IntTensor],
+    tensor: torch.Tensor,
+    qtensor_fms_mo: Union[torch.Tensor, torch.Tensor],
+    qtensor_torch: Union[torch.Tensor, torch.Tensor],
     setup,
     base_options,
     other_options,
@@ -85,9 +85,9 @@ def quantizer_error(
     Check various types of quantizer numerical errors for FMS and Torch quantizied tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
-        qtensor_fms_mo (Union[torch.FloatTensor, torch.IntTensor]): Quantizied FMS tensor
-        qtensor_torch (Union[torch.FloatTensor, torch.IntTensor]): Quantizied Torch tensor
+        tensor (torch.Tensor): Tensor to quantize.
+        qtensor_fms_mo (Union[torch.Tensor, torch.Tensor]): Quantizied FMS tensor
+        qtensor_torch (Union[torch.Tensor, torch.Tensor]): Quantizied Torch tensor
         setup (tuple): Quantized parameters
         base_options (dict): Base options dictionary
         other_options (dict): Other options dictionary

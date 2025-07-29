@@ -51,7 +51,7 @@ def other_options(request):
 
 # Must override this method for each test file
 def set_other_options(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     fms_mo_quantizer: torch.autograd.Function,
     torch_quantizer: torch.nn.Module,
     other_option: dict,
@@ -61,7 +61,7 @@ def set_other_options(
     Set other options for FMS and Torch quantizer
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         fms_mo_quantizer (torch.autograd.Function):  FMS quantizer
         torch_quantizer (torch.nn.Module): Torch Quantizer
         other_option (dict): Other Option params
@@ -159,7 +159,7 @@ def use_tensor_squashing(
 
 # SAWB_new settings for TorchQuantizer ; refactored SAWB does not use tensor squashing
 def set_other_options_new(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     fms_mo_quantizer: torch.autograd.Function,
     torch_quantizer: torch.nn.Module,
     other_option: dict,
@@ -169,7 +169,7 @@ def set_other_options_new(
     Set other options for new FMS and Torch quantizer
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         fms_mo_quantizer (torch.autograd.Function):  FMS quantizer
         torch_quantizer (torch.nn.Module): Torch Quantizer
         other_option (dict): Other Option params
@@ -234,7 +234,7 @@ def set_other_options_new(
 
 
 def set_per_channel(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     fms_mo_quantizer: torch.autograd.Function,
     torch_quantizer: torch.nn.Module,
     axis: int = 0,
@@ -243,7 +243,7 @@ def set_per_channel(
     Setup quantizers to use per channel SAWB
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         fms_mo_quantizer (torch.autograd.Function): FMS quantizer.
         torch_quantizer (torch.nn.Module): Torch Quantizer
         axis (int, optional): Per channel axis dimension. Defaults to 0.
@@ -269,7 +269,7 @@ def set_per_channel(
 
 
 def test_sawb_symmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     sawb_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options: dict,
@@ -279,7 +279,7 @@ def test_sawb_symmetric(
     Test SAWB w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         sawb_quantizer_symmetric (torch.autograd.Function): Qmax Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -334,7 +334,7 @@ def test_sawb_symmetric(
 
 
 def test_sawbnew_symmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     sawbnew_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options: dict,
@@ -344,7 +344,7 @@ def test_sawbnew_symmetric(
     Test SAWB_new w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         sawbnew_quantizer_symmetric (torch.autograd.Function): Qmax Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -379,7 +379,7 @@ def test_sawbnew_symmetric(
 
 
 def test_sawb_symmetric_perCh(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     quantizer_symmetric_perCh: dict,
     base_options: dict,
 ):
@@ -387,7 +387,7 @@ def test_sawb_symmetric_perCh(
     Test SAWB w/ symmetric tensors for per channel
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         quantizer_symmetric_perCh (dict): Symmetric quantizer settings for per channel.
         base_options (dict): Base options for quantization.
     """
@@ -446,7 +446,7 @@ def test_sawb_symmetric_perCh(
 
 
 def test_sawbnew_symmetric_perCh(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     quantizer_symmetric_perCh: dict,
     base_options: dict,
 ):
@@ -454,7 +454,7 @@ def test_sawbnew_symmetric_perCh(
     Test SAWB_new w/ symmetric tensors for perCh
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         base_options (dict): Base options for quantization.
         other_options (dict): Other Options for quantization.
     """

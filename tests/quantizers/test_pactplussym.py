@@ -85,7 +85,7 @@ def set_other_options(
 
 
 def test_pactplussym_symmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     pactplussym_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options: dict,
@@ -95,7 +95,7 @@ def test_pactplussym_symmetric(
     Test PACT+Sym w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         pactplussym_quantizer_symmetric (torch.autograd.Function): PACT+Sym Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -126,7 +126,7 @@ def test_pactplussym_symmetric(
 
 
 def test_pactplussymnew_symmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     pactplussymnew_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options: dict,
@@ -136,7 +136,7 @@ def test_pactplussymnew_symmetric(
     Test PACT+Sym w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         pactplussymnew_quantizer_symmetric (torch.autograd.Function): PACT+Sym Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.

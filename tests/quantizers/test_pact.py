@@ -65,7 +65,7 @@ def set_other_options(fms_mo_quantizer, other_option):
 
 
 def test_pact_single_sided(
-    tensor_single_sided: torch.FloatTensor,
+    tensor_single_sided: torch.Tensor,
     pact_quantizer_single_sided: torch.autograd.Function,
     torch_quantizer_single_sided: torch.nn.Module,
     base_options: dict,
@@ -75,7 +75,7 @@ def test_pact_single_sided(
     Test PACT w/ single-sided tensors
 
     Args:
-        tensor_single_sided (torch.FloatTensor): Tensor to quantize.
+        tensor_single_sided (torch.Tensor): Tensor to quantize.
         pact_quantizer_single_sided (torch.autograd.Function): PACT Quantizer
         torch_quantizer_single_sided (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -109,7 +109,7 @@ def test_pact_single_sided(
 
 
 def test_pactnew_single_sided(
-    tensor_single_sided: torch.FloatTensor,
+    tensor_single_sided: torch.Tensor,
     pactnew_quantizer_single_sided: torch.autograd.Function,
     torch_quantizer_single_sided: torch.nn.Module,
     base_options: dict,
@@ -119,7 +119,7 @@ def test_pactnew_single_sided(
     Test PACT_new w/ single-sided tensors
 
     Args:
-        tensor_single_sided (torch.FloatTensor): Tensor to quantize.
+        tensor_single_sided (torch.Tensor): Tensor to quantize.
         pactnew_quantizer_single_sided (torch.autograd.Function): PACT Quantizer
         torch_quantizer_single_sided (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.

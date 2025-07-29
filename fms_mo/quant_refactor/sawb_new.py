@@ -60,9 +60,9 @@ class SAWB_new(Quantizer):
 
     def __init__(
         self,
-        num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = clip_valn_default,
-        init_clip_val: torch.FloatTensor = clip_val_default,
+        num_bits: torch.Tensor,
+        init_clip_valn: torch.Tensor = clip_valn_default,
+        init_clip_val: torch.Tensor = clip_val_default,
         qscheme: Qscheme = qscheme_per_tensor,
         dequantize: bool = True,
         clipSTE: bool = False,
@@ -74,9 +74,9 @@ class SAWB_new(Quantizer):
         Init SAWB Quantizer
 
         Args:
-            num_bits (torch.IntTensor): Number of bits for quantization.
-            init_clip_valn (torch.FloatTensor, optional): Lower clip value bound. Defaults to -8.0.
-            init_clip_val (torch.FloatTensor, optional): Upper clip value bound. Defaults to 8.0.
+            num_bits (torch.Tensor): Number of bits for quantization.
+            init_clip_valn (torch.Tensor, optional): Lower clip value bound. Defaults to -8.0.
+            init_clip_val (torch.Tensor, optional): Upper clip value bound. Defaults to 8.0.
             qscheme (Qscheme, optional): Quantization scheme.
                 Defaults to Qscheme( unit="perT", symmetric=True, Nch=None, Ngrp=None,
                                        single_sided=False, qlevel_lowering=False, ).
@@ -159,13 +159,13 @@ class SAWB_new(Quantizer):
                 else:
                     self.quantizer = SAWBSTE_new
 
-    def forward(self, input_tensor: torch.FloatTensor) -> torch.Tensor:
+    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """
         SAWB forward() function.
         Has codepath for saving previous runs computed clip values.
 
         Args:
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
+            input_tensor (torch.Tensor): Tensor to be quantized.
 
         Returns:
             torch.Tensor: Quantized or dequantized tensor.
@@ -274,10 +274,10 @@ class SAWBSTE_new(PerTensorSTESAWB):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         input_tensor, _, _, clip_val, _, _ = ctx.saved_tensors
         grad_input = grad_output.clone()
@@ -308,10 +308,10 @@ class SAWBZeroSTE_new(PerTensorSTESAWB):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         input_tensor, _, _, clip_val, _, _ = ctx.saved_tensors
         grad_input = grad_output.clone()
@@ -340,10 +340,10 @@ class SAWBPlusSTE_new(PerTensorSTESAWB):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         grad_input = grad_output.clone()
         return grad_input, None, None, None, None, None, None, None
@@ -366,10 +366,10 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None, None
 
@@ -385,10 +385,10 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 #     @staticmethod
 #     def forward(
 #         ctx,
-#         input_tensor: torch.FloatTensor,
-#         num_bits: torch.IntTensor,
-#         _clip_valn: torch.FloatTensor,
-#         clip_val: torch.FloatTensor,
+#         input_tensor: torch.Tensor,
+#         num_bits: torch.Tensor,
+#         _clip_valn: torch.Tensor,
+#         clip_val: torch.Tensor,
 #         dequantize: bool = True,
 #         _symmetric: bool = True,
 #         _qlevel_lowering: bool = True,
@@ -399,10 +399,10 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 
 #         Args:
 #             ctx (torch.autograd.Function): Forward/Backward context object.
-#             input_tensor (torch.FloatTensor): Tensor to be quantized.
-#             num_bits (torch.IntTensor): Number of bit for quantization.
-#             clip_valn (torch.FloatTensor): Lower clip value bound.
-#             clip_val (torch.FloatTensor): Upper clip value bound.
+#             input_tensor (torch.Tensor): Tensor to be quantized.
+#             num_bits (torch.Tensor): Number of bit for quantization.
+#             clip_valn (torch.Tensor): Lower clip value bound.
+#             clip_val (torch.Tensor): Upper clip value bound.
 #             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
 #             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
 #             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -439,10 +439,10 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 
 #         Args:
 #             ctx (torch.autograd.Function): Context object.
-#             grad_output (torch.FloatTensor): Gradient to clip
+#             grad_output (torch.Tensor): Gradient to clip
 
 #         Returns:
-#             [torch.FloatTensor, None,...,None]: Gradients
+#             [torch.Tensor, None,...,None]: Gradients
 #         """
 #         grad_input = grad_output.clone()
 #         return grad_input, None, None, None, None, None, None, None
@@ -460,10 +460,10 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 #     @staticmethod
 #     def forward(
 #         ctx,
-#         input_tensor: torch.FloatTensor,
-#         num_bits: torch.IntTensor,
-#         clip_valn: torch.FloatTensor,
-#         clip_val: torch.FloatTensor,
+#         input_tensor: torch.Tensor,
+#         num_bits: torch.Tensor,
+#         clip_valn: torch.Tensor,
+#         clip_val: torch.Tensor,
 #         dequantize: bool = True,
 #         symmetric: bool = False,
 #         qlevel_lowering: bool = True,
@@ -474,10 +474,10 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 
 #         Args:
 #             ctx (torch.autograd.Function): Forward/Backward context object.
-#             num_bits (torch.IntTensor): Number of bit for quantization.
-#             clip_valn (torch.FloatTensor): Lower clip value bound.
-#             clip_val (torch.FloatTensor): Upper clip value bound.
-#             input_tensor (torch.FloatTensor): Tensor to be quantized.
+#             num_bits (torch.Tensor): Number of bit for quantization.
+#             clip_valn (torch.Tensor): Lower clip value bound.
+#             clip_val (torch.Tensor): Upper clip value bound.
+#             input_tensor (torch.Tensor): Tensor to be quantized.
 #             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
 #             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
 #             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -512,18 +512,18 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 #     @classmethod
 #     def calc_qparams(
 #         cls,
-#         num_bits: torch.IntTensor,
-#         clip_valn: torch.FloatTensor,
-#         clip_val: torch.FloatTensor,
+#         num_bits: torch.Tensor,
+#         clip_valn: torch.Tensor,
+#         clip_val: torch.Tensor,
 #         symmetric: bool = False,
 #         qlevel_lowering: bool = False,
 #         use_code: bool = False,
-#         input_tensor: torch.FloatTensor = None,
+#         input_tensor: torch.Tensor = None,
 #     ) -> Tuple[
-#         torch.IntTensor,
-#         torch.FloatTensor,
-#         torch.FloatTensor,
-#         torch.IntTensor,
+#         torch.Tensor,
+#         torch.Tensor,
+#         torch.Tensor,
+#         torch.Tensor,
 #         int,
 #         int,
 #     ]:
@@ -531,18 +531,18 @@ class SAWBPlusZeroSTE_new(PerTensorSTESAWB):
 #         Compute the scale and zero_point from num_bits and clip values
 
 #         Args:
-#             num_bits (torch.IntTensor): Number of bit for quantization.
-#             clip_valn (torch.FloatTensor): Lower clip value.
-#             clip_val (torch.FloatTensor): Upper clip value.
+#             num_bits (torch.Tensor): Number of bit for quantization.
+#             clip_valn (torch.Tensor): Lower clip value.
+#             clip_val (torch.Tensor): Upper clip value.
 #             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
 #             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
 #                 Defaults to True.
 #             use_code (bool, optional): Specify using SAWB code. Defaults to False.
-#             input_tensor (torch.FloatTensor): Tensor to be quantized. Defaults to None.
+#             input_tensor (torch.Tensor): Tensor to be quantized. Defaults to None.
 
 #         Returns:
-#             [torch.IntTensor, torch.FloatTensor, torch.IntTensor
-#             torch.IntTensor, torch.IntTensor, torch.IntTensor, torch.dtype]:
+#             [torch.Tensor, torch.Tensor, torch.Tensor
+#             torch.Tensor, torch.Tensor, torch.Tensor, torch.dtype]:
 #                 Quantized parameters for PTnative kernels
 #         """
 
@@ -567,10 +567,10 @@ class SAWBPlusZeroPerChSTE_new(PerChannelSTESAWB):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         grad_input = grad_output.clone()
         return grad_input, None, None, None, None, None, None, None

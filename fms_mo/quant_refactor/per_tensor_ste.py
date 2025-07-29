@@ -50,10 +50,10 @@ class PerTensorSTE(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
@@ -68,10 +68,10 @@ class PerTensorSTE(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -119,25 +119,25 @@ class PerTensorSTE(torch.autograd.Function):
     @classmethod
     def calc_qparams(
         cls,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
-    ) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Compute the scale and zero_point from num_bits and clip values
 
         Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value.
-            clip_val (torch.FloatTensor): Upper clip value.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value.
+            clip_val (torch.Tensor): Upper clip value.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
 
         Returns:
-            Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor]: Quantized parameters
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: Quantized parameters
         """
         if symmetric:
             n_levels, scale, zero_point = symmetric_linear_quantization_params(
@@ -156,17 +156,17 @@ class PerTensorSTE(torch.autograd.Function):
         return n_levels, scale, zero_point
 
     @staticmethod
-    def backward(ctx, grad_output: torch.FloatTensor):
+    def backward(ctx, grad_output: torch.Tensor):
         """
         General STE backward method:
             Return grad_output + None args to match forward inputs
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            grad_output (torch.FloatTensor): Gradient tensor
+            grad_output (torch.Tensor): Gradient tensor
 
         Returns:
-            torch.FloatTensor, None,...,None: STE Gradient
+            torch.Tensor, None,...,None: STE Gradient
         """
         return grad_output, None, None, None, None, None, None
 
@@ -187,10 +187,10 @@ class PerTensorSTE_PTnative(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
@@ -204,10 +204,10 @@ class PerTensorSTE_PTnative(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -239,26 +239,26 @@ class PerTensorSTE_PTnative(torch.autograd.Function):
     @classmethod
     def calc_qparams(
         cls,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
-    ) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor, int, int]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, int, int]:
         """
         Compute the scale and zero_point from num_bits and clip values.
         Also, compute qint bounds for PT clamping.
 
         Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value.
-            clip_val (torch.FloatTensor): Upper clip value.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value.
+            clip_val (torch.Tensor): Upper clip value.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
 
         Returns:
-            Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor]: Quantized parameters
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: Quantized parameters
         """
         n_levels = 2**num_bits - 2 if qlevel_lowering else 2**num_bits - 1
         scale = (clip_val - clip_valn) / n_levels
@@ -275,8 +275,8 @@ class PerTensorSTE_PTnative(torch.autograd.Function):
     @classmethod
     def qint_bounds(
         cls,
-        num_bits: torch.IntTensor,
-        zero_point: torch.IntTensor,
+        num_bits: torch.Tensor,
+        zero_point: torch.Tensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
     ) -> Tuple[int, int, torch.dtype]:
@@ -303,9 +303,9 @@ class PerTensorSTE_PTnative(torch.autograd.Function):
     @classmethod
     def linear_quantization(
         cls,
-        input_tensor: torch.FloatTensor,
-        scale: torch.FloatTensor,
-        zero_point: torch.IntTensor,
+        input_tensor: torch.Tensor,
+        scale: torch.Tensor,
+        zero_point: torch.Tensor,
         qint_l: int,
         qint_h: int,
         qint_dtype: torch.dtype,
@@ -315,9 +315,9 @@ class PerTensorSTE_PTnative(torch.autograd.Function):
         Linear quantization for PTnative STE
 
         Args:
-            input_tensor (torch.FloatTensor): Tensor to be quantized
-            scale (torch.FloatTensor): Quantized bin range.
-            zero_point (torch.IntTensor): Quantized integer bin mapping to fp 0.0.
+            input_tensor (torch.Tensor): Tensor to be quantized
+            scale (torch.Tensor): Quantized bin range.
+            zero_point (torch.Tensor): Quantized integer bin mapping to fp 0.0.
             qint_l (int): Quantized integer lower clip value.
             qint_h (int): Quantized integer upper clip value.
             qint_dtype (torch.dtype): Quantized integer dtype.
@@ -350,10 +350,10 @@ class PerTensorSTE_PTnative(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            grad_output (torch.FloatTensor): Gradient tensor
+            grad_output (torch.Tensor): Gradient tensor
 
         Returns:
-            [torch.FloatTensor, None,...,None]: STE Gradient
+            [torch.Tensor, None,...,None]: STE Gradient
         """
         return grad_output, None, None, None, None, None, None
 
@@ -369,10 +369,10 @@ class PerTensorSTESAWB(PerTensorSTE):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         symmetric: bool = True,
         qlevel_lowering: bool = True,
@@ -388,10 +388,10 @@ class PerTensorSTESAWB(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -421,27 +421,27 @@ class PerTensorSTESAWB(PerTensorSTE):
     @classmethod
     def calc_qparams(
         cls,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         symmetric: bool = True,
         qlevel_lowering: bool = False,
         use_code: bool = False,
-    ) -> Tuple[torch.IntTensor, torch.FloatTensor, torch.IntTensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Compute the scale and zero_point from num_bits and clip values
 
         Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value.
-            clip_val (torch.FloatTensor): Upper clip value.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value.
+            clip_val (torch.Tensor): Upper clip value.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
             use_code (bool, optional): Specify using SAWB code. Defaults to False.
 
         Returns:
-            [torch.IntTensor, torch.FloatTensor, torch.IntTensor]: Quantized parameters
+            [torch.Tensor, torch.Tensor, torch.Tensor]: Quantized parameters
         """
         # SAWB is always symmetric
         output = None
@@ -468,10 +468,10 @@ class PerTensorSTESAWB(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            grad_output (torch.FloatTensor): Gradient tensor
+            grad_output (torch.Tensor): Gradient tensor
 
         Returns:
-            [torch.FloatTensor, None,...,None]: STE Gradient
+            [torch.Tensor, None,...,None]: STE Gradient
         """
         return grad_output, None, None, None, None, None, None, None
 
@@ -487,10 +487,10 @@ class PerTensorSTESAWB_PTnative(PerTensorSTE_PTnative):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
@@ -505,10 +505,10 @@ class PerTensorSTESAWB_PTnative(PerTensorSTE_PTnative):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -542,17 +542,17 @@ class PerTensorSTESAWB_PTnative(PerTensorSTE_PTnative):
     @classmethod
     def calc_qparams(
         cls,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
         use_code: bool = False,
     ) -> Tuple[
-        torch.IntTensor,
-        torch.FloatTensor,
-        torch.FloatTensor,
-        torch.IntTensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
         int,
         int,
         torch.dtype,
@@ -562,17 +562,17 @@ class PerTensorSTESAWB_PTnative(PerTensorSTE_PTnative):
         Also, compute qint bounds for PT clamping.
 
         Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value.
-            clip_val (torch.FloatTensor): Upper clip value.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value.
+            clip_val (torch.Tensor): Upper clip value.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
             use_code (bool, optional): Specify using SAWB code. Defaults to False.
 
         Returns:
-            Tuple[torch.IntTensor, torch.FloatTensor, torch.FloatTensor,
-            torch.IntTensor, torch.IntTensor, torch.IntTensor,
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor,
+            torch.Tensor, torch.Tensor, torch.Tensor,
             torch.dtype]: Quantized PTnative parameters
         """
         # SAWB is always symmetric
@@ -612,10 +612,10 @@ class PerTensorSTESAWB_PTnative(PerTensorSTE_PTnative):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            grad_output (torch.FloatTensor): Gradient tensor
+            grad_output (torch.Tensor): Gradient tensor
 
         Returns:
-            [torch.FloatTensor, None,...,None]: STE Gradient
+            [torch.Tensor, None,...,None]: STE Gradient
         """
         return grad_output, None, None, None, None, None, None, None
 
@@ -631,10 +631,10 @@ class PerTensorSTEQmax(PerTensorSTE):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         symmetric: bool = True,
         qlevel_lowering: bool = True,
@@ -650,10 +650,10 @@ class PerTensorSTEQmax(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -689,27 +689,27 @@ class PerTensorSTEQmax(PerTensorSTE):
     @classmethod
     def calc_qparams(
         cls,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         symmetric: bool = False,
         qlevel_lowering: bool = False,
         use_minmax: bool = False,
-    ) -> Tuple[torch.IntTensor, torch.FloatTensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Compute the scale and zero_point from num_bits and clip values
 
         Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value.
-            clip_val (torch.FloatTensor): Upper clip value.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value.
+            clip_val (torch.Tensor): Upper clip value.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
             use_minmax (bool, optional): Specify using Qminmax. Defaults to False.
 
         Returns:
-            [torch.IntTensor, torch.FloatTensor, torch.FloatTensor]: Quantized PTnative parameters
+            [torch.Tensor, torch.Tensor, torch.Tensor]: Quantized PTnative parameters
         """
         if use_minmax:  # asymmetric case
             n_levels = 2**num_bits - 1
@@ -732,10 +732,10 @@ class PerTensorSTEQmax(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            grad_output (torch.FloatTensor): Gradient tensor
+            grad_output (torch.Tensor): Gradient tensor
 
         Returns:
-            [torch.FloatTensor, None,...,None]: STE Gradient
+            [torch.Tensor, None,...,None]: STE Gradient
         """
         return grad_output, None, None, None, None, None, None, None
 
@@ -751,10 +751,10 @@ class PerTensorSTEQmax_PTnative(PerTensorSTE_PTnative):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
@@ -769,10 +769,10 @@ class PerTensorSTEQmax_PTnative(PerTensorSTE_PTnative):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -805,17 +805,17 @@ class PerTensorSTEQmax_PTnative(PerTensorSTE_PTnative):
     @classmethod
     def calc_qparams(
         cls,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         symmetric: bool = True,
         qlevel_lowering: bool = False,
         use_minmax: bool = False,
     ) -> Tuple[
-        torch.IntTensor,
-        torch.FloatTensor,
-        torch.FloatTensor,
-        torch.IntTensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
         int,
         int,
         torch.dtype,
@@ -825,17 +825,17 @@ class PerTensorSTEQmax_PTnative(PerTensorSTE_PTnative):
         Also, compute qint bounds for PT clamping.
 
         Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value.
-            clip_val (torch.FloatTensor): Upper clip value.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value.
+            clip_val (torch.Tensor): Upper clip value.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
             use_minmax (bool, optional): Specify using Qminmax. Defaults to False.
 
         Returns:
-            [torch.IntTensor, torch.FloatTensor, torch.FloatTensor,
-            torch.IntTensor, torch.IntTensor, torch.IntTensor,
+            [torch.Tensor, torch.Tensor, torch.Tensor,
+            torch.Tensor, torch.Tensor, torch.Tensor,
             torch.dtype]: Quantized PTnative parameters
         """
         if use_minmax:  # asymmetric case
@@ -862,9 +862,9 @@ class PerTensorSTEQmax_PTnative(PerTensorSTE_PTnative):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            grad_output (torch.FloatTensor): Gradient tensor
+            grad_output (torch.Tensor): Gradient tensor
 
         Returns:
-            [torch.FloatTensor, None,...,None]: STE Gradient
+            [torch.Tensor, None,...,None]: STE Gradient
         """
         return grad_output, None, None, None, None, None, None, None

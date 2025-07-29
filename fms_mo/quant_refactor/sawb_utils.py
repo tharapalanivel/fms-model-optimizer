@@ -28,16 +28,16 @@ import torch
 
 
 def sawb_params(
-    input_tensor: torch.FloatTensor,
-    num_bits: torch.IntTensor,
+    input_tensor: torch.Tensor,
+    num_bits: torch.Tensor,
     qlevel_lowering: bool = False,
-) -> Tuple[torch.IntTensor, torch.FloatTensor]:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Compute SAWB symmetric clip value and # of quantized levels.
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to be quantized.
-        num_bits (torch.IntTensor): Number of bit for quantization.
+        input_tensor (torch.Tensor): Tensor to be quantized.
+        num_bits (torch.Tensor): Number of bit for quantization.
         qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to False.
 
@@ -45,7 +45,7 @@ def sawb_params(
         ValueError: SAWB not implemented for various num_bits
 
     Returns:
-        [torch.IntTensor, torch.FloatTensor]: SAWB quantiation parameters
+        [torch.Tensor, torch.Tensor]: SAWB quantiation parameters
     """
     with torch.no_grad():
         x = input_tensor.flatten()
@@ -78,17 +78,17 @@ def sawb_params(
 
 
 def sawb_params_code(
-    input_tensor: torch.FloatTensor,
-    num_bits: torch.IntTensor,
+    input_tensor: torch.Tensor,
+    num_bits: torch.Tensor,
     code: int,
     perCh: bool = False,
-) -> Tuple[torch.IntTensor, torch.FloatTensor]:
+) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Compute SAWB symmetric clip value and # of quantized levels
 
     Args:
-        input_tensor (torch.FloatTensor): Tensor to be quantized.
-        num_bits (torch.IntTensor): Number of bit for quantization.
+        input_tensor (torch.Tensor): Tensor to be quantized.
+        num_bits (torch.Tensor): Number of bit for quantization.
         code (int): Pre-built SAWB constants.
         perCh (bool, optional): Use per channel quantization. Defaults to False.
 
@@ -97,7 +97,7 @@ def sawb_params_code(
         ValueError: Improper code provided
 
     Returns:
-        [torch.IntTensor, torch.FloatTensor]: SAWB quantiation parameters
+        [torch.Tensor, torch.Tensor]: SAWB quantiation parameters
     """
     with torch.no_grad():
         coeff_dict = {

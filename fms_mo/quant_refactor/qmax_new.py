@@ -60,9 +60,9 @@ class Qmax_new(Quantizer):
 
     def __init__(
         self,
-        num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = clip_valn_default,
-        init_clip_val: torch.FloatTensor = clip_val_default,
+        num_bits: torch.Tensor,
+        init_clip_valn: torch.Tensor = clip_valn_default,
+        init_clip_val: torch.Tensor = clip_val_default,
         qscheme: Qscheme = qscheme_per_tensor,
         dequantize: bool = True,
         align_zero: bool = False,
@@ -75,9 +75,9 @@ class Qmax_new(Quantizer):
         Init SAWB Quantizer
 
         Args:
-            num_bits (torch.IntTensor): Number of bits for quantization.
-            init_clip_valn (torch.FloatTensor, optional): Lower clip value bound. Defaults to -8.0.
-            init_clip_val (torch.FloatTensor, optional): Upper clip value bound. Defaults to 8.0.
+            num_bits (torch.Tensor): Number of bits for quantization.
+            init_clip_valn (torch.Tensor, optional): Lower clip value bound. Defaults to -8.0.
+            init_clip_val (torch.Tensor, optional): Upper clip value bound. Defaults to 8.0.
             qscheme (Qscheme, optional): Quantization scheme.
                 Defaults to Qscheme( unit="perT", symmetric=True, Nch=None, Ngrp=None,
                                        single_sided=False, qlevel_lowering=False, ).
@@ -178,13 +178,13 @@ class Qmax_new(Quantizer):
         n_half = 2 ** (self.num_bits - 1)
         self.clip_ratio = -n_half / (n_half - 1)
 
-    def forward(self, input_tensor: torch.FloatTensor) -> torch.Tensor:
+    def forward(self, input_tensor: torch.Tensor) -> torch.Tensor:
         """
         Qmax forward() function.
         Has codepath for saving previous runs computed clip values.
 
         Args:
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
+            input_tensor (torch.Tensor): Tensor to be quantized.
 
         Returns:
             torch.Tensor: Quantized or dequantized tensor.
@@ -303,10 +303,10 @@ class QmaxSTE_new(PerTensorSTEQmax):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None, None
 
@@ -323,10 +323,10 @@ class QminmaxSTE_new(PerTensorSTEQmax):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None, None
 
@@ -351,10 +351,10 @@ class QmaxExtendRangeSTE_new(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         _symmetric: bool = False,
         _qlevel_lowering: bool = True,
@@ -365,10 +365,10 @@ class QmaxExtendRangeSTE_new(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -402,10 +402,10 @@ class QmaxExtendRangeSTE_new(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None, None
 
@@ -421,10 +421,10 @@ class QmaxExtendRangeSTE_PTnative(PerTensorSTEQmax_PTnative):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         dequantize: bool = True,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
@@ -435,10 +435,10 @@ class QmaxExtendRangeSTE_PTnative(PerTensorSTEQmax_PTnative):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -467,17 +467,17 @@ class QmaxExtendRangeSTE_PTnative(PerTensorSTEQmax_PTnative):
     @classmethod
     def calc_qparams(
         cls,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor,
-        clip_val: torch.FloatTensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor,
+        clip_val: torch.Tensor,
         symmetric: bool = False,
         qlevel_lowering: bool = True,
         use_minmax: bool = False,
     ) -> Tuple[
-        torch.IntTensor,
-        torch.FloatTensor,
-        torch.FloatTensor,
-        torch.IntTensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
+        torch.Tensor,
         int,
         int,
         torch.dtype,
@@ -486,17 +486,17 @@ class QmaxExtendRangeSTE_PTnative(PerTensorSTEQmax_PTnative):
         Compute the scale and zero_point from num_bits and clip values
 
         Args:
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value.
-            clip_val (torch.FloatTensor): Upper clip value.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value.
+            clip_val (torch.Tensor): Upper clip value.
             symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to True.
             use_minmax (bool, optional): Specify using Qminmax. Defaults to False.
 
         Returns:
-            [torch.IntTensor, torch.FloatTensor, torch.IntTensor
-            torch.IntTensor, torch.IntTensor, torch.IntTensor, torch.dtype]:
+            [torch.Tensor, torch.Tensor, torch.Tensor
+            torch.Tensor, torch.Tensor, torch.Tensor, torch.dtype]:
                 Quantized parameters for PTnative kernels
         """
         n_levels = 2**num_bits - 2
@@ -521,10 +521,10 @@ class QmaxPerChSTE_new(PerChannelSTEQmax):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None
 
@@ -542,10 +542,10 @@ class QmaxPerChSTE_PTnative(PerChannelSTEQmax_PTnative):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None
 
@@ -559,7 +559,7 @@ class QmaxPerGpSTE_new(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx, input_tensor, num_bits, _dequantize, inplace, cv, _cvn, align_zero
-    ) -> torch.FloatTensor:
+    ) -> torch.Tensor:
         """
         TODO (bmgroth): docstring
         """
@@ -601,10 +601,10 @@ class QmaxPerGpSTE_new(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None
 
@@ -621,10 +621,10 @@ class QminmaxPerChSTE_new(PerChannelSTEQmax):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None
 
@@ -637,7 +637,7 @@ class QminmaxPerGpSTE_new(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx, input_tensor, num_bits, _dequantize, inplace, cv, cvn, align_zero
-    ) -> torch.FloatTensor:
+    ) -> torch.Tensor:
         """
         TODO (bmgroth): docstring
         """
@@ -666,9 +666,9 @@ class QminmaxPerGpSTE_new(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None

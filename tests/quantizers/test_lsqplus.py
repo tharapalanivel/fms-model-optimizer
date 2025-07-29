@@ -22,14 +22,14 @@ import torch
 
 
 def set_other_options(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     torch_quantizer: torch.nn.Module,
 ):
     """
     Set other options for FMS and Torch quantizers
 
     Args:
-        tensor (torch.FloatTensor): Tensor to be quantized.
+        tensor (torch.Tensor): Tensor to be quantized.
         torch_quantizer (torch.nn.Module): Torch Quantizer.
     """
     tensor_min, tensor_max = tensor.min(), tensor.max()
@@ -48,7 +48,7 @@ def set_other_options(
 
 
 def test_lsqplus_symmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     lsqplus_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options: dict,
@@ -58,7 +58,7 @@ def test_lsqplus_symmetric(
     Test LSQ+ w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         lsqplus_quantizer_symmetric (torch.autograd.Function): LSQ+ Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -85,7 +85,7 @@ def test_lsqplus_symmetric(
 
 
 def test_lsqplus_asymmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     lsqplus_quantizer_asymmetric: torch.autograd.Function,
     torch_quantizer_asymmetric: torch.nn.Module,
     base_options: dict,
@@ -95,7 +95,7 @@ def test_lsqplus_asymmetric(
     Test LSQ+ w/ asymmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         lsqplus_quantizer_asymmetric (torch.autograd.Function): LSQ+ Quantizer
         torch_quantizer_asymmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -122,7 +122,7 @@ def test_lsqplus_asymmetric(
 
 
 def test_lsqplusnew_symmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     lsqplusnew_quantizer_symmetric: torch.autograd.Function,
     torch_quantizer_symmetric: torch.nn.Module,
     base_options,
@@ -132,7 +132,7 @@ def test_lsqplusnew_symmetric(
     Test LSQ+_new w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         lsqplusnew_quantizer_symmetric (torch.autograd.Function): LSQ+ Quantizer
         torch_quantizer_symmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -169,7 +169,7 @@ def test_lsqplusnew_asymmetric(
     Test LSQ+_new w/ symmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         lsqplusnew_quantizer_asymmetric (torch.autograd.Function): LSQ+ Quantizer
         torch_quantizer_asymmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.

@@ -46,9 +46,9 @@ class PACTplusSym_new(Quantizer):
 
     def __init__(
         self,
-        num_bits: torch.IntTensor,
-        init_clip_valn: torch.FloatTensor = clip_valn_default,
-        init_clip_val: torch.FloatTensor = clip_val_default,
+        num_bits: torch.Tensor,
+        init_clip_valn: torch.Tensor = clip_valn_default,
+        init_clip_val: torch.Tensor = clip_val_default,
         qscheme: Qscheme = qscheme_per_tensor,
         dequantize: bool = True,
         extend_act_range: bool = False,
@@ -58,9 +58,9 @@ class PACTplusSym_new(Quantizer):
         Init PACT+Sym quantizer
 
         Args:
-            num_bits (torch.IntTensor): Number of bits for quantization.
-            init_clip_valn (torch.FloatTensor, optional): Lower clip value bound. Defaults to -8.0.
-            init_clip_val (torch.FloatTensor, optional): Upper clip value bound. Defaults to 8.0.
+            num_bits (torch.Tensor): Number of bits for quantization.
+            init_clip_valn (torch.Tensor, optional): Lower clip value bound. Defaults to -8.0.
+            init_clip_val (torch.Tensor, optional): Upper clip value bound. Defaults to 8.0.
             qscheme (Qscheme, optional): Quantization scheme.
                 Defaults to Qscheme( unit="perT", symmetric=False, Nch=None, Ngrp=None,
                                        single_sided=False, qlevel_lowering=False, ).
@@ -126,10 +126,10 @@ class PACTplusSymSTE_new(PerTensorSTE):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, torch.Tensor, None,...,None]: Gradients
         """
         input_tensor, n_levels, _, clip_val, scale, _ = ctx.saved_tensors
         z = (input_tensor + clip_val) / scale
@@ -182,10 +182,10 @@ class PACTplusExtendRangeSTE_new(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        clip_valn: torch.FloatTensor = clip_valn_default,
-        clip_val: torch.FloatTensor = clip_val_default,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        clip_valn: torch.Tensor = clip_valn_default,
+        clip_val: torch.Tensor = clip_val_default,
         dequantize: bool = True,
         _symmetric: bool = True,
         _qlevel_lowering: bool = False,
@@ -195,10 +195,10 @@ class PACTplusExtendRangeSTE_new(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             _symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             _qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -232,10 +232,10 @@ class PACTplusExtendRangeSTE_new(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, torch.Tensor, None,...,None]: Gradients
         """
         input_tensor, _, clip_valn, clip_val, scale, _, n_half = ctx.saved_tensors
 
@@ -272,10 +272,10 @@ class PACTplusExtendRangeSTE_PTnative(torch.autograd.Function):
     @staticmethod
     def forward(
         ctx,
-        input_tensor: torch.FloatTensor,
-        num_bits: torch.IntTensor,
-        _clip_valn: torch.FloatTensor = clip_valn_default,
-        clip_val: torch.FloatTensor = clip_val_default,
+        input_tensor: torch.Tensor,
+        num_bits: torch.Tensor,
+        _clip_valn: torch.Tensor = clip_valn_default,
+        clip_val: torch.Tensor = clip_val_default,
         dequantize: bool = True,
         _symmetric: bool = True,
         _qlevel_lowering: bool = False,
@@ -285,10 +285,10 @@ class PACTplusExtendRangeSTE_PTnative(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Forward/Backward context object.
-            input_tensor (torch.FloatTensor): Tensor to be quantized.
-            num_bits (torch.IntTensor): Number of bit for quantization.
-            _clip_valn (torch.FloatTensor): Lower clip value bound.
-            clip_val (torch.FloatTensor): Upper clip value bound.
+            input_tensor (torch.Tensor): Tensor to be quantized.
+            num_bits (torch.Tensor): Number of bit for quantization.
+            _clip_valn (torch.Tensor): Lower clip value bound.
+            clip_val (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             _symmetric (bool, optional): Specify if clip values are symmetric. Defaults to False.
             _qlevel_lowering (bool, optional): Specify lowering of quantized levels.
@@ -327,9 +327,9 @@ class PACTplusExtendRangeSTE_PTnative(torch.autograd.Function):
 
         Args:
             ctx (torch.autograd.Function): Context object.
-            grad_output (torch.FloatTensor): Gradient to clip
+            grad_output (torch.Tensor): Gradient to clip
 
         Returns:
-            [torch.FloatTensor, None,...,None]: Gradients
+            [torch.Tensor, None,...,None]: Gradients
         """
         return grad_output, None, None, None, None, None, None

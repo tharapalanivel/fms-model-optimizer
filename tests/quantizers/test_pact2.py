@@ -68,7 +68,7 @@ custom_option_params = []
 
 
 def test_pact2_asymmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     pact2_quantizer_asymmetric: torch.autograd.Function,
     torch_quantizer_asymmetric: torch.nn.Module,
     base_options: dict,
@@ -78,7 +78,7 @@ def test_pact2_asymmetric(
     Test PACT2 w/ asymmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         pact2_quantizer_asymmetric (torch.autograd.Function): PACT2 Quantizer
         torch_quantizer_asymmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.
@@ -103,7 +103,7 @@ def test_pact2_asymmetric(
 
 
 def test_pact2new_asymmetric(
-    tensor: torch.FloatTensor,
+    tensor: torch.Tensor,
     pact2new_quantizer_asymmetric: torch.autograd.Function,
     torch_quantizer_asymmetric: torch.nn.Module,
     base_options: dict,
@@ -113,7 +113,7 @@ def test_pact2new_asymmetric(
     Test PACT2_new w/ asymmetric tensors
 
     Args:
-        tensor (torch.FloatTensor): Tensor to quantize.
+        tensor (torch.Tensor): Tensor to quantize.
         pact2new_quantizer_asymmetric (torch.autograd.Function): PACT2 Quantizer
         torch_quantizer_asymmetric (torch.nn.Module): Torch Quantizer
         base_options (dict): Base options for quantization.

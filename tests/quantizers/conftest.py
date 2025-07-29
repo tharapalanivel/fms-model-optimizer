@@ -66,7 +66,7 @@ def tensor(request):
         request (tuple): Tensor size
 
     Returns:
-        torch.FloatTensor: Random normal tensor
+        torch.Tensor: Random normal tensor
     """
     torch.manual_seed(23)
     k = request.param
@@ -82,7 +82,7 @@ def tensor_single_sided(request):
         request (tuple): Tensor size
 
     Returns:
-        torch.FloatTensor: Random normal tensor in [0,max)
+        torch.Tensor: Random normal tensor in [0,max)
     """
     torch.manual_seed(23)
     k, single_sided_max = request.param

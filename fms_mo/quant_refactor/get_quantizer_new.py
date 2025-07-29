@@ -41,8 +41,8 @@ from fms_mo.quant_refactor.sawb_new import SAWB_new
 def get_activation_quantizer_new(
     qa_mode: str = "PACT",
     nbits: int = 32,
-    clip_val: torch.FloatTensor = None,
-    clip_valn: torch.FloatTensor = None,
+    clip_val: torch.Tensor = None,
+    clip_valn: torch.Tensor = None,
     non_neg: bool = False,
     align_zero: bool = True,  # pylint: disable=unused-argument
     extend_act_range: bool = False,
@@ -215,8 +215,8 @@ def get_activation_quantizer_new(
 def get_weight_quantizer_new(
     qw_mode: str = "SAWB+",
     nbits: int = 32,
-    clip_val: torch.FloatTensor = None,
-    clip_valn: torch.FloatTensor = None,
+    clip_val: torch.Tensor = None,
+    clip_valn: torch.Tensor = None,
     align_zero: bool = True,
     w_shape: torch.Size = None,
     recompute: bool = False,  # pylint: disable=unused-argument

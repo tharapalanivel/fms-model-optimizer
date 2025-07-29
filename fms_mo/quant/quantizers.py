@@ -2544,7 +2544,7 @@ def asymmetric_linear_quantization_params(
         return scale, zero_point
 
 
-def clamp(input_tensor: torch.FloatTensor, clamp_min, clamp_max, inplace=False):
+def clamp(input_tensor: torch.Tensor, clamp_min, clamp_max, inplace=False):
     """
     Returns:
         Clamped Torch Tensor.

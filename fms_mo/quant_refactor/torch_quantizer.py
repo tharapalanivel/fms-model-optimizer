@@ -49,9 +49,9 @@ class TorchQuantizer(torch.nn.Module):
 
     def __init__(
         self,
-        num_bits: torch.IntTensor,
-        clip_low: torch.FloatTensor,
-        clip_high: torch.FloatTensor,
+        num_bits: torch.Tensor,
+        clip_low: torch.Tensor,
+        clip_high: torch.Tensor,
         dequantize: bool = True,
         qscheme: Qscheme = qscheme_per_tensor,
     ) -> None:
@@ -59,9 +59,9 @@ class TorchQuantizer(torch.nn.Module):
         Init TorchQuantizer Class
 
         Args:
-            num_bits (torch.IntTensor): Number of bits for quantization.
-            clip_low (torch.FloatTensor): Lower clip value bound.
-            clip_high (torch.FloatTensor): Upper clip value bound.
+            num_bits (torch.Tensor): Number of bits for quantization.
+            clip_low (torch.Tensor): Lower clip value bound.
+            clip_high (torch.Tensor): Upper clip value bound.
             dequantize (bool, optional): Return dequantized or int tensor. Defaults to True.
             qscheme (Qscheme, optional): Quantization scheme.
                 Defaults to Qscheme( unit="perT", symmetric=True, Nch=None, Ngrp=None,
@@ -186,24 +186,24 @@ class TorchQuantizer(torch.nn.Module):
         self.set_quant_bounds()
 
     # SAWB STEs has many definitions for
-    def set_sawb_clip(self, tensor: torch.FloatTensor, qlevel_lowering: bool = False):
+    def set_sawb_clip(self, tensor: torch.Tensor, qlevel_lowering: bool = False):
         """
         Setter for clip values using SAWB
 
         Args:
-            tensor (torch.FloatTensor): Tensor to be quantized.
+            tensor (torch.Tensor): Tensor to be quantized.
             qlevel_lowering (bool, optional): Specify lowering of quantized levels.
                 Defaults to False.
         """
         _, self.clip_high = sawb_params(tensor, self.num_bits_int, qlevel_lowering)
         self.clip_low = -self.clip_high
 
-    def set_sawb_clip_code(self, tensor: torch.FloatTensor, code=None, perCh=False):
+    def set_sawb_clip_code(self, tensor: torch.Tensor, code=None, perCh=False):
         """
         Setter for clip values using SAWB codes
 
         Args:
-            tensor (torch.FloatTensor): Tensor to be quantized.
+            tensor (torch.Tensor): Tensor to be quantized.
             code (int, optional): Specify using SAWB code. Defaults to None.
             perCh (bool, optional): Specify if using perCh quantization. Defaults to False.
         """
@@ -216,15 +216,15 @@ class TorchQuantizer(torch.nn.Module):
             self.clip_high = tensor.abs().max()
         self.clip_low = -self.clip_high
 
-    def squash_tensor_sawb(self, tensor: torch.FloatTensor):
+    def squash_tensor_sawb(self, tensor: torch.Tensor):
         """
         Legacy tensors squash tensor [-clip,clip] -> [-1,1] -> [-.5,.5] -> [0,1]
 
         Args:
-            tensor (torch.FloatTensor): Tensor to be squashed.
+            tensor (torch.Tensor): Tensor to be squashed.
 
         Returns:
-            torch.FloatTensor: Squashed tensor.
+            torch.Tensor: Squashed tensor.
         """
         return tensor.div(self.clip_high).clamp(-1, 1).mul(0.5).add(0.5)
 
@@ -233,10 +233,10 @@ class TorchQuantizer(torch.nn.Module):
         Legacy tensors unsquashed [0,1] -> [0,2] -> [-1,1] -> [-clip,clip]
 
         Args:
-            tensor (torch.FloatTensor): Tensor to be unsquashed.
+            tensor (torch.Tensor): Tensor to be unsquashed.
 
         Returns:
-            torch.FloatTensor: Unsquashed tensor.
+            torch.Tensor: Unsquashed tensor.
         """
         return tensor.mul(2.0).sub(1.0).mul(self.clip_high)
 
@@ -250,15 +250,15 @@ class TorchQuantizer(torch.nn.Module):
         self.shift_sawb = shift_sawb
 
     # Shift qtensor to be symmetric about zero
-    def shift_qtensor_sawb(self, tensor: torch.IntTensor):
+    def shift_qtensor_sawb(self, tensor: torch.Tensor):
         """
         Shift a quantized int tensor by shift_sawb
 
         Args:
-            tensor (torch.IntTensor): Tensor to be quantized.
+            tensor (torch.Tensor): Tensor to be quantized.
 
         Returns:
-            torch.IntTensor: Shifted quantized int tensor
+            torch.Tensor: Shifted quantized int tensor
         """
         return (tensor - self.shift_sawb).to(torch.int8)
 
@@ -277,18 +277,18 @@ class TorchQuantizer(torch.nn.Module):
             (self.num_bits_int, signed)
         )  # NOTE .item() won't work for perCh
 
-    def forward(self, tensor: torch.FloatTensor):
+    def forward(self, tensor: torch.Tensor):
         """
         TorchQuantizer forward() function w/ PT kernels.
 
         Args:
-            tensor (torch.FloatTensor): Tensor to be quantized
+            tensor (torch.Tensor): Tensor to be quantized
 
         Raises:
             RuntimeError: Unknown dtype based on num_bits and zero_point
 
         Returns:
-            torch.FloatTensor: Quantized or dequantized tensor.
+            torch.Tensor: Quantized or dequantized tensor.
         """
 
         if self.dequantize:
