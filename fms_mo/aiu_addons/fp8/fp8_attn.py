@@ -21,6 +21,7 @@ import math
 import torch
 
 # Local
+from fms.modules.attention import _sdpa_compute_op
 from fms_mo.aiu_addons.fp8.fp8_utils import ScaledTensor
 from fms_mo.prep import available_packages
 import fms_mo.aiu_addons.fp8.fp8_spyre_op  # pylint: disable=unused-import
@@ -340,7 +341,7 @@ if available_packages["fms"]:
     register_attention_op(
         "spyre_paged_attn_fp8",
         _spyre_scaled_paged_store_op,
-        compute_op=_math_fp8_compute_op,
+        compute_op=_sdpa_compute_op,
         is_prefill_op=lambda **attn_kwargs: attn_kwargs.get("block_table", None)
         is None,
         compute_decode_op=_spyre_scaled_paged_compute_op,
