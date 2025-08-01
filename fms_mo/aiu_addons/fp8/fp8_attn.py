@@ -18,10 +18,10 @@ from typing import NotRequired, Optional, Unpack
 import math
 
 # Third Party
+from fms.modules.attention import _sdpa_compute_op
 import torch
 
 # Local
-from fms.modules.attention import _sdpa_compute_op
 from fms_mo.aiu_addons.fp8.fp8_utils import ScaledTensor
 from fms_mo.prep import available_packages
 import fms_mo.aiu_addons.fp8.fp8_spyre_op  # pylint: disable=unused-import
