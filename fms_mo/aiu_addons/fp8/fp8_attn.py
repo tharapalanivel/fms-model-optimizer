@@ -18,7 +18,6 @@ from typing import NotRequired, Optional, Unpack
 import math
 
 # Third Party
-from fms.modules.attention import _sdpa_compute_op
 import torch
 
 # Local
@@ -30,6 +29,7 @@ if available_packages["fms"]:
     # Third Party
     from fms.modules.attention import (
         AttentionKwargs,
+        _sdpa_compute_op,
         _sdpa_update_attn_kwargs,
         register_attention_op,
     )
