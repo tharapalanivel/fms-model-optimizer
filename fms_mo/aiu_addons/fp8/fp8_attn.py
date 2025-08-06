@@ -220,8 +220,9 @@ if available_packages["fms"]:
                 .to(dtype=orig_dtype)
                 .transpose(-2, -1)
             )
-            attn_weight = query @ key_t
-            attn_weight *= scale_factor
+            attn_weight = (query * math.sqrt(scale_factor)) @ (
+                key_t * math.sqrt(scale_factor)
+            )
         attn_weight += attn_bias
         attn_weight = torch.softmax(attn_weight, dim=-1)
         attn_weight = torch.dropout(attn_weight, p_dropout, train=True)
