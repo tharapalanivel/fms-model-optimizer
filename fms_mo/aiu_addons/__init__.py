@@ -31,6 +31,7 @@ def _infer_quantization_config(quant_config: dict) -> dict | None:
             # First, import required FP8 linear classes from fms-mo
             # Local
             import fms_mo.aiu_addons.fp8.fp8_adapter  # pylint: disable=unused-import
+            import fms_mo.aiu_addons.fp8.fp8_attn  # pylint: disable=unused-import
             import fms_mo.aiu_addons.fp8.fp8_linear  # pylint: disable=unused-import
 
             # This is used by get_linear to decide whether a linear layer
