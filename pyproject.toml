@@ -24,7 +24,7 @@ dynamic = ["version"]
 dependencies = [
 "numpy>=1.26.4,<2.3.0",
 "accelerate>=0.20.3,!=0.34,<1.10",
-"transformers>=4.45,<4.54",
+"transformers>=4.45,<4.56",
 "torch>=2.2.0,<2.8", 
 "tqdm>=4.66.2,<5.0",
 "datasets>=3.0.0,<5.0",
@@ -42,7 +42,7 @@ opt = ["fms-model-optimizer[fp8, gptq, mx]"]
 aiu = ["ibm-fms>=0.0.8"]
 torchvision = ["torchvision>=0.17"]
 flash-attn = ["flash-attn>=2.5.3,<3.0"]
-triton = ["triton>=3.0,<3.4"]
+triton = ["triton>=3.0,<3.5"]
 visualize = ["matplotlib", "graphviz", "pygraphviz", "tensorboard", "notebook"]
 dev = ["pre-commit>=3.0.4,<5.0"]
 test = ["pytest", "pillow"]
