@@ -13,7 +13,11 @@
 # limitations under the License.
 """Torch registration of FP8xFP8 operation for attention BMMs."""
 
+# Standard
+from typing import Optional
+
 # Third Party
+from packaging.version import Version
 from torch import Tensor
 import torch
 import torch.nn.functional as F
@@ -24,6 +28,64 @@ import torch.nn.functional as F
 # pylint: disable=not-callable
 # torch.nn.functional.scaled_dot_product_attention not recognized as callable
 # open issue in PyLint: https://github.com/pytorch/pytorch/issues/119482
+
+
+if Version(torch.__version__) <= Version("2.7"):
+    # PyTorch 2.8 adds scaled_mm_out op for CPU in the ATen set,
+    # while for earlier versions we need a custom definition
+    def _scaled_mm_cpu_out(
+        mat1: Tensor,
+        mat2: Tensor,
+        scale1: Tensor,
+        scale2: Tensor,
+        bias: Optional[Tensor] = None,
+        scale_result: Optional[Tensor] = None,
+        out_dtype: Optional[torch.dtype] = None,
+        use_fast_accum: bool = False,
+        *,
+        out: Optional[Tensor] = None,
+    ) -> Tensor:
+        if out_dtype is None:
+            out_dtype = torch.float32
+        mat1 = (mat1.to(dtype=out_dtype) * scale1).to(dtype=out_dtype)
+        mat2 = (mat2.to(dtype=out_dtype) * scale2).to(dtype=out_dtype)
+
+        if bias is not None:
+            ret = torch.addmm(bias, mat1, mat2).to(dtype=out_dtype)
+        else:
+            ret = torch.mm(mat1, mat2).to(dtype=out_dtype)
+
+        if out is not None:
+            out.copy_(ret)
+            return out
+        return ret
+
+    torch.library.register_kernel(
+        torch.ops.aten._scaled_mm.out, "cpu", _scaled_mm_cpu_out
+    )
+
+    @torch.library.register_kernel("aten::_scaled_mm", "cpu")
+    def _scaled_mm_cpu(
+        mat1: Tensor,
+        mat2: Tensor,
+        scale1: Tensor,
+        scale2: Tensor,
+        bias: Optional[Tensor] = None,
+        scale_result: Optional[Tensor] = None,
+        out_dtype: Optional[torch.dtype] = None,
+        use_fast_accum: bool = False,
+    ) -> Tensor:
+        return _scaled_mm_cpu_out(
+            mat1,
+            mat2,
+            scale1,
+            scale2,
+            bias,
+            scale_result,
+            out_dtype,
+            use_fast_accum,
+            out=None,
+        )
 
 
 @torch.library.custom_op("spyre::scaled_bmm", mutates_args=())
