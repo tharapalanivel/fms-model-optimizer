@@ -51,9 +51,9 @@ def test_fp8_op() -> None:
     # Local
     from fms_mo.aiu_addons.fp8.fp8_attn import _math_fp8_compute_op
 
-    query = torch.randn((1, 32, 64, 128), dtype=torch.bfloat16, device="cuda")
-    key = torch.randn((1, 32, 64, 128), dtype=torch.bfloat16, device="cuda")
-    value = torch.randn((1, 32, 64, 128), dtype=torch.bfloat16, device="cuda")
+    query = torch.randn((1, 64, 32, 128), dtype=torch.bfloat16, device="cuda")
+    key = torch.randn((1, 64, 32, 128), dtype=torch.bfloat16, device="cuda")
+    value = torch.randn((1, 64, 32, 128), dtype=torch.bfloat16, device="cuda")
 
     out = _math_fp8_compute_op(query, key, value, 32, 32, 0.0, None)
     assert out.size() == query.size()

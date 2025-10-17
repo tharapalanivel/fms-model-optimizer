@@ -36,10 +36,8 @@ def implement_op_decorator(op_namespace_id):
     Always compare against pytorch version in current environment.
     """
 
-    torch_version = Version(torch.__version__.split("+", maxsplit=1)[0])
-
     def decorator(func):
-        if torch_version < Version("2.4"):
+        if Version(torch.__version__) < Version("2.4"):
             return torch.library.impl(op_namespace_id, "default")(func)
         return torch.library.custom_op(op_namespace_id, mutates_args=())(func)
 
@@ -51,10 +49,8 @@ def register_op_decorator(op_namespace_id):
     Always compare against pytorch version in current environment.
     """
 
-    torch_version = Version(torch.__version__.split("+", maxsplit=1)[0])
-
     def decorator(func):
-        if torch_version < Version("2.4"):
+        if Version(torch.__version__) < Version("2.4"):
             return torch.library.impl_abstract(op_namespace_id)(func)
         return torch.library.register_fake(op_namespace_id)(func)
 
@@ -73,7 +69,7 @@ def register_aiu_i8i8_op():
         logger.warning("AIU op has already been registered")
         return
     op_namespace_id = "fms_mo::i8i8_aiu"
-    if Version(torch.__version__.split("+", maxsplit=1)[0]) < Version("2.4"):
+    if Version(torch.__version__) < Version("2.4"):
         torch.library.define(
             op_namespace_id,
             "(Tensor x, Tensor weight, Tensor bias, Tensor qdata, "
